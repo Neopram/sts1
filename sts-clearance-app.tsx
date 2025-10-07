@@ -1,0 +1,367 @@
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useApp } from './src/contexts/AppContext';
+import Header from './src/components/Layout/Header';
+import { TabNavigation } from './src/components/Layout/TabNavigation';
+import { OverviewPage } from './src/components/Pages/OverviewPage';
+import { DocumentsPage } from './src/components/Pages/DocumentsPage';
+import { ApprovalPage } from './src/components/Pages/ApprovalPage';
+import { ActivityPage } from './src/components/Pages/ActivityPage';
+import { HistoryPage } from './src/components/Pages/HistoryPage';
+import { MessagesPage } from './src/components/Pages/MessagesPage';
+import { UploadModal } from './src/components/Modals/UploadModal';
+import LoginPage from './src/components/Pages/LoginPage';
+import ApiService from './src/api';
+
+const STSClearanceApp: React.FC = () => {
+  const {
+    user,
+    currentRoomId,
+    setCurrentRoomId,
+    rooms,
+    loading,
+    error,
+    refreshData
+  } = useApp();
+  
+  const location = useLocation();
+  
+  const [activeTab, setActiveTab] = useState(() => {
+    // Initialize activeTab from URL
+    const path = location.pathname.slice(1) || 'overview';
+    return path;
+  });
+  
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [cockpitData, setCockpitData] = useState<any>(null);
+  const [vessels, setVessels] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+
+  const tabs = [
+    { id: 'overview', label: 'Overview', badge: undefined },
+    { id: 'documents', label: 'Documents', badge: cockpitData?.missingDocuments?.length || 0 },
+    { id: 'approval', label: 'Approval', badge: cockpitData?.pendingApprovals?.length || 0 },
+    { id: 'activity', label: 'Activity', badge: undefined },
+    { id: 'history', label: 'History', badge: undefined },
+    { id: 'messages', label: 'Messages', badge: messages.filter(m => !m.read).length }
+  ];
+
+  // Fetch cockpit data
+  const fetchCockpitData = async () => {
+    if (!currentRoomId) return;
+    
+    try {
+      const data = await ApiService.getRoomSummary(currentRoomId);
+      setCockpitData(data);
+    } catch (err) {
+      console.error('Error fetching cockpit data:', err);
+    }
+  };
+
+  // Fetch vessels
+  const fetchVessels = async () => {
+    if (!currentRoomId) return;
+    
+    try {
+      const data = await ApiService.getVessels(currentRoomId);
+      setVessels(data);
+    } catch (err) {
+      console.error('Error fetching vessels:', err);
+    }
+  };
+
+  // Fetch activities
+  const fetchActivities = async () => {
+    if (!currentRoomId) return;
+    
+    try {
+      const data = await ApiService.getActivities(currentRoomId);
+      setActivities(data);
+    } catch (err) {
+      console.error('Error fetching activities:', err);
+    }
+  };
+
+  // Fetch messages
+  const fetchMessages = async () => {
+    if (!currentRoomId) return;
+    
+    try {
+      const data = await ApiService.getMessages(currentRoomId);
+      setMessages(data);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    }
+  };
+
+  // Handle tab change
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+  };
+
+  // Handle document status update
+  const handleUpdateDocumentStatus = async (documentId: string, status: string) => {
+    if (!currentRoomId) return;
+    
+    try {
+      await ApiService.updateDocument(currentRoomId, documentId, { status });
+      await fetchCockpitData();
+      await fetchActivities();
+    } catch (err) {
+      console.error('Error updating document status:', err);
+    }
+  };
+
+  // Handle document action
+  const handleDocumentAction = async (documentId: string, action: 'approve' | 'reject', data?: any) => {
+    if (!currentRoomId) return;
+    
+    try {
+      if (action === 'approve') {
+        await ApiService.approveDocument(currentRoomId, documentId, data || {});
+      } else {
+        await ApiService.rejectDocument(currentRoomId, documentId, data?.reason || 'No reason provided');
+      }
+      await fetchCockpitData();
+      await fetchActivities();
+    } catch (err) {
+      console.error(`Error ${action}ing document:`, err);
+    }
+  };
+
+  // Handle view document
+  const handleViewDocument = async (document: any) => {
+    if (!currentRoomId) return;
+    
+    try {
+      const blob = await ApiService.downloadDocument(currentRoomId, document.id);
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('Error viewing document:', err);
+    }
+  };
+
+  // Handle send message
+  const handleSendMessage = async (content: string, attachments?: File[]) => {
+    if (!currentRoomId) return;
+    
+    try {
+      await ApiService.sendMessage(currentRoomId, content, attachments);
+      await fetchMessages();
+    } catch (err) {
+      console.error('Error sending message:', err);
+    }
+  };
+
+
+
+  // Listen for refresh events
+  useEffect(() => {
+    const handleRefresh = () => {
+      if (currentRoomId) {
+        fetchCockpitData();
+        fetchVessels();
+        fetchActivities();
+        fetchMessages();
+      }
+    };
+
+    const handleLogout = () => {
+      // Clear all local state when logout event is fired
+      setCockpitData(null);
+      setVessels([]);
+      setActivities([]);
+      setMessages([]);
+      setShowUploadModal(false);
+    };
+
+    window.addEventListener('app:refresh', handleRefresh);
+    window.addEventListener('app:logout', handleLogout);
+    
+    return () => {
+      window.removeEventListener('app:refresh', handleRefresh);
+      window.removeEventListener('app:logout', handleLogout);
+    };
+  }, [currentRoomId]);
+
+  // Fetch data when room changes
+  useEffect(() => {
+    if (currentRoomId) {
+      fetchCockpitData();
+      fetchVessels();
+      fetchActivities();
+      fetchMessages();
+    }
+  }, [currentRoomId]);
+
+  // Show login page if user is not authenticated
+  if (!user && !loading) {
+    return <LoginPage />;
+  }
+
+  // Show loading state
+  if (loading && !cockpitData) {
+    return (
+      <div className="min-h-screen bg-secondary-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="loading-spinner h-12 w-12 mx-auto mb-4"></div>
+          <p className="text-secondary-600 font-medium">Loading STS Clearance Hub...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-secondary-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="card">
+            <div className="card-body text-center">
+              <div className="w-12 h-12 bg-danger-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-danger-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-secondary-900 mb-2">Error Loading Application</h2>
+              <p className="text-secondary-600 mb-6">{error}</p>
+              <button
+                onClick={refreshData}
+                className="btn-danger"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show room selector if no room is selected
+  if (!currentRoomId || rooms.length === 0) {
+    return (
+      <div className="min-h-screen bg-secondary-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="card">
+            <div className="card-body">
+              <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-secondary-900 mb-2">Select Operation</h2>
+              <p className="text-secondary-600 mb-6">Choose an STS operation to continue</p>
+              <div className="space-y-3">
+                {rooms.map((room) => (
+                  <button
+                    key={room.id}
+                    onClick={() => setCurrentRoomId(room.id)}
+                    className="w-full text-left p-4 rounded-lg border border-secondary-200 hover:border-primary-300 hover:bg-primary-50/50 transition-all duration-200 group"
+                  >
+                    <div className="font-semibold text-secondary-900 group-hover:text-primary-700">{room.title}</div>
+                    <div className="text-sm text-secondary-600 mt-1">{room.location}</div>
+                    <div className="text-xs text-secondary-500 mt-2 flex items-center">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      ETA: {new Date(room.sts_eta).toLocaleDateString()}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render tab content
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return (
+          <OverviewPage
+            cockpitData={cockpitData}
+            vessels={vessels}
+          />
+        );
+      case 'documents':
+        return (
+          <DocumentsPage
+            cockpitData={cockpitData}
+            onUploadDocument={() => setShowUploadModal(true)}
+            onUpdateDocumentStatus={handleUpdateDocumentStatus}
+            onDocumentAction={handleDocumentAction}
+            onViewDocument={handleViewDocument}
+          />
+        );
+      case 'approval':
+        return (
+          <ApprovalPage />
+        );
+      case 'activity':
+        return (
+          <ActivityPage
+            activities={activities}
+          />
+        );
+      case 'history':
+        return (
+          <HistoryPage />
+        );
+      case 'messages':
+        return (
+          <MessagesPage
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            onUploadDocument={() => setShowUploadModal(true)}
+          />
+        );
+      default:
+        return (
+          <OverviewPage
+            cockpitData={cockpitData}
+            vessels={vessels}
+          />
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-secondary-50">
+      <Header />
+      
+      <main className="pb-8">
+        <TabNavigation
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          tabs={tabs}
+        />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {renderTabContent()}
+        </div>
+      </main>
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <UploadModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          onUploadSuccess={() => {
+            fetchCockpitData();
+            fetchActivities();
+            setShowUploadModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+export default STSClearanceApp;

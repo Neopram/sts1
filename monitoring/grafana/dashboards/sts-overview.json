@@ -1,0 +1,392 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "STS Clearance Hub - Overview Dashboard",
+    "tags": ["sts", "maritime", "overview"],
+    "style": "dark",
+    "timezone": "UTC",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "System Health Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"sts-backend\"}",
+            "legendFormat": "Backend",
+            "refId": "A"
+          },
+          {
+            "expr": "up{job=\"sts-frontend\"}",
+            "legendFormat": "Frontend",
+            "refId": "B"
+          },
+          {
+            "expr": "up{job=\"postgresql\"}",
+            "legendFormat": "Database",
+            "refId": "C"
+          },
+          {
+            "expr": "up{job=\"redis\"}",
+            "legendFormat": "Cache",
+            "refId": "D"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "text": "DOWN"
+                  },
+                  "1": {
+                    "text": "UP"
+                  }
+                },
+                "type": "value"
+              }
+            ]
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 24,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "API Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"sts-backend\"}[5m])",
+            "legendFormat": "{{method}} {{endpoint}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Requests/sec",
+            "min": 0
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 4
+        }
+      },
+      {
+        "id": 3,
+        "title": "Response Time (95th percentile)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"sts-backend\"}[5m]))",
+            "legendFormat": "95th percentile",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{job=\"sts-backend\"}[5m]))",
+            "legendFormat": "50th percentile",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Seconds",
+            "min": 0
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 4
+        }
+      },
+      {
+        "id": 4,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"sts-backend\",status=~\"4..\"}[5m])",
+            "legendFormat": "4xx errors",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(http_requests_total{job=\"sts-backend\",status=~\"5..\"}[5m])",
+            "legendFormat": "5xx errors",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Errors/sec",
+            "min": 0
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 12
+        }
+      },
+      {
+        "id": 5,
+        "title": "Active Users",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sts_active_users_total",
+            "legendFormat": "Active Users",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 12,
+          "y": 12
+        }
+      },
+      {
+        "id": 6,
+        "title": "Active Rooms",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sts_active_rooms_total",
+            "legendFormat": "Active Rooms",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 18,
+          "y": 12
+        }
+      },
+      {
+        "id": 7,
+        "title": "Maritime Compliance Overview",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "sts_documents_total{status=\"approved\"}",
+            "legendFormat": "Approved",
+            "refId": "A"
+          },
+          {
+            "expr": "sts_documents_total{status=\"under_review\"}",
+            "legendFormat": "Under Review",
+            "refId": "B"
+          },
+          {
+            "expr": "sts_documents_total{status=\"missing\"}",
+            "legendFormat": "Missing",
+            "refId": "C"
+          },
+          {
+            "expr": "sts_documents_total{status=\"expired\"}",
+            "legendFormat": "Expired",
+            "refId": "D"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 20
+        }
+      },
+      {
+        "id": 8,
+        "title": "Critical Documents Status",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "sts_documents_total{criticality=\"high\",status=\"missing\"}",
+            "legendFormat": "High Criticality Missing",
+            "refId": "A"
+          },
+          {
+            "expr": "sts_documents_total{criticality=\"med\",status=\"missing\"}",
+            "legendFormat": "Medium Criticality Missing",
+            "refId": "B"
+          },
+          {
+            "expr": "sts_documents_total{criticality=\"low\",status=\"missing\"}",
+            "legendFormat": "Low Criticality Missing",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {
+                  "color": "green",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 5
+                },
+                {
+                  "color": "red",
+                  "value": 10
+                }
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 20
+        }
+      },
+      {
+        "id": 9,
+        "title": "Database Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "postgresql_cache_hit_ratio",
+            "legendFormat": "Cache Hit Ratio",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(postgresql_queries_total[5m])",
+            "legendFormat": "Queries/sec",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Ratio / QPS",
+            "min": 0,
+            "max": 1
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 28
+        }
+      },
+      {
+        "id": 10,
+        "title": "Resource Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{pod=~\"sts-.*\"}[5m]) * 100",
+            "legendFormat": "{{pod}} CPU %",
+            "refId": "A"
+          },
+          {
+            "expr": "container_memory_usage_bytes{pod=~\"sts-.*\"} / container_spec_memory_limit_bytes{pod=~\"sts-.*\"} * 100",
+            "legendFormat": "{{pod}} Memory %",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Percentage",
+            "min": 0,
+            "max": 100
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 28
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "query",
+          "query": "label_values(up, environment)",
+          "current": {
+            "value": "production",
+            "text": "production"
+          }
+        },
+        {
+          "name": "namespace",
+          "type": "query",
+          "query": "label_values(up{environment=\"$environment\"}, kubernetes_namespace)",
+          "current": {
+            "value": "sts-production",
+            "text": "sts-production"
+          }
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": "Prometheus",
+          "expr": "changes(up{job=\"sts-backend\"}[1m]) > 0",
+          "titleFormat": "Deployment",
+          "textFormat": "Backend deployment detected"
+        }
+      ]
+    }
+  }
+}

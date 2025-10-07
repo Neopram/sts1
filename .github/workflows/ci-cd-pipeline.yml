@@ -1,0 +1,735 @@
+name: STS Clearance Hub - Production CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*', 'hotfix/*' ]
+  pull_request:
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ============================================================================
+  # SECURITY SCANNING & CODE QUALITY
+  # ============================================================================
+  security-scan:
+    name: Security & Vulnerability Scanning
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+      
+      - name: Run Bandit security linter (Python)
+        run: |
+          pip install bandit[toml]
+          bandit -r backend/ -f json -o bandit-report.json || true
+      
+      - name: Run npm audit (Frontend)
+        working-directory: ./frontend
+        run: |
+          npm audit --audit-level=high --json > npm-audit.json || true
+      
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports
+          path: |
+            trivy-results.sarif
+            bandit-report.json
+            frontend/npm-audit.json
+
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install Python dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort mypy pylint
+          pip install -r requirements.txt
+      
+      - name: Install Frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+      
+      - name: Python code formatting check (Black)
+        working-directory: ./backend
+        run: black --check --diff .
+      
+      - name: Python import sorting check (isort)
+        working-directory: ./backend
+        run: isort --check-only --diff .
+      
+      - name: Python linting (Flake8)
+        working-directory: ./backend
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      
+      - name: Python type checking (MyPy)
+        working-directory: ./backend
+        run: mypy app/ --ignore-missing-imports
+      
+      - name: Python advanced linting (Pylint)
+        working-directory: ./backend
+        run: pylint app/ --fail-under=8.0
+      
+      - name: Frontend linting (ESLint)
+        working-directory: ./frontend
+        run: npm run lint
+      
+      - name: Frontend type checking (TypeScript)
+        working-directory: ./frontend
+        run: npm run type-check
+      
+      - name: Frontend formatting check (Prettier)
+        working-directory: ./frontend
+        run: npm run format:check
+
+  # ============================================================================
+  # BACKEND TESTING PIPELINE
+  # ============================================================================
+  backend-tests:
+    name: Backend Testing Suite
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_USER: testuser
+          POSTGRES_DB: sts_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    strategy:
+      matrix:
+        test-type: [unit, integration, performance]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov pytest-xdist pytest-benchmark
+      
+      - name: Set up test environment
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://testuser:testpassword@localhost:5432/sts_test
+          REDIS_URL: redis://localhost:6379
+          ENVIRONMENT: testing
+        run: |
+          # Create test database tables
+          python -c "
+          import asyncio
+          from app.database import init_db
+          asyncio.run(init_db())
+          "
+      
+      - name: Run unit tests
+        if: matrix.test-type == 'unit'
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://testuser:testpassword@localhost:5432/sts_test
+          REDIS_URL: redis://localhost:6379
+          ENVIRONMENT: testing
+        run: |
+          pytest tests/ -m "unit" \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-fail-under=85 \
+            --junitxml=junit-unit.xml \
+            -v
+      
+      - name: Run integration tests
+        if: matrix.test-type == 'integration'
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://testuser:testpassword@localhost:5432/sts_test
+          REDIS_URL: redis://localhost:6379
+          ENVIRONMENT: testing
+        run: |
+          pytest tests/ -m "integration" \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=html \
+            --junitxml=junit-integration.xml \
+            -v
+      
+      - name: Run performance tests
+        if: matrix.test-type == 'performance'
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://testuser:testpassword@localhost:5432/sts_test
+          REDIS_URL: redis://localhost:6379
+          ENVIRONMENT: testing
+        run: |
+          pytest tests/ -m "performance" \
+            --benchmark-only \
+            --benchmark-json=benchmark-results.json \
+            --junitxml=junit-performance.xml \
+            -v
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: backend-test-results-${{ matrix.test-type }}
+          path: |
+            backend/junit-*.xml
+            backend/htmlcov/
+            backend/coverage.xml
+            backend/benchmark-results.json
+      
+      - name: Upload coverage to Codecov
+        if: matrix.test-type == 'unit'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+
+  # ============================================================================
+  # FRONTEND TESTING PIPELINE
+  # ============================================================================
+  frontend-tests:
+    name: Frontend Testing Suite
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        test-type: [unit, e2e]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+      
+      - name: Build application
+        working-directory: ./frontend
+        run: npm run build
+      
+      - name: Run unit tests
+        if: matrix.test-type == 'unit'
+        working-directory: ./frontend
+        run: |
+          npm run test:unit -- \
+            --coverage \
+            --watchAll=false \
+            --testResultsProcessor=jest-junit
+        env:
+          JEST_JUNIT_OUTPUT_DIR: ./test-results
+          JEST_JUNIT_OUTPUT_NAME: junit-unit.xml
+      
+      - name: Run E2E tests
+        if: matrix.test-type == 'e2e'
+        working-directory: ./frontend
+        run: |
+          npm run test:e2e -- \
+            --reporter=junit \
+            --outputFile=test-results/junit-e2e.xml
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: frontend-test-results-${{ matrix.test-type }}
+          path: |
+            frontend/test-results/
+            frontend/coverage/
+      
+      - name: Upload coverage to Codecov
+        if: matrix.test-type == 'unit'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+
+  # ============================================================================
+  # DOCKER BUILD & REGISTRY
+  # ============================================================================
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-latest
+    needs: [security-scan, code-quality, backend-tests, frontend-tests]
+    if: github.event_name != 'pull_request'
+    
+    permissions:
+      contents: read
+      packages: write
+    
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.component }}
+          file: ./${{ matrix.component }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+      
+      - name: Run Trivy vulnerability scanner on image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-image-${{ matrix.component }}.sarif'
+      
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-image-${{ matrix.component }}.sarif'
+
+  # ============================================================================
+  # INFRASTRUCTURE AS CODE
+  # ============================================================================
+  infrastructure-validation:
+    name: Infrastructure Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+      
+      - name: Terraform Format Check
+        working-directory: ./infrastructure
+        run: terraform fmt -check -recursive
+      
+      - name: Terraform Init
+        working-directory: ./infrastructure
+        run: terraform init -backend=false
+      
+      - name: Terraform Validate
+        working-directory: ./infrastructure
+        run: terraform validate
+      
+      - name: Terraform Plan (Dry Run)
+        working-directory: ./infrastructure
+        run: terraform plan -out=tfplan
+        env:
+          TF_VAR_environment: staging
+      
+      - name: Run Checkov security scan
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: ./infrastructure
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov-infrastructure.sarif
+      
+      - name: Upload Checkov scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: checkov-infrastructure.sarif
+
+  # ============================================================================
+  # DEPLOYMENT PIPELINE
+  # ============================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-and-push, infrastructure-validation]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name sts-clearance-staging --region us-east-1
+      
+      - name: Deploy to staging
+        working-directory: ./k8s
+        run: |
+          # Update image tags
+          sed -i "s|IMAGE_TAG|${{ github.sha }}|g" staging/*.yaml
+          
+          # Apply Kubernetes manifests
+          kubectl apply -f staging/
+          
+          # Wait for rollout
+          kubectl rollout status deployment/sts-backend -n sts-staging --timeout=300s
+          kubectl rollout status deployment/sts-frontend -n sts-staging --timeout=300s
+      
+      - name: Run smoke tests
+        run: |
+          # Wait for services to be ready
+          sleep 30
+          
+          # Get staging URL
+          STAGING_URL=$(kubectl get service sts-frontend -n sts-staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          
+          # Run basic health checks
+          curl -f "http://$STAGING_URL/health" || exit 1
+          curl -f "http://$STAGING_URL/api/v1/health" || exit 1
+      
+      - name: Run integration tests against staging
+        working-directory: ./backend
+        env:
+          TEST_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+          TEST_API_KEY: ${{ secrets.STAGING_API_KEY }}
+        run: |
+          pytest tests/ -m "staging" --base-url="$TEST_BASE_URL" -v
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-and-push, infrastructure-validation]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name sts-clearance-production --region us-east-1
+      
+      - name: Blue-Green Deployment
+        working-directory: ./k8s
+        run: |
+          # Update image tags with release version
+          sed -i "s|IMAGE_TAG|${{ github.event.release.tag_name }}|g" production/*.yaml
+          
+          # Deploy to green environment
+          kubectl apply -f production/ --dry-run=client
+          kubectl apply -f production/
+          
+          # Wait for green deployment
+          kubectl rollout status deployment/sts-backend-green -n sts-production --timeout=600s
+          kubectl rollout status deployment/sts-frontend-green -n sts-production --timeout=600s
+          
+          # Run production smoke tests
+          sleep 60
+          
+          # Switch traffic to green (this would be done via service mesh or load balancer)
+          kubectl patch service sts-backend -n sts-production -p '{"spec":{"selector":{"version":"green"}}}'
+          kubectl patch service sts-frontend -n sts-production -p '{"spec":{"selector":{"version":"green"}}}'
+          
+          # Wait and verify
+          sleep 30
+          
+          # Clean up blue deployment
+          kubectl delete deployment sts-backend-blue -n sts-production --ignore-not-found=true
+          kubectl delete deployment sts-frontend-blue -n sts-production --ignore-not-found=true
+      
+      - name: Run production health checks
+        run: |
+          PROD_URL="${{ secrets.PRODUCTION_BASE_URL }}"
+          
+          # Comprehensive health checks
+          curl -f "$PROD_URL/health" || exit 1
+          curl -f "$PROD_URL/api/v1/health/detailed" || exit 1
+          
+          # Performance check
+          response_time=$(curl -o /dev/null -s -w '%{time_total}' "$PROD_URL/api/v1/rooms")
+          if (( $(echo "$response_time > 2.0" | bc -l) )); then
+            echo "Response time too high: $response_time seconds"
+            exit 1
+          fi
+      
+      - name: Update deployment status
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: context.payload.deployment.id,
+              state: 'success',
+              environment_url: '${{ secrets.PRODUCTION_BASE_URL }}',
+              description: 'Deployment completed successfully'
+            });
+
+  # ============================================================================
+  # POST-DEPLOYMENT MONITORING
+  # ============================================================================
+  post-deployment-monitoring:
+    name: Post-Deployment Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    
+    steps:
+      - name: Wait for system stabilization
+        run: sleep 300  # Wait 5 minutes
+      
+      - name: Run comprehensive health checks
+        run: |
+          PROD_URL="${{ secrets.PRODUCTION_BASE_URL }}"
+          
+          # API health checks
+          curl -f "$PROD_URL/api/v1/health/detailed" | jq '.status' | grep -q "healthy"
+          
+          # Database health
+          curl -f "$PROD_URL/api/v1/database/performance" | jq '.cache_hit_ratio' | awk '{if($1<95) exit 1}'
+          
+          # Performance metrics
+          curl -f "$PROD_URL/api/v1/metrics/summary" | jq '.response_time_avg' | awk '{if($1>500) exit 1}'
+      
+      - name: Send deployment notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ============================================================================
+  # CLEANUP & REPORTING
+  # ============================================================================
+  cleanup-and-report:
+    name: Cleanup & Generate Reports
+    runs-on: ubuntu-latest
+    needs: [security-scan, code-quality, backend-tests, frontend-tests, build-and-push]
+    if: always()
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+      
+      - name: Generate comprehensive report
+        run: |
+          mkdir -p reports
+          
+          # Combine test results
+          find . -name "junit-*.xml" -exec cp {} reports/ \;
+          
+          # Generate HTML report
+          cat > reports/pipeline-report.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>STS Clearance Hub - Pipeline Report</title>
+              <style>
+                  body { font-family: Arial, sans-serif; margin: 20px; }
+                  .success { color: green; }
+                  .failure { color: red; }
+                  .warning { color: orange; }
+                  table { border-collapse: collapse; width: 100%; }
+                  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                  th { background-color: #f2f2f2; }
+              </style>
+          </head>
+          <body>
+              <h1>STS Clearance Hub - CI/CD Pipeline Report</h1>
+              <h2>Build Information</h2>
+              <table>
+                  <tr><th>Repository</th><td>${{ github.repository }}</td></tr>
+                  <tr><th>Branch</th><td>${{ github.ref_name }}</td></tr>
+                  <tr><th>Commit</th><td>${{ github.sha }}</td></tr>
+                  <tr><th>Workflow</th><td>${{ github.workflow }}</td></tr>
+                  <tr><th>Run Number</th><td>${{ github.run_number }}</td></tr>
+                  <tr><th>Timestamp</th><td>$(date -u)</td></tr>
+              </table>
+              
+              <h2>Pipeline Status</h2>
+              <p>Pipeline completed with status: <strong>${{ job.status }}</strong></p>
+              
+              <h2>Next Steps</h2>
+              <ul>
+                  <li>Review test results and coverage reports</li>
+                  <li>Check security scan findings</li>
+                  <li>Monitor deployment health</li>
+                  <li>Update documentation if needed</li>
+              </ul>
+          </body>
+          </html>
+          EOF
+      
+      - name: Upload pipeline report
+        uses: actions/upload-artifact@v3
+        with:
+          name: pipeline-report
+          path: reports/
+      
+      - name: Clean up old artifacts
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+            
+            // Keep only the last 10 artifacts per type
+            const artifactGroups = {};
+            artifacts.data.artifacts.forEach(artifact => {
+              const baseName = artifact.name.replace(/-\d+$/, '');
+              if (!artifactGroups[baseName]) {
+                artifactGroups[baseName] = [];
+              }
+              artifactGroups[baseName].push(artifact);
+            });
+            
+            for (const [groupName, groupArtifacts] of Object.entries(artifactGroups)) {
+              if (groupArtifacts.length > 10) {
+                const toDelete = groupArtifacts
+                  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                  .slice(10);
+                
+                for (const artifact of toDelete) {
+                  await github.rest.actions.deleteArtifact({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    artifact_id: artifact.id,
+                  });
+                }
+              }
+            }

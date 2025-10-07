@@ -1,0 +1,49 @@
+{
+  "total_tests": 8,
+  "successful_tests": 0,
+  "failed_tests": 8,
+  "categories": {
+    "system_health": {
+      "passed": 0,
+      "failed": 1,
+      "details": []
+    },
+    "authentication": {
+      "passed": 0,
+      "failed": 1,
+      "details": []
+    },
+    "database": {
+      "passed": 0,
+      "failed": 1,
+      "details": []
+    },
+    "api_endpoints": {
+      "passed": 0,
+      "failed": 1,
+      "details": []
+    },
+    "performance": {
+      "passed": 0,
+      "failed": 1,
+      "details": []
+    },
+    "security": {
+      "passed": 0,
+      "failed": 1,
+      "details": []
+    },
+    "monitoring": {
+      "passed": 0,
+      "failed": 1,
+      "details": []
+    },
+    "cache": {
+      "passed": 0,
+      "failed": 1,
+      "details": []
+    }
+  },
+  "performance_metrics": {},
+  "test_timestamp": "2025-09-20T17:22:35.337902"
+}

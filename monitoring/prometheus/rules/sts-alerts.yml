@@ -1,0 +1,346 @@
+# STS Clearance Hub Alert Rules
+# Maritime-specific alerting for production operations
+
+groups:
+  # ============================================================================
+  # CRITICAL SYSTEM ALERTS
+  # ============================================================================
+  - name: sts.critical
+    interval: 30s
+    rules:
+      - alert: STSBackendDown
+        expr: up{job="sts-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: backend
+          team: platform
+        annotations:
+          summary: "STS Backend service is down"
+          description: "STS Backend service has been down for more than 1 minute. This affects all maritime operations."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/backend-down"
+          dashboard_url: "https://grafana.sts-clearance.com/d/sts-backend/sts-backend-overview"
+
+      - alert: STSFrontendDown
+        expr: up{job="sts-frontend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: frontend
+          team: platform
+        annotations:
+          summary: "STS Frontend service is down"
+          description: "STS Frontend service has been down for more than 2 minutes. Users cannot access the application."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/frontend-down"
+
+      - alert: DatabaseConnectionFailure
+        expr: up{job="postgresql"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: database
+          team: platform
+        annotations:
+          summary: "Database connection failure"
+          description: "Cannot connect to PostgreSQL database. All maritime operations are affected."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/database-down"
+
+      - alert: RedisConnectionFailure
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: cache
+          team: platform
+        annotations:
+          summary: "Redis cache connection failure"
+          description: "Cannot connect to Redis cache. Performance and session management affected."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/redis-down"
+
+  # ============================================================================
+  # PERFORMANCE ALERTS
+  # ============================================================================
+  - name: sts.performance
+    interval: 60s
+    rules:
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="sts-backend"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: backend
+          team: platform
+        annotations:
+          summary: "High API response time"
+          description: "95th percentile response time is {{ $value }}s, above 2s threshold for 5 minutes."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/high-response-time"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{job="sts-backend",status=~"5.."}[5m]) / rate(http_requests_total{job="sts-backend"}[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          service: backend
+          team: platform
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes, above 5% threshold."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/high-error-rate"
+
+      - alert: DatabaseSlowQueries
+        expr: rate(postgresql_slow_queries_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+          team: platform
+        annotations:
+          summary: "High number of slow database queries"
+          description: "{{ $value }} slow queries per second detected. Database performance degraded."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/slow-queries"
+
+      - alert: LowDatabaseCacheHitRatio
+        expr: postgresql_cache_hit_ratio < 0.95
+        for: 10m
+        labels:
+          severity: warning
+          service: database
+          team: platform
+        annotations:
+          summary: "Low database cache hit ratio"
+          description: "Database cache hit ratio is {{ $value | humanizePercentage }}, below 95% threshold."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/low-cache-hit-ratio"
+
+  # ============================================================================
+  # RESOURCE ALERTS
+  # ============================================================================
+  - name: sts.resources
+    interval: 60s
+    rules:
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{pod=~"sts-.*"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: "{{ $labels.pod }}"
+          team: platform
+        annotations:
+          summary: "High CPU usage on {{ $labels.pod }}"
+          description: "CPU usage is {{ $value }}% for 10 minutes, above 80% threshold."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/high-cpu"
+
+      - alert: HighMemoryUsage
+        expr: container_memory_usage_bytes{pod=~"sts-.*"} / container_spec_memory_limit_bytes{pod=~"sts-.*"} * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.pod }}"
+          team: platform
+        annotations:
+          summary: "High memory usage on {{ $labels.pod }}"
+          description: "Memory usage is {{ $value }}% for 5 minutes, above 85% threshold."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/high-memory"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+          team: platform
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk space is {{ $value }}% available, below 10% threshold."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/low-disk-space"
+
+  # ============================================================================
+  # MARITIME-SPECIFIC ALERTS
+  # ============================================================================
+  - name: sts.maritime
+    interval: 300s
+    rules:
+      - alert: HighCriticalDocumentsMissing
+        expr: sts_documents_missing{criticality="high"} > 5
+        for: 5m
+        labels:
+          severity: critical
+          service: compliance
+          team: maritime
+        annotations:
+          summary: "High number of critical documents missing"
+          description: "{{ $value }} high-criticality documents are missing across all operations."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/missing-critical-docs"
+
+      - alert: DocumentExpirationAlert
+        expr: sts_documents_expiring_soon{days="7"} > 10
+        for: 1m
+        labels:
+          severity: warning
+          service: compliance
+          team: maritime
+        annotations:
+          summary: "Multiple documents expiring soon"
+          description: "{{ $value }} documents will expire within 7 days."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/document-expiration"
+
+      - alert: STSOperationDelayed
+        expr: sts_operations_delayed > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: operations
+          team: maritime
+        annotations:
+          summary: "STS operations delayed"
+          description: "{{ $value }} STS operations are experiencing delays."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/operation-delays"
+
+      - alert: ComplianceScoreLow
+        expr: sts_compliance_score < 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: compliance
+          team: maritime
+        annotations:
+          summary: "Low compliance score detected"
+          description: "Overall compliance score is {{ $value | humanizePercentage }}, below 80% threshold."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/low-compliance"
+
+      - alert: VesselDataIncomplete
+        expr: sts_vessels_incomplete_data > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: data-quality
+          team: maritime
+        annotations:
+          summary: "Vessels with incomplete data"
+          description: "{{ $value }} vessels have incomplete or missing data."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/incomplete-vessel-data"
+
+  # ============================================================================
+  # SECURITY ALERTS
+  # ============================================================================
+  - name: sts.security
+    interval: 60s
+    rules:
+      - alert: HighFailedLoginAttempts
+        expr: rate(sts_auth_failed_attempts_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: security
+          team: security
+        annotations:
+          summary: "High number of failed login attempts"
+          description: "{{ $value }} failed login attempts per second detected."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/failed-logins"
+
+      - alert: SuspiciousAPIActivity
+        expr: rate(http_requests_total{job="sts-backend",status="403"}[5m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+          service: security
+          team: security
+        annotations:
+          summary: "Suspicious API activity detected"
+          description: "High rate of 403 Forbidden responses: {{ $value }} per second."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/suspicious-activity"
+
+      - alert: RateLimitExceeded
+        expr: rate(sts_rate_limit_exceeded_total[5m]) > 50
+        for: 1m
+        labels:
+          severity: warning
+          service: security
+          team: security
+        annotations:
+          summary: "Rate limit frequently exceeded"
+          description: "Rate limit exceeded {{ $value }} times per second."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/rate-limit-exceeded"
+
+  # ============================================================================
+  # BUSINESS LOGIC ALERTS
+  # ============================================================================
+  - name: sts.business
+    interval: 300s
+    rules:
+      - alert: LowUserActivity
+        expr: rate(sts_user_actions_total[1h]) < 0.1
+        for: 30m
+        labels:
+          severity: info
+          service: business
+          team: product
+        annotations:
+          summary: "Low user activity detected"
+          description: "User activity rate is {{ $value }} actions per second, unusually low."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/low-user-activity"
+
+      - alert: FileUploadFailures
+        expr: rate(sts_file_upload_failures_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: files
+          team: platform
+        annotations:
+          summary: "High file upload failure rate"
+          description: "File upload failure rate is {{ $value }} per second."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/file-upload-failures"
+
+      - alert: WebSocketConnectionIssues
+        expr: sts_websocket_disconnections_total - sts_websocket_disconnections_total offset 5m > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: websocket
+          team: platform
+        annotations:
+          summary: "High WebSocket disconnection rate"
+          description: "{{ $value }} WebSocket disconnections in the last 5 minutes."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/websocket-issues"
+
+  # ============================================================================
+  # INFRASTRUCTURE ALERTS
+  # ============================================================================
+  - name: sts.infrastructure
+    interval: 120s
+    rules:
+      - alert: KubernetesPodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total{pod=~"sts-.*"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: kubernetes
+          team: platform
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash looping"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/pod-crash-loop"
+
+      - alert: KubernetesNodeNotReady
+        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: kubernetes
+          team: platform
+        annotations:
+          summary: "Kubernetes node {{ $labels.node }} not ready"
+          description: "Node {{ $labels.node }} has been not ready for more than 5 minutes."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/node-not-ready"
+
+      - alert: PersistentVolumeUsageHigh
+        expr: kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"sts-.*"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"sts-.*"} > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          service: storage
+          team: platform
+        annotations:
+          summary: "High persistent volume usage"
+          description: "PVC {{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full."
+          runbook_url: "https://docs.sts-clearance.com/runbooks/high-pv-usage"

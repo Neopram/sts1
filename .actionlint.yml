@@ -1,0 +1,19 @@
+# ActionLint configuration file
+# This file configures actionlint to suppress false positive warnings
+
+# Configuration for actionlint
+config-file: .actionlint.yml
+
+# Self-hosted runner labels (if using self-hosted runners)
+self-hosted-runner:
+  labels: []
+
+# Ignore specific rules or patterns
+ignore:
+  # Ignore warnings about context access for valid GitHub secrets
+  - 'Context access might be invalid: AWS_ACCESS_KEY_ID'
+  - 'Context access might be invalid: AWS_SECRET_ACCESS_KEY'
+  - 'Context access might be invalid: STAGING_BASE_URL'
+  - 'Context access might be invalid: STAGING_API_KEY'
+  - 'Context access might be invalid: PRODUCTION_BASE_URL'
+  - 'Context access might be invalid: SLACK_WEBHOOK'
