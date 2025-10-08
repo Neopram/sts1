@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  History, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  RefreshCw, 
-  Download, 
-  Eye, 
-  AlertTriangle, 
-  Search, 
+import {
+  History,
+  Clock,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  Download,
+  Eye,
+  AlertTriangle,
+  Search,
   Calendar,
   FileText,
   X
@@ -18,7 +18,7 @@ import ApiService from '../../api';
 
 interface Snapshot {
   id: string;
-  title: string;
+  title?: string;
   timestamp: string;
   status: string;
   download_url: string;
@@ -28,8 +28,8 @@ interface Snapshot {
 
 interface HistoryEntry {
   id: string;
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   timestamp: string;
   type: string;
   status: string;
@@ -56,11 +56,11 @@ export const HistoryPage: React.FC = () => {
   // Load snapshots from API
   const loadSnapshots = async () => {
     if (!currentRoomId) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       const apiSnapshots = await ApiService.getSnapshots(currentRoomId);
       setSnapshots(apiSnapshots);
     } catch (err) {
@@ -74,19 +74,19 @@ export const HistoryPage: React.FC = () => {
   // Generate new snapshot
   const generateNewSnapshot = async () => {
     if (!currentRoomId) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       await ApiService.generateSnapshot(currentRoomId);
-      
+
       // Refresh snapshots list
       await loadSnapshots();
-      
+
       // Show success message
       setError(null);
-      
+
       // Show success notification
       window.dispatchEvent(new CustomEvent('app:notification', {
         detail: {
@@ -105,19 +105,19 @@ export const HistoryPage: React.FC = () => {
   // Download snapshot
   const downloadSnapshot = async (snapshot: Snapshot) => {
     if (!currentRoomId) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       const blob = await ApiService.generatePDF(currentRoomId);
       const url = window.URL.createObjectURL(blob);
-      
+
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${snapshot.title.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+      a.download = `${(snapshot.title || 'snapshot').replace(/\s+/g, '-').toLowerCase()}.pdf`;
       a.click();
-      
+
       setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error('Error downloading snapshot:', err);
@@ -136,11 +136,11 @@ export const HistoryPage: React.FC = () => {
   // Load history data from API
   const loadHistory = async () => {
     if (!currentRoomId) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       const apiHistory = await ApiService.getHistory(currentRoomId);
       setHistory(apiHistory);
     } catch (err) {
@@ -163,10 +163,10 @@ export const HistoryPage: React.FC = () => {
 
   // Filter snapshots
   const filteredSnapshots = snapshots.filter(snapshot => {
-    const matchesSearch = snapshot.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = ((snapshot.title || '').toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = filterStatus === 'all' || snapshot.status === filterStatus;
     const matchesType = filterType === 'all' || snapshot.type === filterType;
-    
+
     let matchesDate = true;
     if (dateRange.start && dateRange.end) {
       const snapshotDate = new Date(snapshot.timestamp);
@@ -174,17 +174,17 @@ export const HistoryPage: React.FC = () => {
       const endDate = new Date(dateRange.end);
       matchesDate = snapshotDate >= startDate && snapshotDate <= endDate;
     }
-    
+
     return matchesSearch && matchesStatus && matchesType && matchesDate;
   });
 
   // Filter history
   const filteredHistory = history.filter(entry => {
-    const matchesSearch = entry.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         entry.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (((entry.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (entry.description || '').toLowerCase().includes(searchTerm.toLowerCase())));
     const matchesType = filterType === 'all' || entry.type === filterType;
     const matchesStatus = filterStatus === 'all' || entry.status === filterStatus;
-    
+
     let matchesDate = true;
     if (dateRange.start && dateRange.end) {
       const entryDate = new Date(entry.timestamp);
@@ -192,7 +192,7 @@ export const HistoryPage: React.FC = () => {
       const endDate = new Date(dateRange.end);
       matchesDate = entryDate >= startDate && entryDate <= endDate;
     }
-    
+
     return matchesSearch && matchesType && matchesStatus && matchesDate;
   });
 
@@ -283,7 +283,7 @@ export const HistoryPage: React.FC = () => {
           <History className="w-6 h-6 mr-3" />
           History & Snapshots
         </h1>
-        
+
         <div className="flex gap-6">
           <button
             onClick={generateNewSnapshot}
@@ -315,7 +315,7 @@ export const HistoryPage: React.FC = () => {
               className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
@@ -328,7 +328,7 @@ export const HistoryPage: React.FC = () => {
             <option value="snapshot">Snapshot</option>
             <option value="reminder">Reminder</option>
           </select>
-          
+
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -340,7 +340,7 @@ export const HistoryPage: React.FC = () => {
             <option value="error">Error</option>
             <option value="processing">Processing</option>
           </select>
-          
+
           <input
             type="date"
             value={dateRange.start}
@@ -348,7 +348,7 @@ export const HistoryPage: React.FC = () => {
             className="px-4 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Start Date"
           />
-          
+
           <input
             type="date"
             value={dateRange.end}
@@ -370,7 +370,7 @@ export const HistoryPage: React.FC = () => {
             Generated snapshots of room status and documents
           </p>
         </div>
-        
+
         <div className="p-6">
           {filteredSnapshots.length === 0 ? (
             <div className="text-center py-8">
@@ -383,13 +383,13 @@ export const HistoryPage: React.FC = () => {
               {filteredSnapshots.map((snapshot) => (
                 <div key={snapshot.id} className="border border-secondary-200 rounded-xl p-6 hover:shadow-md transition-shadow duration-200">
                   <div className="flex items-start justify-between mb-3">
-                    <h4 className="font-medium text-secondary-900">{snapshot.title}</h4>
+                    <h4 className="font-medium text-secondary-900">{snapshot.title || 'Untitled Snapshot'}</h4>
                     <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(snapshot.status)}`}>
                       {getStatusIcon(snapshot.status)}
                       {snapshot.status}
                     </span>
                   </div>
-                  
+
                   <div className="space-y-2 text-sm text-secondary-600 mb-6">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4" />
@@ -400,7 +400,7 @@ export const HistoryPage: React.FC = () => {
                       {formatFileSize(snapshot.file_size)}
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-6">
                     <button
                       onClick={() => handleViewSnapshot(snapshot)}
@@ -435,7 +435,7 @@ export const HistoryPage: React.FC = () => {
             Recent activities and changes in the room
           </p>
         </div>
-        
+
         <div className="divide-y divide-secondary-200">
           {filteredHistory.length === 0 ? (
             <div className="p-6 text-center">
@@ -450,18 +450,18 @@ export const HistoryPage: React.FC = () => {
                   <div className="flex-shrink-0">
                     {getStatusIcon(entry.status)}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-6 mb-2">
-                      <h4 className="font-medium text-secondary-900">{entry.title}</h4>
+                      <h4 className="font-medium text-secondary-900">{entry.title || 'Untitled Activity'}</h4>
                       <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(entry.status)}`}>
                         {entry.status}
                       </span>
                       <span className="text-sm text-secondary-500">{formatTimestamp(entry.timestamp)}</span>
                     </div>
-                    
-                    <p className="text-secondary-600 mb-2">{entry.description}</p>
-                    
+
+                    <p className="text-secondary-600 mb-2">{entry.description || 'No description available'}</p>
+
                     {entry.user && (
                       <p className="text-sm text-secondary-500">
                         By: <span className="font-medium">{entry.user}</span>
@@ -480,15 +480,15 @@ export const HistoryPage: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50]">
           <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-medium text-secondary-900 mb-6">Snapshot Details</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
                   Title
                 </label>
-                <p className="text-secondary-900">{selectedSnapshot.title}</p>
+                <p className="text-secondary-900">{selectedSnapshot.title || 'Untitled Snapshot'}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
                   Status
@@ -498,21 +498,21 @@ export const HistoryPage: React.FC = () => {
                   {selectedSnapshot.status}
                 </span>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
                   Generated
                 </label>
                 <p className="text-secondary-900">{formatTimestamp(selectedSnapshot.timestamp)}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
                   File Size
                 </label>
                 <p className="text-secondary-900">{formatFileSize(selectedSnapshot.file_size)}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
                   Type
@@ -520,7 +520,7 @@ export const HistoryPage: React.FC = () => {
                 <p className="text-secondary-900">{selectedSnapshot.type}</p>
               </div>
             </div>
-            
+
             <div className="flex gap-6 mt-6">
               <button
                 onClick={() => setShowSnapshotModal(false)}
@@ -528,7 +528,7 @@ export const HistoryPage: React.FC = () => {
               >
                 Close
               </button>
-              
+
               <button
                 onClick={() => downloadSnapshot(selectedSnapshot)}
                 className="flex-1 btn-primary"

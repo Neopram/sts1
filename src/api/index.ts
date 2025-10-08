@@ -12,7 +12,7 @@ class ApiService {
   private token: string | null;
 
   constructor() {
-    this.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    this.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8001';
     this.token = localStorage.getItem('auth-token');
   }
 
@@ -67,16 +67,15 @@ class ApiService {
     return this.request('/api/v1/auth/validate');
   }
 
+  async logout(): Promise<any> {
+    return this.request('/api/v1/auth/logout', {
+      method: 'POST'
+    });
+  }
+
   // Rooms Management
   async getRooms(): Promise<any[]> {
     return this.request('/api/v1/rooms');
-  }
-
-  async createRoom(roomData: any): Promise<any> {
-    return this.request('/api/v1/rooms', {
-      method: 'POST',
-      body: JSON.stringify(roomData)
-    });
   }
 
   // Cockpit Data
@@ -182,16 +181,6 @@ class ApiService {
   // Activity and History
   async getActivities(roomId: string, limit: number = 50): Promise<Activity[]> {
     return this.request(`/api/v1/rooms/${roomId}/activity?limit=${limit}`);
-  }
-
-  async getSnapshots(roomId: string): Promise<any[]> {
-    return this.request(`/api/v1/rooms/${roomId}/snapshots`);
-  }
-
-  async generateSnapshot(roomId: string): Promise<any> {
-    return this.request(`/api/v1/rooms/${roomId}/generate-snapshot`, {
-      method: 'POST'
-    });
   }
 
   // Messages and Communications
@@ -300,11 +289,6 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(roomData)
     });
-  }
-
-  // Get history/activities
-  async getHistory(roomId: string): Promise<any[]> {
-    return this.request(`/api/v1/rooms/${roomId}/activity`);
   }
 
   // Get snapshots

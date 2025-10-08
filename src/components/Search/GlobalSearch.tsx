@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X, FileText, Ship, Activity, MessageSquare, MapPin, Clock, User, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useSearch } from '../../contexts/SearchContext';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -21,6 +22,7 @@ const GlobalSearch: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
 
   // Recent searches and suggestions
   const recentSearches = ['Safety Certificate', 'MV Ocean Star', 'Fujairah', 'Insurance'];
@@ -64,6 +66,19 @@ const GlobalSearch: React.FC = () => {
       setShowSuggestions(true);
     }
     setShowResults(true);
+    updateDropdownPosition();
+  };
+
+  // Update dropdown position
+  const updateDropdownPosition = () => {
+    if (searchRef.current) {
+      const rect = searchRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
   };
 
   // Handle search submission
@@ -89,7 +104,7 @@ const GlobalSearch: React.FC = () => {
     inputRef.current?.focus();
   };
 
-  // Close search on outside click
+  // Close search on outside click and update position on scroll/resize
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -97,9 +112,28 @@ const GlobalSearch: React.FC = () => {
       }
     };
 
+    const handleScroll = () => {
+      if (showResults) {
+        updateDropdownPosition();
+      }
+    };
+
+    const handleResize = () => {
+      if (showResults) {
+        updateDropdownPosition();
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [showResults]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -181,9 +215,16 @@ const GlobalSearch: React.FC = () => {
         </div>
       </form>
 
-      {/* Search Results Dropdown */}
-      {showResults && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-secondary-200 max-h-96 overflow-y-auto z-50">
+      {/* Search Results Dropdown - Rendered in Portal */}
+      {showResults && createPortal(
+        <div 
+          className="fixed bg-white rounded-xl shadow-lg border border-secondary-200 max-h-96 overflow-y-auto z-[9998]"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            width: `${dropdownPosition.width}px`
+          }}
+        >
           {/* Search Header */}
           <div className="px-4 py-3 border-b border-secondary-200">
                          <div className="flex items-center justify-between">
@@ -335,7 +376,8 @@ const GlobalSearch: React.FC = () => {
                </div>
              </div>
            )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -99,17 +99,23 @@ async def login(
     Login endpoint for user authentication
     """
     email = login_data.email
+    password = login_data.password
 
     try:
+        logger.info(f"Login attempt for email: {email}")
+        
         # Find user
         result = await session.execute(select(User).where(User.email == email).limit(1))
         user = result.scalar_one_or_none()
 
         if not user:
+            logger.warning(f"User not found: {email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
+
+        logger.info(f"User found: {user.email}, role: {user.role}")
 
         # For simplicity, we'll skip password validation in this demo
         # In production, you would verify the password hash here
@@ -117,6 +123,7 @@ async def login(
         # Create access token
         token = create_access_token({"sub": user.email, "role": user.role})
 
+        logger.info(f"Login successful for: {email}")
         return TokenResponse(
             token=token, email=user.email, role=user.role, name=user.name
         )
@@ -125,6 +132,8 @@ async def login(
         raise
     except Exception as e:
         logger.error(f"Login error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",

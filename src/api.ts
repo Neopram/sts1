@@ -13,7 +13,7 @@ class ApiService {
   private token: string | null;
 
   constructor() {
-    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
     this.token = localStorage.getItem('auth-token');
   }
 
@@ -330,37 +330,17 @@ class ApiService {
     }
   }
 
-  // Get vessels (placeholder - not in current API)
-  static async getVessels(_roomId: string): Promise<any[]> {
-    // This endpoint doesn't exist yet, return mock data for now
-    return [
-      {
-        id: 'vessel-1',
-        name: 'MV Ocean Star',
-        type: 'Bulk Carrier',
-        flag: 'Panama',
-        imo: 'IMO1234567',
-        status: 'active',
-        approvals: [
-          { id: '1', type: 'Safety Certificate', status: 'approved', time: '2 hours ago' },
-          { id: '2', type: 'Insurance Certificate', status: 'pending', time: '1 hour ago' },
-          { id: '3', type: 'Crew List', status: 'approved', time: '3 hours ago' }
-        ]
-      },
-      {
-        id: 'vessel-2',
-        name: 'MV Sea Explorer',
-        type: 'Container Ship',
-        flag: 'Marshall Islands',
-        imo: 'IMO7654321',
-        status: 'active',
-        approvals: [
-          { id: '4', type: 'Safety Certificate', status: 'approved', time: '4 hours ago' },
-          { id: '5', type: 'Insurance Certificate', status: 'approved', time: '5 hours ago' },
-          { id: '6', type: 'Crew List', status: 'pending', time: '30 minutes ago' }
-        ]
-      }
-    ];
+  // Get vessels
+  static async getVessels(roomId: string): Promise<any[]> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/vessels`);
+      console.log('getVessels response:', response);
+      return response as any[];
+    } catch (error) {
+      console.error('Error in getVessels:', error);
+      throw error;
+    }
   }
 
   // Get snapshots (placeholder - not in current API)
@@ -430,6 +410,19 @@ class ApiService {
       return response;
     } catch (error) {
       console.error('Error in getSystemInfo:', error);
+      throw error;
+    }
+  }
+
+  // Get history (activity logs for a room)
+  static async getHistory(roomId: string): Promise<any[]> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/activities`);
+      console.log('getHistory response:', response);
+      return response as any[];
+    } catch (error) {
+      console.error('Error in getHistory:', error);
       throw error;
     }
   }
@@ -541,6 +534,84 @@ class ApiService {
   // Health check
   async healthCheck(): Promise<ApiResponse<any>> {
     return this.request('/health');
+  }
+
+  // Profile methods
+  async getUserProfile(): Promise<ApiResponse<any>> {
+    return this.request('/api/v1/profile/me');
+  }
+
+  async updateUserProfile(profileData: any): Promise<ApiResponse<any>> {
+    return this.request('/api/v1/profile/me', {
+      method: 'PUT',
+      body: JSON.stringify(profileData)
+    });
+  }
+
+  async changePassword(passwordData: any): Promise<ApiResponse<any>> {
+    return this.request('/api/v1/profile/change-password', {
+      method: 'POST',
+      body: JSON.stringify(passwordData)
+    });
+  }
+
+  async uploadAvatar(file: File): Promise<ApiResponse<any>> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.request('/api/v1/profile/avatar', {
+      method: 'POST',
+      body: formData,
+      headers: {} // Let browser set content-type for FormData
+    });
+  }
+
+  async deleteAvatar(): Promise<ApiResponse<any>> {
+    return this.request('/api/v1/profile/avatar', {
+      method: 'DELETE'
+    });
+  }
+
+  // Settings methods
+  static async getUserSettings(): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request('/api/v1/settings');
+      console.log('getUserSettings response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in getUserSettings:', error);
+      throw error;
+    }
+  }
+
+  static async updateUserSettings(settingsData: any): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request('/api/v1/settings', {
+        method: 'PUT',
+        body: JSON.stringify(settingsData)
+      });
+      console.log('updateUserSettings response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in updateUserSettings:', error);
+      throw error;
+    }
+  }
+
+  static async exportUserData(): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request('/api/v1/settings/export', {
+        method: 'POST'
+      });
+      console.log('exportUserData response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in exportUserData:', error);
+      throw error;
+    }
   }
 }
 

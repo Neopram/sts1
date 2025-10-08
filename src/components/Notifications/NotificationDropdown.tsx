@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Bell, 
   Check, 
@@ -19,9 +20,10 @@ import { useLanguage } from '../../contexts/LanguageContext';
 interface NotificationDropdownProps {
   isOpen: boolean;
   onClose: () => void;
+  buttonRef?: React.RefObject<HTMLButtonElement>;
 }
 
-const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onClose }) => {
+const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onClose, buttonRef }) => {
   const { 
     notifications, 
     unreadCount, 
@@ -36,21 +38,55 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
   
   const [filter, setFilter] = useState<'all' | 'unread' | 'high'>('all');
   const [showRead, setShowRead] = useState(true);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+
+  // Update dropdown position
+  const updateDropdownPosition = () => {
+    if (buttonRef?.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.right + window.scrollX - 384 // 384px = w-96
+      });
+    }
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target as Node) &&
+        buttonRef?.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
         onClose();
       }
     };
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      updateDropdownPosition();
     }
 
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, buttonRef]);
+
+  // Update position on scroll/resize
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleScroll = () => updateDropdownPosition();
+    const handleResize = () => updateDropdownPosition();
+
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isOpen]);
 
   // Close dropdown on escape key
   useEffect(() => {
@@ -141,9 +177,15 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
 
   if (!isOpen) return null;
 
-  return (
-    <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-lg border border-secondary-200 z-[60]">
-      <div ref={dropdownRef}>
+  return createPortal(
+    <div 
+      ref={dropdownRef}
+      className="fixed w-96 bg-white rounded-xl shadow-lg border border-secondary-200 z-[9998]"
+      style={{
+        top: `${dropdownPosition.top}px`,
+        left: `${dropdownPosition.left}px`
+      }}
+    >
         {/* Header */}
         <div className="px-4 py-3 border-b border-secondary-200">
           <div className="flex items-center justify-between">
@@ -290,8 +332,8 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onC
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

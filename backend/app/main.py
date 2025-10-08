@@ -23,8 +23,8 @@ from app.middleware.caching import get_cache_stats, clear_cache
 # from app.middleware.security_suite import SecurityMiddleware
 from app.monitoring.performance import HealthChecker, PerformanceMonitor
 from app.routers import (activities, approvals, auth, cache_management, cockpit, config,
-                         documents, files, messages, notifications, rooms,
-                         search, snapshots, stats, users, vessels, websocket)
+                         documents, files, messages, notifications, profile, rooms,
+                         search, settings, snapshots, stats, users, vessels, websocket)
 
 # Configure logging
 logging.basicConfig(
@@ -50,12 +50,12 @@ import os
 
 # Get CORS origins from environment variables
 cors_origins_str = os.getenv(
-    "CORS_ORIGINS", '["http://localhost:3000", "http://127.0.0.1:3000"]'
+    "CORS_ORIGINS", '["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001", "http://localhost:3006", "http://127.0.0.1:3006"]'
 )
 try:
     cors_origins = json.loads(cors_origins_str)
 except json.JSONDecodeError:
-    cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001", "http://localhost:3006", "http://127.0.0.1:3006"]
 
 # Add security middleware
 if os.getenv("ENVIRONMENT", "development") == "production":
@@ -124,6 +124,8 @@ app.include_router(config.router)
 app.include_router(cache_management.router)
 app.include_router(websocket.router)
 app.include_router(users.router)
+app.include_router(settings.router)
+app.include_router(profile.router)
 
 
 # Root endpoint

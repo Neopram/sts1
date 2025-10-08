@@ -1,0 +1,154 @@
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from sqlalchemy.orm import Session
+from typing import Optional
+import os
+import uuid
+import shutil
+from pathlib import Path
+
+from ..database import get_db
+from ..models import User
+from ..dependencies import get_current_user
+from ..schemas import UserProfileUpdate, UserProfileResponse, PasswordChange
+
+router = APIRouter()
+
+# Create uploads directory if it doesn't exist
+UPLOAD_DIR = Path("uploads/avatars")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+@router.get("/me", response_model=UserProfileResponse)
+async def get_user_profile(current_user: User = Depends(get_current_user)):
+    """Get current user's profile information"""
+    return UserProfileResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        name=current_user.name,
+        role=current_user.role,
+        company=current_user.company,
+        phone=current_user.phone,
+        location=current_user.location,
+        timezone=current_user.timezone,
+        bio=current_user.bio,
+        avatar_url=current_user.avatar_url,
+        preferences=current_user.preferences or {},
+        created_at=current_user.created_at,
+        last_login=current_user.last_login
+    )
+
+@router.put("/me", response_model=UserProfileResponse)
+async def update_user_profile(
+    profile_data: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update current user's profile information"""
+    # Update user fields
+    update_data = profile_data.dict(exclude_unset=True)
+
+    for field, value in update_data.items():
+        if hasattr(current_user, field):
+            setattr(current_user, field, value)
+
+    db.commit()
+    db.refresh(current_user)
+
+    return UserProfileResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        name=current_user.name,
+        role=current_user.role,
+        company=current_user.company,
+        phone=current_user.phone,
+        location=current_user.location,
+        timezone=current_user.timezone,
+        bio=current_user.bio,
+        avatar_url=current_user.avatar_url,
+        preferences=current_user.preferences or {},
+        created_at=current_user.created_at,
+        last_login=current_user.last_login
+    )
+
+@router.post("/change-password")
+async def change_password(
+    password_data: PasswordChange,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Change user's password"""
+    # In a real implementation, you would:
+    # 1. Verify current password
+    # 2. Hash new password
+    # 3. Update password in database
+
+    # For now, we'll just simulate the operation
+    if len(password_data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+
+    if password_data.new_password != password_data.confirm_password:
+        raise HTTPException(status_code=400, detail="New passwords do not match")
+
+    # TODO: Implement actual password change logic with hashing
+    # For demo purposes, we'll just return success
+    return {"message": "Password changed successfully"}
+
+@router.post("/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload user avatar"""
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.")
+
+    # Validate file size (5MB limit)
+    file_size = 0
+    content = await file.read()
+    file_size = len(content)
+
+    if file_size > 5 * 1024 * 1024:  # 5MB
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB.")
+
+    # Generate unique filename
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = UPLOAD_DIR / unique_filename
+
+    # Save file
+    with open(file_path, "wb") as buffer:
+        buffer.write(content)
+
+    # Update user avatar URL
+    avatar_url = f"/uploads/avatars/{unique_filename}"
+
+    # Remove old avatar if exists
+    if current_user.avatar_url:
+        old_path = Path(f"uploads/avatars/{os.path.basename(current_user.avatar_url)}")
+        if old_path.exists():
+            old_path.unlink()
+
+    current_user.avatar_url = avatar_url
+    db.commit()
+
+    return {"avatar_url": avatar_url, "message": "Avatar uploaded successfully"}
+
+@router.delete("/avatar")
+async def delete_avatar(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete user avatar"""
+    if current_user.avatar_url:
+        # Remove file from filesystem
+        file_path = Path(f"uploads/avatars/{os.path.basename(current_user.avatar_url)}")
+        if file_path.exists():
+            file_path.unlink()
+
+        # Clear avatar URL in database
+        current_user.avatar_url = None
+        db.commit()
+
+    return {"message": "Avatar deleted successfully"}

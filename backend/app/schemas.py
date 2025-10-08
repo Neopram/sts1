@@ -124,6 +124,7 @@ class DocumentWithScore(BaseModel):
 # Authentication schemas
 class LoginRequest(BaseModel):
     email: str
+    password: str
 
 
 class TokenResponse(BaseModel):
@@ -137,3 +138,39 @@ class UserResponse(BaseModel):
     email: str
     role: str
     name: str
+
+
+# Profile schemas
+class UserProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    company: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    timezone: Optional[str] = None
+    bio: Optional[str] = None
+    preferences: Optional[Dict[str, Any]] = None
+
+
+class UserProfileResponse(BaseModel):
+    id: str
+    email: str
+    name: str
+    role: str
+    company: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    timezone: str
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    preferences: Dict[str, Any]
+    created_at: datetime
+    last_login: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str

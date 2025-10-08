@@ -35,6 +35,13 @@ class User(Base):
     role = Column(
         String(50), nullable=False
     )  # owner, seller, buyer, charterer, broker, admin
+    company = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
+    location = Column(String(255), nullable=True)
+    timezone = Column(String(100), default="UTC")
+    bio = Column(Text, nullable=True)
+    avatar_url = Column(String(500), nullable=True)
+    preferences = Column(JSON, default=dict)  # User preferences like theme, notifications, etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -233,3 +240,34 @@ class Snapshot(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     room = relationship("Room", back_populates="snapshots")
+
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    user_id = Column(UUIDType, ForeignKey("users.id"), nullable=False, unique=True)
+
+    # Profile settings
+    display_name = Column(String(255), nullable=True)
+    timezone = Column(String(100), default="UTC")
+    language = Column(String(10), default="en")
+    date_format = Column(String(20), default="MM/DD/YYYY")
+    time_format = Column(String(10), default="12h")
+
+    # Notification settings (stored as JSON)
+    notification_settings = Column(JSON, default=dict)
+
+    # Appearance settings (stored as JSON)
+    appearance_settings = Column(JSON, default=dict)
+
+    # Security settings (stored as JSON)
+    security_settings = Column(JSON, default=dict)
+
+    # Data settings (stored as JSON)
+    data_settings = Column(JSON, default=dict)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", backref="settings")

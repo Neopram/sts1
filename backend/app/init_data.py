@@ -236,7 +236,7 @@ async def init_sample_rooms(session: AsyncSession):
         result = await session.execute(
             select(Room).where(Room.title == room_data["title"])
         )
-        existing_room = result.scalar_one_or_none()
+        existing_room = result.first()
 
         if not existing_room:
             # Create room

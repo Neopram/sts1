@@ -14,49 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_async_session
 from app.dependencies import get_current_user, require_room_access
+from app.models import Vessel
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["vessels"])
-
-
-# Vessel model (we'll add this to models.py later)
-class Vessel:
-    def __init__(
-        self,
-        id: str,
-        room_id: str,
-        name: str,
-        vessel_type: str,
-        flag: str,
-        imo: str,
-        status: str = "active",
-        length: float = None,
-        beam: float = None,
-        draft: float = None,
-        gross_tonnage: int = None,
-        net_tonnage: int = None,
-        built_year: int = None,
-        classification_society: str = None,
-    ):
-        self.id = id
-        self.room_id = room_id
-        self.name = name
-        self.vessel_type = vessel_type
-        self.flag = flag
-        self.imo = imo
-        self.status = status
-        self.length = length
-        self.beam = beam
-        self.draft = draft
-        self.gross_tonnage = gross_tonnage
-        self.net_tonnage = net_tonnage
-        self.built_year = built_year
-        self.classification_society = classification_society
-
-
-# In-memory vessel storage (in production, this should be in database)
-vessels_storage = {}
 
 
 # Request/Response schemas
@@ -121,12 +83,15 @@ async def get_room_vessels(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Get vessels from storage
-        room_vessels = vessels_storage.get(room_id, [])
+        # Get vessels from database
+        vessels_result = await session.execute(
+            select(Vessel).where(Vessel.room_id == room_id)
+        )
+        vessels = vessels_result.scalars().all()
 
         # Convert to response format
         response = []
-        for vessel in room_vessels:
+        for vessel in vessels:
             # Mock approval data for each vessel
             approvals = [
                 {
@@ -153,7 +118,7 @@ async def get_room_vessels(
 
             response.append(
                 VesselResponse(
-                    id=vessel.id,
+                    id=str(vessel.id),
                     name=vessel.name,
                     vessel_type=vessel.vessel_type,
                     flag=vessel.flag,
@@ -275,9 +240,11 @@ async def get_vessel(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Find vessel
-        room_vessels = vessels_storage.get(room_id, [])
-        vessel = next((v for v in room_vessels if v.id == vessel_id), None)
+        # Find vessel in database
+        vessel_result = await session.execute(
+            select(Vessel).where(Vessel.id == vessel_id, Vessel.room_id == room_id)
+        )
+        vessel = vessel_result.scalar_one_or_none()
 
         if not vessel:
             raise HTTPException(status_code=404, detail="Vessel not found")
@@ -305,7 +272,7 @@ async def get_vessel(
         ]
 
         return VesselResponse(
-            id=vessel.id,
+            id=str(vessel.id),
             name=vessel.name,
             vessel_type=vessel.vessel_type,
             flag=vessel.flag,
@@ -346,9 +313,11 @@ async def update_vessel(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Find vessel
-        room_vessels = vessels_storage.get(room_id, [])
-        vessel = next((v for v in room_vessels if v.id == vessel_id), None)
+        # Find vessel in database
+        vessel_result = await session.execute(
+            select(Vessel).where(Vessel.id == vessel_id, Vessel.room_id == room_id)
+        )
+        vessel = vessel_result.scalar_one_or_none()
 
         if not vessel:
             raise HTTPException(status_code=404, detail="Vessel not found")
@@ -379,8 +348,10 @@ async def update_vessel(
         if vessel_data.classification_society is not None:
             vessel.classification_society = vessel_data.classification_society
 
+        await session.commit()
+
         return VesselResponse(
-            id=vessel.id,
+            id=str(vessel.id),
             name=vessel.name,
             vessel_type=vessel.vessel_type,
             flag=vessel.flag,
@@ -419,71 +390,22 @@ async def delete_vessel(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Find and remove vessel
-        room_vessels = vessels_storage.get(room_id, [])
-        original_count = len(room_vessels)
+        # Find and delete vessel from database
+        vessel_result = await session.execute(
+            select(Vessel).where(Vessel.id == vessel_id, Vessel.room_id == room_id)
+        )
+        vessel = vessel_result.scalar_one_or_none()
 
-        vessels_storage[room_id] = [v for v in room_vessels if v.id != vessel_id]
-
-        new_count = len(vessels_storage[room_id])
-
-        if new_count < original_count:
-            return {"message": "Vessel deleted successfully"}
-        else:
+        if not vessel:
             raise HTTPException(status_code=404, detail="Vessel not found")
+
+        await session.delete(vessel)
+        await session.commit()
+
+        return {"message": "Vessel deleted successfully"}
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error deleting vessel: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
-
-# Initialize demo vessels
-def init_demo_vessels():
-    """Initialize some demo vessels"""
-    import uuid
-
-    # Demo room ID (this should match actual room IDs in your system)
-    demo_room_id = "demo-room-1"
-
-    vessels = [
-        Vessel(
-            id=str(uuid.uuid4()),
-            room_id=demo_room_id,
-            name="MV Ocean Star",
-            vessel_type="Bulk Carrier",
-            flag="Panama",
-            imo="IMO1234567",
-            status="active",
-            length=180.5,
-            beam=32.2,
-            draft=12.8,
-            gross_tonnage=25000,
-            net_tonnage=15000,
-            built_year=2015,
-            classification_society="DNV GL",
-        ),
-        Vessel(
-            id=str(uuid.uuid4()),
-            room_id=demo_room_id,
-            name="MV Sea Explorer",
-            vessel_type="Container Ship",
-            flag="Marshall Islands",
-            imo="IMO7654321",
-            status="active",
-            length=220.0,
-            beam=36.0,
-            draft=14.5,
-            gross_tonnage=45000,
-            net_tonnage=28000,
-            built_year=2018,
-            classification_society="ABS",
-        ),
-    ]
-
-    vessels_storage[demo_room_id] = vessels
-
-
-# Initialize demo vessels on module load
-init_demo_vessels()

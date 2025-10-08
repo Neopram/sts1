@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Outlet } from 'react-router-dom';
 import { useApp } from './src/contexts/AppContext';
 import Header from './src/components/Layout/Header';
 import { TabNavigation } from './src/components/Layout/TabNavigation';
@@ -332,21 +332,32 @@ const STSClearanceApp: React.FC = () => {
     }
   };
 
+  // Check if current path is a tab path
+  const isTabPath = ['overview', 'documents', 'approval', 'activity', 'history', 'messages'].includes(location.pathname.slice(1));
+
   return (
     <div className="min-h-screen bg-secondary-50">
       <Header />
-      
-      <main className="pb-8">
-        <TabNavigation
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          tabs={tabs}
-        />
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {renderTabContent()}
-        </div>
-      </main>
+
+      {isTabPath ? (
+        <main className="pb-8">
+          <TabNavigation
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            tabs={tabs}
+          />
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {renderTabContent()}
+          </div>
+        </main>
+      ) : (
+        <main className="pb-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <Outlet />
+          </div>
+        </main>
+      )}
 
       {/* Upload Modal */}
       {showUploadModal && (

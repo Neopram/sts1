@@ -35,7 +35,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
   }, [location, activeTab, onTabChange, tabs]);
   
   return (
-    <nav className="bg-white border-b border-secondary-200/50 shadow-card">
+    <nav className="bg-white border-b border-secondary-200/50 shadow-card relative z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex space-x-1 overflow-x-auto scrollbar-thin">
           {tabs.map((tab) => (

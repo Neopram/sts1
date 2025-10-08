@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Bell,
@@ -10,6 +10,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
+import ApiService from '../../api';
 
 interface SettingsSection {
   id: string;
@@ -20,10 +21,62 @@ interface SettingsSection {
 
 const SettingsPage: React.FC = () => {
   const { user } = useApp();
-  
+
   const [activeSection, setActiveSection] = useState('profile');
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Load settings on component mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setLoading(true);
+        const settings = await ApiService.getUserSettings();
+
+        // Update state with loaded settings
+        if (settings.display_name) {
+          setProfileSettings(prev => ({ ...prev, displayName: settings.display_name }));
+        }
+        if (settings.timezone) {
+          setProfileSettings(prev => ({ ...prev, timezone: settings.timezone }));
+        }
+        if (settings.language) {
+          setProfileSettings(prev => ({ ...prev, language: settings.language }));
+        }
+        if (settings.date_format) {
+          setProfileSettings(prev => ({ ...prev, dateFormat: settings.date_format }));
+        }
+        if (settings.time_format) {
+          setProfileSettings(prev => ({ ...prev, timeFormat: settings.time_format }));
+        }
+
+        if (settings.notification_settings) {
+          setNotificationSettings(prev => ({ ...prev, ...settings.notification_settings }));
+        }
+
+        if (settings.appearance_settings) {
+          setAppearanceSettings(prev => ({ ...prev, ...settings.appearance_settings }));
+        }
+
+        if (settings.security_settings) {
+          setSecuritySettings(prev => ({ ...prev, ...settings.security_settings }));
+        }
+
+        if (settings.data_settings) {
+          setDataSettings(prev => ({ ...prev, ...settings.data_settings }));
+        }
+
+      } catch (error) {
+        console.error('Error loading settings:', error);
+        setMessage({ type: 'error', text: 'Failed to load settings. Using defaults.' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, []);
   
   // Profile settings
   const [profileSettings, setProfileSettings] = useState({
@@ -168,14 +221,50 @@ const SettingsPage: React.FC = () => {
   const handleSaveSettings = async (section: string) => {
     setSaving(true);
     try {
-      // In a real app, this would send the settings to the backend
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Prepare settings data based on section
+      let settingsData: any = {};
+
+      switch (section) {
+        case 'profile':
+          settingsData = {
+            display_name: profileSettings.displayName,
+            timezone: profileSettings.timezone,
+            language: profileSettings.language,
+            date_format: profileSettings.dateFormat,
+            time_format: profileSettings.timeFormat,
+          };
+          break;
+        case 'notifications':
+          settingsData = {
+            notification_settings: notificationSettings,
+          };
+          break;
+        case 'appearance':
+          settingsData = {
+            appearance_settings: appearanceSettings,
+          };
+          break;
+        case 'security':
+          settingsData = {
+            security_settings: securitySettings,
+          };
+          break;
+        case 'data':
+          settingsData = {
+            data_settings: dataSettings,
+          };
+          break;
+      }
+
+      // Save to API
+      await ApiService.updateUserSettings(settingsData);
+
       setMessage({ type: 'success', text: `${sections.find(s => s.id === section)?.title} settings saved successfully!` });
-      
+
       // Clear message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
+      console.error('Error saving settings:', error);
       setMessage({ type: 'error', text: `Failed to save ${sections.find(s => s.id === section)?.title} settings. Please try again.` });
     } finally {
       setSaving(false);
@@ -184,29 +273,23 @@ const SettingsPage: React.FC = () => {
 
   const handleExportData = async () => {
     try {
-      // In a real app, this would generate and download a data export
-      const data = {
-        profile: profileSettings,
-        notifications: notificationSettings,
-        appearance: appearanceSettings,
-        security: securitySettings,
-        data: dataSettings,
-        exportDate: new Date().toISOString()
-      };
-      
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      // Get data from API
+      const exportData = await ApiService.exportUserData();
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `sts-clearance-settings-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `sts-clearance-data-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       setMessage({ type: 'success', text: 'Data exported successfully!' });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
+      console.error('Error exporting data:', error);
       setMessage({ type: 'error', text: 'Failed to export data. Please try again.' });
     }
   };

@@ -160,7 +160,7 @@ async def upload_document(
     document_type: str = Form(...),
     notes: Optional[str] = Form(None),
     expires_on: Optional[str] = Form(None),
-    user_email: str = "demo@example.com",  # TODO: Get from auth
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
     _: bool = Depends(cockpit_enabled),
 ):
@@ -168,6 +168,7 @@ async def upload_document(
     Upload a new document to a room
     """
     try:
+        user_email = current_user["email"]
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
@@ -249,7 +250,7 @@ async def update_document(
     room_id: str,
     document_id: str,
     update_data: DocumentUpdateRequest,
-    user_email: str = "demo@example.com",  # TODO: Get from auth
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
     _: bool = Depends(cockpit_enabled),
 ):
@@ -309,7 +310,7 @@ async def update_document(
 async def get_document(
     room_id: str,
     document_id: str,
-    user_email: str = "demo@example.com",  # TODO: Get from auth
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
     _: bool = Depends(cockpit_enabled),
 ):
@@ -372,7 +373,7 @@ async def get_document(
 async def download_document(
     room_id: str,
     document_id: str,
-    user_email: str = "demo@example.com",  # TODO: Get from auth
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
     _: bool = Depends(cockpit_enabled),
 ):
@@ -504,7 +505,7 @@ async def generate_snapshot(
 async def get_room_activity(
     room_id: str,
     limit: int = 50,
-    user_email: str = "demo@example.com",  # TODO: Get from auth
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
     _: bool = Depends(cockpit_enabled),
 ):
@@ -549,7 +550,7 @@ async def get_room_activity(
 async def approve_document(
     room_id: str,
     document_id: str,
-    user_email: str = "demo@example.com",  # TODO: Get from auth
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
     _: bool = Depends(cockpit_enabled),
 ):
@@ -590,7 +591,7 @@ async def reject_document(
     room_id: str,
     document_id: str,
     reason: str = Form(...),
-    user_email: str = "demo@example.com",  # TODO: Get from auth
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
     _: bool = Depends(cockpit_enabled),
 ):

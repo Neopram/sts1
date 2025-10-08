@@ -22,9 +22,9 @@ interface OverviewPageProps {
   vessels?: any[];
 }
 
-export const OverviewPage: React.FC<OverviewPageProps> = ({ 
-  cockpitData: propCockpitData, 
-  vessels: propVessels 
+export const OverviewPage: React.FC<OverviewPageProps> = ({
+  cockpitData: propCockpitData,
+  vessels: propVessels
 }) => {
   const { currentRoomId } = useApp();
   const navigate = useNavigate();
@@ -34,6 +34,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Load data from API
   const loadData = async () => {
