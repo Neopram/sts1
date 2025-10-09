@@ -34,7 +34,8 @@ class User(Base):
     name = Column(String(255), nullable=False)
     role = Column(
         String(50), nullable=False
-    )  # owner, seller, buyer, charterer, broker, admin
+    )  # owner, seller, buyer, charterer, broker, admin, viewer
+    password_hash = Column(String(255), nullable=True)  # Hashed password
     company = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
     location = Column(String(255), nullable=True)

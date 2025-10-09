@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import os
 import uuid
 import shutil
 from pathlib import Path
 
-from ..database import get_db
+from ..database import get_async_session
 from ..models import User
 from ..dependencies import get_current_user
 from ..schemas import UserProfileUpdate, UserProfileResponse, PasswordChange
@@ -40,7 +40,7 @@ async def get_user_profile(current_user: User = Depends(get_current_user)):
 async def update_user_profile(
     profile_data: UserProfileUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """Update current user's profile information"""
     # Update user fields
@@ -50,8 +50,8 @@ async def update_user_profile(
         if hasattr(current_user, field):
             setattr(current_user, field, value)
 
-    db.commit()
-    db.refresh(current_user)
+    await db.commit()
+    await db.refresh(current_user)
 
     return UserProfileResponse(
         id=str(current_user.id),
@@ -73,7 +73,7 @@ async def update_user_profile(
 async def change_password(
     password_data: PasswordChange,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """Change user's password"""
     # In a real implementation, you would:
@@ -96,7 +96,7 @@ async def change_password(
 async def upload_avatar(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """Upload user avatar"""
     # Validate file type
@@ -131,14 +131,14 @@ async def upload_avatar(
             old_path.unlink()
 
     current_user.avatar_url = avatar_url
-    db.commit()
+    await db.commit()
 
     return {"avatar_url": avatar_url, "message": "Avatar uploaded successfully"}
 
 @router.delete("/avatar")
 async def delete_avatar(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """Delete user avatar"""
     if current_user.avatar_url:
@@ -149,6 +149,6 @@ async def delete_avatar(
 
         # Clear avatar URL in database
         current_user.avatar_url = None
-        db.commit()
+        await db.commit()
 
     return {"message": "Avatar deleted successfully"}

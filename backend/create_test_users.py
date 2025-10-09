@@ -6,6 +6,7 @@ Create test users for multi-user testing
 import asyncio
 import uuid
 from datetime import datetime, timedelta
+import bcrypt
 from app.database import get_async_session
 from app.models import User, Room, Party, DocumentType
 from sqlalchemy import select
@@ -19,27 +20,45 @@ async def create_test_users():
             test_users = [
                 {
                     'id': str(uuid.uuid4()),
+                    'email': 'admin@sts.com',
+                    'name': 'Admin User',
+                    'role': 'admin',
+                    'password': 'admin123'
+                },
+                {
+                    'id': str(uuid.uuid4()),
                     'email': 'owner@sts.com',
                     'name': 'Ship Owner',
-                    'role': 'owner'
+                    'role': 'owner',
+                    'password': 'owner123'
                 },
                 {
                     'id': str(uuid.uuid4()),
                     'email': 'charterer@sts.com',
                     'name': 'Charterer Company',
-                    'role': 'charterer'
+                    'role': 'charterer',
+                    'password': 'charterer123'
                 },
                 {
                     'id': str(uuid.uuid4()),
                     'email': 'broker@sts.com',
                     'name': 'Maritime Broker',
-                    'role': 'broker'
+                    'role': 'broker',
+                    'password': 'broker123'
                 },
                 {
                     'id': str(uuid.uuid4()),
                     'email': 'viewer@sts.com',
                     'name': 'Port Authority',
-                    'role': 'viewer'
+                    'role': 'viewer',
+                    'password': 'viewer123'
+                },
+                {
+                    'id': str(uuid.uuid4()),
+                    'email': 'test@sts.com',
+                    'name': 'Test User',
+                    'role': 'buyer',
+                    'password': 'test123'
                 }
             ]
             
@@ -51,11 +70,14 @@ async def create_test_users():
                 existing_user = result.scalar_one_or_none()
                 
                 if not existing_user:
+                    # Hash password
+                    hashed_password = bcrypt.hashpw(user_data['password'].encode('utf-8'), bcrypt.gensalt())
                     user = User(
                         id=user_data['id'],
                         email=user_data['email'],
                         name=user_data['name'],
-                        role=user_data['role']
+                        role=user_data['role'],
+                        password_hash=hashed_password.decode('utf-8')
                     )
                     session.add(user)
                     print(f"Created user: {user_data['email']}")
@@ -132,10 +154,12 @@ async def create_test_users():
             await session.commit()
             print("\n✅ Test users and data created successfully!")
             print("\n🔑 LOGIN CREDENTIALS:")
+            print("Admin: admin@sts.com / admin123")
             print("Owner: owner@sts.com / owner123")
             print("Charterer: charterer@sts.com / charterer123")
             print("Broker: broker@sts.com / broker123")
             print("Viewer: viewer@sts.com / viewer123")
+            print("Test: test@sts.com / test123")
             print("\n🏢 Test Room: 'Test STS Operation - Multi-User'")
             
         except Exception as e:

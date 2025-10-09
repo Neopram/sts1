@@ -7,6 +7,7 @@ import logging
 import os
 from datetime import datetime
 
+import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -51,16 +52,22 @@ async def register(
             )
 
         # Validate role
-        valid_roles = ["owner", "seller", "buyer", "charterer", "broker", "admin"]
+        valid_roles = ["owner", "seller", "buyer", "charterer", "broker", "admin", "viewer"]
         if register_data.role not in valid_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}",
             )
 
+        # Hash password
+        hashed_password = bcrypt.hashpw(register_data.password.encode('utf-8'), bcrypt.gensalt())
+
         # Create user
         user = User(
-            email=register_data.email, name=register_data.name, role=register_data.role
+            email=register_data.email,
+            name=register_data.name,
+            role=register_data.role,
+            password_hash=hashed_password.decode('utf-8')
         )
         session.add(user)
         await session.commit()
@@ -117,8 +124,17 @@ async def login(
 
         logger.info(f"User found: {user.email}, role: {user.role}")
 
-        # For simplicity, we'll skip password validation in this demo
-        # In production, you would verify the password hash here
+        # Validate password
+        if user.password_hash:
+            if not bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+                logger.warning(f"Invalid password for: {email}")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid email or password",
+                )
+        else:
+            # No password set, allow login (for demo users)
+            logger.warning(f"No password hash for user: {email}, allowing login")
 
         # Create access token
         token = create_access_token({"sub": user.email, "role": user.role})

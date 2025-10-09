@@ -67,10 +67,12 @@ def run_migrations_online() -> None:
     """
     # Override the URL to use the async version
     url = get_url()
-    
+
     # Create a sync engine for Alembic
     if url.startswith('postgresql+asyncpg://'):
         sync_url = url.replace('postgresql+asyncpg://', 'postgresql://')
+    elif url.startswith('sqlite+aiosqlite://'):
+        sync_url = url.replace('sqlite+aiosqlite://', 'sqlite://')
     else:
         sync_url = url
     
