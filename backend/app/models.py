@@ -35,7 +35,7 @@ class User(Base):
     role = Column(
         String(50), nullable=False
     )  # owner, seller, buyer, charterer, broker, admin, viewer
-    password_hash = Column(String(255), nullable=True)  # Hashed password
+    password_hash = Column(String(128), nullable=True)  # Hashed password
     company = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
     location = Column(String(255), nullable=True)
@@ -101,6 +101,7 @@ class Document(Base):
 
     id = Column(UUIDType, primary_key=True, default=uuid_default)
     room_id = Column(UUIDType, ForeignKey("rooms.id"), nullable=False)
+    vessel_id = Column(UUIDType, ForeignKey("vessels.id"), nullable=True)  # Vessel-specific documents
     type_id = Column(UUIDType, ForeignKey("document_types.id"), nullable=False)
     status = Column(
         String(50), default="missing"
@@ -113,6 +114,7 @@ class Document(Base):
     priority = Column(String(20), default='normal', nullable=False)  # low, normal, high, urgent
 
     room = relationship("Room", back_populates="documents")
+    vessel = relationship("Vessel", back_populates="documents")
     document_type = relationship("DocumentType", back_populates="documents")
     versions = relationship(
         "DocumentVersion",
@@ -140,6 +142,7 @@ class Approval(Base):
 
     id = Column(UUIDType, primary_key=True, default=uuid_default)
     room_id = Column(UUIDType, ForeignKey("rooms.id"), nullable=False)
+    vessel_id = Column(UUIDType, ForeignKey("vessels.id"), nullable=True)  # Vessel-specific approvals
     party_id = Column(UUIDType, ForeignKey("parties.id"), nullable=False)
     status = Column(String(50), default="pending")  # pending, approved, rejected
     updated_at = Column(
@@ -147,6 +150,7 @@ class Approval(Base):
     )
 
     room = relationship("Room", back_populates="approvals")
+    vessel = relationship("Vessel", back_populates="approvals")
     party = relationship("Party", back_populates="approvals")
 
 
@@ -175,6 +179,7 @@ class Message(Base):
 
     id = Column(UUIDType, primary_key=True, default=uuid_default)
     room_id = Column(UUIDType, ForeignKey("rooms.id"), nullable=False)
+    vessel_id = Column(UUIDType, ForeignKey("vessels.id"), nullable=True)  # Vessel-specific messages
     sender_email = Column(String(255), nullable=False)
     sender_name = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)
@@ -184,6 +189,7 @@ class Message(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     room = relationship("Room", back_populates="messages")
+    vessel = relationship("Vessel", back_populates="messages")
 
 
 class Notification(Base):
@@ -213,6 +219,8 @@ class Vessel(Base):
     vessel_type = Column(String(100), nullable=False)
     flag = Column(String(100), nullable=False)
     imo = Column(String(20), nullable=False)
+    owner = Column(String(255), nullable=True)  # Vessel owner company
+    charterer = Column(String(255), nullable=True)  # Vessel charterer company
     status = Column(String(50), default="active")
     length = Column(Float, nullable=True)
     beam = Column(Float, nullable=True)
@@ -224,6 +232,9 @@ class Vessel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     room = relationship("Room", back_populates="vessels")
+    documents = relationship("Document", back_populates="vessel")
+    approvals = relationship("Approval", back_populates="vessel")
+    messages = relationship("Message", back_populates="vessel")
 
 
 class Snapshot(Base):
@@ -241,6 +252,36 @@ class Snapshot(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     room = relationship("Room", back_populates="snapshots")
+
+
+class VesselPair(Base):
+    __tablename__ = "vessel_pairs"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    room_id = Column(UUIDType, ForeignKey("rooms.id"), nullable=False)
+    mother_vessel_id = Column(UUIDType, ForeignKey("vessels.id"), nullable=False)
+    receiving_vessel_id = Column(UUIDType, ForeignKey("vessels.id"), nullable=False)
+    status = Column(String(50), default="active")  # active, completed, cancelled
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    room = relationship("Room", backref="vessel_pairs")
+    mother_vessel = relationship("Vessel", foreign_keys=[mother_vessel_id], backref="mother_pairs")
+    receiving_vessel = relationship("Vessel", foreign_keys=[receiving_vessel_id], backref="receiving_pairs")
+
+
+class WeatherData(Base):
+    __tablename__ = "weather_data"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    room_id = Column(UUIDType, ForeignKey("rooms.id"), nullable=False)
+    vessel_id = Column(UUIDType, ForeignKey("vessels.id"), nullable=True)
+    location = Column(String(255), nullable=False)  # Location for weather data
+    weather_data = Column(JSON, nullable=False)  # Weather API response data
+    fetched_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)  # When to refetch
+
+    room = relationship("Room", backref="weather_data")
+    vessel = relationship("Vessel", backref="weather_data")
 
 
 class UserSettings(Base):

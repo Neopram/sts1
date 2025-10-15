@@ -39,16 +39,16 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
   // Load data from API
   const loadData = async () => {
     if (!currentRoomId) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       const [summaryData, vesselsData] = await Promise.all([
         ApiService.getRoomSummary(currentRoomId),
         ApiService.getVessels(currentRoomId)
       ]);
-      
+
       setCockpitData(summaryData);
       setVessels(vesselsData);
     } catch (err) {

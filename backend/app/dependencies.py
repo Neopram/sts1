@@ -99,6 +99,70 @@ async def get_user_party(
         return None
 
 
+async def get_user_accessible_vessels(
+    room_id: str, user_email: str, session: AsyncSession
+) -> list[str]:
+    """
+    Get list of vessel IDs that the user has access to based on their role and vessel ownership
+
+    Args:
+        room_id: Room identifier
+        user_email: User's email address
+        session: Database session
+
+    Returns:
+        List of vessel IDs the user can access
+    """
+    try:
+        from app.models import Vessel, User
+
+        # Get user role
+        user_result = await session.execute(
+            select(User).where(User.email == user_email)
+        )
+        user = user_result.scalar_one_or_none()
+
+        if not user:
+            return []
+
+        user_role = user.role
+
+        # Get all vessels in the room
+        vessels_result = await session.execute(
+            select(Vessel).where(Vessel.room_id == room_id)
+        )
+        vessels = vessels_result.scalars().all()
+
+        accessible_vessel_ids = []
+
+        for vessel in vessels:
+            # Brokers see everything
+            if user_role == "broker":
+                accessible_vessel_ids.append(str(vessel.id))
+                continue
+
+            # Charterers see vessels under their charter
+            if user_role == "charterer":
+                if vessel.charterer and vessel.charterer.lower() in user.company.lower():
+                    accessible_vessel_ids.append(str(vessel.id))
+                continue
+
+            # Owners see only their vessels
+            if user_role == "owner":
+                if vessel.owner and vessel.owner.lower() in user.company.lower():
+                    accessible_vessel_ids.append(str(vessel.id))
+                continue
+
+            # Other roles (seller, buyer) - no vessel-specific access for now
+            # They can see room-level data but not vessel-specific data
+
+        return accessible_vessel_ids
+
+    except Exception as e:
+        logger.error(f"Error getting user accessible vessels: {e}")
+        return []
+
+
 async def require_room_access(
     room_id: str, user_email: str, session: AsyncSession
 ) -> bool:

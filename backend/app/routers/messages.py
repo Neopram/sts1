@@ -222,7 +222,7 @@ async def get_room_messages(
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Get messages for a room
+    Get messages for a room, filtered by user's vessel access
     """
     try:
         user_email = current_user["email"]
@@ -230,14 +230,37 @@ async def get_room_messages(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Get messages
-        messages_result = await session.execute(
-            select(Message)
-            .where(Message.room_id == room_id)
-            .order_by(desc(Message.created_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        # Get user's accessible vessel IDs
+        from app.dependencies import get_user_accessible_vessels
+        accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
+
+        # Build query based on vessel access
+        if accessible_vessel_ids:
+            # User has access to specific vessels - filter messages by vessel
+            messages_result = await session.execute(
+                select(Message)
+                .where(
+                    Message.room_id == room_id,
+                    Message.vessel_id.in_(accessible_vessel_ids)
+                )
+                .order_by(desc(Message.created_at))
+                .offset(offset)
+                .limit(limit)
+            )
+        else:
+            # User has no vessel access - return empty list (room-level messages only for brokers)
+            if current_user.get("role") == "broker":
+                # Brokers can see room-level messages
+                messages_result = await session.execute(
+                    select(Message)
+                    .where(Message.room_id == room_id, Message.vessel_id.is_(None))
+                    .order_by(desc(Message.created_at))
+                    .offset(offset)
+                    .limit(limit)
+                )
+            else:
+                # Non-brokers with no vessel access see nothing
+                return []
 
         messages = messages_result.scalars().all()
 

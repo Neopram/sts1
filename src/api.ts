@@ -330,7 +330,7 @@ class ApiService {
     }
   }
 
-  // Get vessels
+  // Get vessels (filtered by user access)
   static async getVessels(roomId: string): Promise<any[]> {
     try {
       const service = new ApiService();
@@ -339,6 +339,106 @@ class ApiService {
       return response as any[];
     } catch (error) {
       console.error('Error in getVessels:', error);
+      throw error;
+    }
+  }
+
+  // Get vessel-specific documents
+  static async getVesselDocuments(roomId: string, vesselId: string): Promise<any[]> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/vessels/${vesselId}/documents`);
+      console.log('getVesselDocuments response:', response);
+      return response as any[];
+    } catch (error) {
+      console.error('Error in getVesselDocuments:', error);
+      throw error;
+    }
+  }
+
+  // Get vessel-specific approvals
+  static async getVesselApprovals(roomId: string, vesselId: string): Promise<any[]> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/vessels/${vesselId}/approvals`);
+      console.log('getVesselApprovals response:', response);
+      return response as any[];
+    } catch (error) {
+      console.error('Error in getVesselApprovals:', error);
+      throw error;
+    }
+  }
+
+  // Get vessel-specific messages
+  static async getVesselMessages(roomId: string, vesselId: string, limit?: number, offset?: number): Promise<any[]> {
+    try {
+      const service = new ApiService();
+      const params = new URLSearchParams();
+      if (limit) params.append('limit', limit.toString());
+      if (offset) params.append('offset', offset.toString());
+      const response = await service.request(`/api/v1/rooms/${roomId}/vessels/${vesselId}/messages?${params}`);
+      console.log('getVesselMessages response:', response);
+      return response as any[];
+    } catch (error) {
+      console.error('Error in getVesselMessages:', error);
+      throw error;
+    }
+  }
+
+  // Send vessel-specific message
+  static async sendVesselMessage(roomId: string, vesselId: string, content: string, messageType: string = 'text'): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/vessels/${vesselId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content, message_type: messageType })
+      });
+      console.log('sendVesselMessage response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in sendVesselMessage:', error);
+      throw error;
+    }
+  }
+
+  // Get approvals
+  static async getApprovals(roomId: string): Promise<any[]> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/approvals`);
+      console.log('getApprovals response:', response);
+      return response as any[];
+    } catch (error) {
+      console.error('Error in getApprovals:', error);
+      throw error;
+    }
+  }
+
+  // Get weather data
+  static async getWeather(roomId: string, latitude?: number, longitude?: number): Promise<any> {
+    try {
+      const service = new ApiService();
+      const params = new URLSearchParams();
+      if (latitude) params.append('latitude', latitude.toString());
+      if (longitude) params.append('longitude', longitude.toString());
+      const response = await service.request(`/api/v1/rooms/${roomId}/weather?${params}`);
+      console.log('getWeather response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in getWeather:', error);
+      throw error;
+    }
+  }
+
+  // Get vessel sessions for current user
+  static async getMyVesselSessions(): Promise<any[]> {
+    try {
+      const service = new ApiService();
+      const response = await service.request('/api/v1/vessel-sessions/my-sessions');
+      console.log('getMyVesselSessions response:', response);
+      return response as any[];
+    } catch (error) {
+      console.error('Error in getMyVesselSessions:', error);
       throw error;
     }
   }
@@ -427,36 +527,36 @@ class ApiService {
     }
   }
 
-  // Get messages (placeholder - not in current API)
-  static async getMessages(_roomId: string): Promise<Message[]> {
-    // This endpoint doesn't exist yet, return mock data for now
-    return [
-      {
-        id: '1',
-        content: 'Document upload completed successfully',
-        sender: 'John Doe',
-        sender_name: 'John Doe',
-        timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-        type: 'system',
-        status: 'delivered'
-      },
-      {
-        id: '2',
-        content: 'Please review the safety certificate',
-        sender: 'Jane Smith',
-        sender_name: 'Jane Smith',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-        type: 'notification',
-        status: 'read'
-      }
-    ];
+  // Get messages for a room
+  static async getMessages(roomId: string, limit?: number, offset?: number): Promise<any[]> {
+    try {
+      const service = new ApiService();
+      const params = new URLSearchParams();
+      if (limit) params.append('limit', limit.toString());
+      if (offset) params.append('offset', offset.toString());
+      const response = await service.request(`/api/v1/rooms/${roomId}/messages?${params}`);
+      console.log('getMessages response:', response);
+      return response as any[];
+    } catch (error) {
+      console.error('Error in getMessages:', error);
+      throw error;
+    }
   }
 
-  // Send message (placeholder - not in current API)
-  static async sendMessage(roomId: string, content: string, attachments?: File[]): Promise<any> {
-    // This endpoint doesn't exist yet, simulate success
-    console.log('Sending message:', { roomId, content, attachments });
-    return { success: true, messageId: Date.now().toString() };
+  // Send message to a room
+  static async sendMessage(roomId: string, content: string, messageType: string = 'text'): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content, message_type: messageType })
+      });
+      console.log('sendMessage response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in sendMessage:', error);
+      throw error;
+    }
   }
 
   // Search methods

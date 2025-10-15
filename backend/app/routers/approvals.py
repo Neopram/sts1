@@ -52,7 +52,7 @@ async def get_room_approvals(
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Get all approvals for a room
+    Get all approvals for a room, filtered by user's vessel access
     """
     try:
         user_email = current_user["email"]
@@ -60,20 +60,49 @@ async def get_room_approvals(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Get all approvals for the room
-        approvals_result = await session.execute(
-            select(
-                Approval.id,
-                Approval.room_id,
-                Approval.party_id,
-                Approval.status,
-                Approval.updated_at,
-                Party.name.label("party_name"),
-                Party.role.label("party_role"),
+        # Get user's accessible vessel IDs
+        from app.dependencies import get_user_accessible_vessels
+        accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
+
+        # Build query based on vessel access
+        if accessible_vessel_ids:
+            # User has access to specific vessels - filter approvals by vessel
+            approvals_result = await session.execute(
+                select(
+                    Approval.id,
+                    Approval.room_id,
+                    Approval.party_id,
+                    Approval.status,
+                    Approval.updated_at,
+                    Party.name.label("party_name"),
+                    Party.role.label("party_role"),
+                )
+                .join(Party)
+                .where(
+                    Approval.room_id == room_id,
+                    Approval.vessel_id.in_(accessible_vessel_ids)
+                )
             )
-            .join(Party)
-            .where(Approval.room_id == room_id)
-        )
+        else:
+            # User has no vessel access - return empty list (room-level approvals only for brokers)
+            if current_user.get("role") == "broker":
+                # Brokers can see room-level approvals
+                approvals_result = await session.execute(
+                    select(
+                        Approval.id,
+                        Approval.room_id,
+                        Approval.party_id,
+                        Approval.status,
+                        Approval.updated_at,
+                        Party.name.label("party_name"),
+                        Party.role.label("party_role"),
+                    )
+                    .join(Party)
+                    .where(Approval.room_id == room_id, Approval.vessel_id.is_(None))
+                )
+            else:
+                # Non-brokers with no vessel access see nothing
+                return []
 
         approvals = []
         for row in approvals_result:

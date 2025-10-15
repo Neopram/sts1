@@ -22,9 +22,9 @@ from app.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
 from app.middleware.caching import get_cache_stats, clear_cache
 # from app.middleware.security_suite import SecurityMiddleware
 from app.monitoring.performance import HealthChecker, PerformanceMonitor
-from app.routers import (activities, approvals, auth, cache_management, cockpit, config,
-                         documents, files, messages, notifications, profile, rooms,
-                         search, settings, snapshots, stats, users, vessels, websocket)
+from app.routers import (activities, approval_matrix, approvals, auth, cache_management, cockpit, config,
+                         documents, files, historical_access, messages, notifications, profile, regional_operations, rooms,
+                         search, settings, snapshots, stats, users, vessels, weather, vessel_sessions, websocket)
 
 # Configure logging
 logging.basicConfig(
@@ -113,8 +113,13 @@ app.include_router(rooms.router)
 app.include_router(documents.router)
 app.include_router(messages.router)
 app.include_router(approvals.router)
+app.include_router(approval_matrix.router)
 app.include_router(notifications.router)
 app.include_router(vessels.router)
+app.include_router(weather.router)
+app.include_router(vessel_sessions.router)
+app.include_router(historical_access.router)
+app.include_router(regional_operations.router)
 app.include_router(snapshots.router)
 app.include_router(activities.router)
 app.include_router(files.router)

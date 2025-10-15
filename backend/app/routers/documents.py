@@ -80,7 +80,7 @@ async def get_room_documents(
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Get all documents for a room
+    Get all documents for a room, filtered by user's vessel access
     """
     try:
         user_email = current_user["email"]
@@ -88,23 +88,55 @@ async def get_room_documents(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Get all documents for the room with their types
-        docs_result = await session.execute(
-            select(
-                Document.id,
-                Document.status,
-                Document.expires_on,
-                Document.uploaded_by,
-                Document.uploaded_at,
-                Document.notes,
-                Document.file_url,
-                DocumentType.code,
-                DocumentType.name,
-                DocumentType.criticality,
+        # Get user's accessible vessel IDs
+        from app.dependencies import get_user_accessible_vessels
+        accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
+
+        # Build query based on vessel access
+        if accessible_vessel_ids:
+            # User has access to specific vessels - filter documents by vessel
+            docs_result = await session.execute(
+                select(
+                    Document.id,
+                    Document.status,
+                    Document.expires_on,
+                    Document.uploaded_by,
+                    Document.uploaded_at,
+                    Document.notes,
+                    Document.file_url,
+                    DocumentType.code,
+                    DocumentType.name,
+                    DocumentType.criticality,
+                )
+                .join(DocumentType)
+                .where(
+                    Document.room_id == room_id,
+                    Document.vessel_id.in_(accessible_vessel_ids)
+                )
             )
-            .join(DocumentType)
-            .where(Document.room_id == room_id)
-        )
+        else:
+            # User has no vessel access - return empty list (room-level documents only for brokers)
+            if current_user.get("role") == "broker":
+                # Brokers can see room-level documents
+                docs_result = await session.execute(
+                    select(
+                        Document.id,
+                        Document.status,
+                        Document.expires_on,
+                        Document.uploaded_by,
+                        Document.uploaded_at,
+                        Document.notes,
+                        Document.file_url,
+                        DocumentType.code,
+                        DocumentType.name,
+                        DocumentType.criticality,
+                    )
+                    .join(DocumentType)
+                    .where(Document.room_id == room_id, Document.vessel_id.is_(None))
+                )
+            else:
+                # Non-brokers with no vessel access see nothing
+                return []
 
         documents = []
         for row in docs_result:

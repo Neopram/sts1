@@ -75,7 +75,7 @@ async def get_room_vessels(
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Get all vessels for a room
+    Get all vessels for a room, filtered by user's vessel ownership
     """
     try:
         user_email = current_user["email"]
@@ -83,10 +83,30 @@ async def get_room_vessels(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Get vessels from database
-        vessels_result = await session.execute(
-            select(Vessel).where(Vessel.room_id == room_id)
-        )
+        # Get user's accessible vessel IDs
+        from app.dependencies import get_user_accessible_vessels
+        accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
+
+        # Build query based on vessel access
+        if accessible_vessel_ids:
+            # User has access to specific vessels - filter by accessible vessels
+            vessels_result = await session.execute(
+                select(Vessel).where(
+                    Vessel.room_id == room_id,
+                    Vessel.id.in_(accessible_vessel_ids)
+                )
+            )
+        else:
+            # User has no vessel access - return empty list (only brokers can see all vessels)
+            if current_user.get("role") == "broker":
+                # Brokers can see all vessels in the room
+                vessels_result = await session.execute(
+                    select(Vessel).where(Vessel.room_id == room_id)
+                )
+            else:
+                # Non-brokers with no vessel access see nothing
+                return []
+
         vessels = vessels_result.scalars().all()
 
         # Convert to response format

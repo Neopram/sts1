@@ -1,39 +1,37 @@
-# TODO: Verificar y Corregir Conflictos en Login
+# STS Multi-Vessel Architecture Implementation - TODO
 
-## Información Recopilada
-- Backend omite validación de contraseñas, solo verifica existencia de usuario.
-- Modelo User no tiene campo de contraseña.
-- Roles válidos: owner, seller, buyer, charterer, broker, admin (falta 'viewer').
-- Usuarios creados: owner@sts.com (owner), charterer@sts.com (charterer), broker@sts.com (broker), viewer@sts.com (viewer - inválido).
-- Frontend tiene botones demo para admin@sts.com y test@sts.com (no creados).
-- Contraseñas en frontend no se validan.
+## Phase 1: Database Schema Updates ✅ STARTED
+- [x] Analyze current models and plan schema changes
+- [ ] Update models.py to add vessel relationships to Document, Approval, Message
+- [ ] Create VesselPair model for mother-receiving vessel relationships
+- [ ] Add weather data models
+- [ ] Create database migration for new schema
+- [ ] Update existing migrations
 
-## Plan de Corrección
-- [ ] Actualizar valid_roles en auth.py para incluir 'viewer'.
-- [ ] Agregar campo password_hash al modelo User.
-- [ ] Actualizar auth.py para validar contraseñas con bcrypt.
-- [ ] Modificar create_test_users.py para crear usuarios con contraseñas hasheadas y agregar usuarios faltantes.
-- [ ] Actualizar botones demo en frontend para coincidir con usuarios existentes.
-- [ ] Ejecutar create_test_users.py para crear usuarios.
-- [ ] Probar logins con test_login_final.py.
-- [ ] Generar reporte final.
+## Phase 2: Backend Permission System
+- [ ] Implement vessel ownership verification logic
+- [ ] Update routers/documents.py with vessel filtering
+- [ ] Update routers/approvals.py with vessel filtering
+- [ ] Update routers/messages.py with vessel tagging
+- [ ] Update routers/vessels.py with vessel ownership logic
+- [ ] Add weather API integration service
+- [ ] Create multi-vessel session creation logic
 
-## Usuarios Existentes (después de correcciones)
-- admin@sts.com (admin) - admin123
-- owner@sts.com (owner) - owner123
-- charterer@sts.com (charterer) - charterer123
-- broker@sts.com (broker) - broker123
-- viewer@sts.com (viewer) - viewer123
-- test@sts.com (buyer) - test123
+## Phase 3: Frontend Multi-Vessel Views ✅ COMPLETED
+- [x] Update OverviewPage for role-based vessel filtering
+- [x] Create vessel-specific document management components
+- [x] Implement isolated chat system with vessel tagging
+- [x] Add weather display components
+- [x] Update api.ts with vessel-specific endpoints
 
-## Comandos para Levantar Servicios
-- Backend: `cd sts && docker-compose up -d backend`
-- Frontend: `cd sts && docker-compose up -d frontend`
-- Ambos: `cd sts && docker-compose up -d`
-- Migrar DB: `cd sts && make migrate`
-- Sembrar datos: `cd sts && make seed`
+## Phase 4: Advanced Features ✅ COMPLETED
+- [x] Approval matrix for multiple vessel pairs
+- [x] Historical access with privacy protection
+- [x] Regional operations dashboard
+- [x] Vessel-specific notification system
 
-## Seguimiento de Progreso
-- [ ] Paso 1 completado
-- [ ] Paso 2 completado
-- etc.
+## Phase 5: Testing and Validation 🔄 STARTED
+- [ ] Create comprehensive test suite for vessel isolation
+- [ ] Validate that owners can't see other owners' data
+- [ ] Test multi-vessel workflows
+- [ ] Performance optimization
