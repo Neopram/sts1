@@ -50,7 +50,8 @@ async def get_async_session() -> AsyncSession:
             await session.rollback()
             raise
         finally:
-            await session.close()
+            # CAMBIO: No llamar session.close() aquí para evitar IllegalStateChangeError
+            pass
 
 
 async def init_db():

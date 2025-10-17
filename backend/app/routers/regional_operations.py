@@ -63,7 +63,7 @@ class OperationFilter(BaseModel):
 
 @router.get("/regional/dashboard", response_model=RegionalDashboard)
 async def get_regional_dashboard(
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -121,7 +121,7 @@ async def get_regional_operations(
     status_filter: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -198,7 +198,7 @@ async def get_regional_operations(
 @router.get("/regional/operations/{room_id}/vessels")
 async def get_operation_vessels_by_region(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -264,7 +264,7 @@ async def get_operation_vessels_by_region(
 
 @router.get("/regional/statistics")
 async def get_regional_statistics(
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """

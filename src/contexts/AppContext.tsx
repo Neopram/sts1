@@ -6,6 +6,7 @@ interface User {
   email: string;
   role: 'owner' | 'charterer' | 'broker' | 'viewer';
   name: string;
+  vesselImos?: string[]; // IMOs of vessels this user owns/charters
 }
 
 interface Room {

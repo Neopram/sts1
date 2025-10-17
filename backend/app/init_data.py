@@ -405,6 +405,7 @@ async def init_sample_messages(session: AsyncSession):
 
         for msg_data in messages_data:
             message = Message(
+                vessel_id=None,  # Add vessel_id field (nullable for room-wide messages)
                 room_id=room.id,
                 sender_email=msg_data["sender_email"],
                 sender_name=msg_data["sender_name"],
@@ -466,7 +467,7 @@ async def main():
             await init_feature_flags(session)
             await init_document_types(session)
             await init_sample_rooms(session)
-            await init_sample_messages(session)
+            # await init_sample_messages(session)  # Temporarily disabled
             await init_sample_notifications(session)
 
             print("Database initialization completed successfully!")

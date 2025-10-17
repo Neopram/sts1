@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -5,13 +6,15 @@ import os
 import uuid
 import shutil
 from pathlib import Path
+from datetime import datetime
 
 from ..database import get_async_session
 from ..models import User
 from ..dependencies import get_current_user
 from ..schemas import UserProfileUpdate, UserProfileResponse, PasswordChange
+from passlib.hash import bcrypt
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
 
 # Create uploads directory if it doesn't exist
 UPLOAD_DIR = Path("uploads/avatars")
@@ -76,20 +79,24 @@ async def change_password(
     db: AsyncSession = Depends(get_async_session)
 ):
     """Change user's password"""
-    # In a real implementation, you would:
-    # 1. Verify current password
-    # 2. Hash new password
-    # 3. Update password in database
+    # Verificar contraseña actual
+    if not bcrypt.verify(password_data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
 
-    # For now, we'll just simulate the operation
+    # Validar nueva contraseña
     if len(password_data.new_password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
 
     if password_data.new_password != password_data.confirm_password:
         raise HTTPException(status_code=400, detail="New passwords do not match")
 
-    # TODO: Implement actual password change logic with hashing
-    # For demo purposes, we'll just return success
+    # Hash nueva contraseña
+    hashed_password = bcrypt.hashpw(password_data.new_password.encode('utf-8'), bcrypt.gensalt())
+    current_user.password_hash = hashed_password.decode('utf-8')
+    current_user.updated_at = datetime.utcnow()
+
+    await db.commit()
+
     return {"message": "Password changed successfully"}
 
 @router.post("/avatar")

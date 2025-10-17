@@ -218,7 +218,7 @@ async def get_room_messages(
     room_id: str,
     limit: int = 50,
     offset: int = 0,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -292,7 +292,7 @@ async def get_room_messages(
 async def send_message(
     room_id: str,
     message_data: SendMessageRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -354,7 +354,7 @@ async def send_message(
 async def mark_message_read(
     room_id: str,
     message_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -405,7 +405,7 @@ async def mark_message_read(
 @router.get("/rooms/{room_id}/messages/unread-count")
 async def get_unread_message_count(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -443,7 +443,7 @@ async def get_unread_message_count(
 @router.get("/rooms/{room_id}/online-users")
 async def get_online_users(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """

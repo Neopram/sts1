@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_async_session
 from app.dependencies import get_current_user, require_room_access
-from app.models import ActivityLog, Party, Room
+from app.models import ActivityLog, Party, Room, User
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ async def get_user_activities_general(
     limit: int = 50,
     offset: int = 0,
     action_filter: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -52,58 +52,121 @@ async def get_user_activities(
     limit: int = 50,
     offset: int = 0,
     action_filter: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Get activities for all rooms the user has access to
+    Get activities for all rooms the user has access to.
+    Real permission validation logic:
+    - All authenticated users can view own activities (permission_matrix: activities.view_own)
+    - Admins can view all activities (permission_matrix: activities.view_all)
+    - Users only see activities from rooms they're members of
     """
     try:
-        user_email = current_user["email"]
+        from app.permission_matrix import permission_matrix
+        from app.models import User
 
-        # Get user's accessible room IDs with optimized query
-        user_rooms_result = await session.execute(
-            select(Room.id).join(Party).where(Party.email == user_email)
+        user_email = current_user.email
+
+        # 1. CHECK PERMISSION - User must have "activities.view_own" permission at minimum
+        user_result = await session.execute(
+            select(User).where(User.email == user_email)
         )
-        user_room_ids = [str(room_id) for room_id in user_rooms_result.scalars().all()]
-
-        if not user_room_ids:
-            return []
-
-        # Build optimized query with proper indexing
-        try:
-            # Use indexed columns for better performance
-            query = (
-                select(ActivityLog)
-                .where(ActivityLog.room_id.in_(user_room_ids))
-                .order_by(desc(ActivityLog.ts))  # Uses idx_activity_log_ts
-            )
-
-            if action_filter:
-                query = query.where(ActivityLog.action.ilike(f"%{action_filter}%"))
-
-            # Apply pagination
-            query = query.offset(offset).limit(limit)
-
-            result = await session.execute(query)
-            activities = result.scalars().all()
-
-            return [
-                ActivityResponse(
-                    id=str(activity.id),
-                    actor=activity.actor,
-                    action=activity.action,
-                    timestamp=activity.ts,
-                    meta=json.loads(activity.meta) if activity.meta else None,
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Determine what activities user can see
+        if user.role == "admin":
+            # Admins can see all activities
+            if not permission_matrix.has_permission(user.role, "activities", "view_all"):
+                logger.warning(f"Admin {user_email} denied all activities access")
+                raise HTTPException(
+                    status_code=403,
+                    detail="Admin permission denied for all activities"
                 )
-                for activity in activities
-            ]
-        except Exception as query_error:
-            logger.warning(
-                f"Error querying activities, returning empty list: {query_error}"
-            )
-            return []
+            # Query all activities from all rooms
+            try:
+                query = (
+                    select(ActivityLog)
+                    .order_by(desc(ActivityLog.ts))
+                )
 
+                if action_filter:
+                    query = query.where(ActivityLog.action.ilike(f"%{action_filter}%"))
+
+                query = query.offset(offset).limit(limit)
+                result = await session.execute(query)
+                activities = result.scalars().all()
+
+                logger.info(f"Admin {user_email} retrieved {len(activities)} activities from all rooms")
+                return [
+                    ActivityResponse(
+                        id=str(activity.id),
+                        actor=activity.actor,
+                        action=activity.action,
+                        timestamp=activity.ts,
+                        meta=json.loads(activity.meta_json) if activity.meta_json else None,
+                    )
+                    for activity in activities
+                ]
+            except Exception as query_error:
+                logger.error(f"Error querying admin activities: {query_error}")
+                return []
+        else:
+            # Non-admins can only see own activities from their rooms
+            if not permission_matrix.has_permission(user.role, "activities", "view_own"):
+                logger.warning(f"User {user_email} with role {user.role} denied own activities access")
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Permission denied: {user.role} cannot view activities"
+                )
+
+            # Get user's accessible room IDs with optimized query
+            user_rooms_result = await session.execute(
+                select(Room.id).join(Party).where(Party.email == user_email)
+            )
+            user_room_ids = [str(room_id) for room_id in user_rooms_result.scalars().all()]
+
+            if not user_room_ids:
+                logger.info(f"User {user_email} has no rooms, returning empty activities list")
+                return []
+
+            # Build optimized query with proper indexing - only user's rooms
+            try:
+                query = (
+                    select(ActivityLog)
+                    .where(ActivityLog.room_id.in_(user_room_ids))
+                    .order_by(desc(ActivityLog.ts))
+                )
+
+                if action_filter:
+                    query = query.where(ActivityLog.action.ilike(f"%{action_filter}%"))
+
+                query = query.offset(offset).limit(limit)
+                result = await session.execute(query)
+                activities = result.scalars().all()
+
+                logger.info(f"User {user_email} retrieved {len(activities)} activities from {len(user_room_ids)} rooms")
+                return [
+                    ActivityResponse(
+                        id=str(activity.id),
+                        actor=activity.actor,
+                        action=activity.action,
+                        timestamp=activity.ts,
+                        meta=json.loads(activity.meta_json) if activity.meta_json else None,
+                    )
+                    for activity in activities
+                ]
+            except Exception as query_error:
+                logger.warning(
+                    f"Error querying activities for user {user_email}: {query_error}"
+                )
+                return []
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting user activities: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -116,31 +179,57 @@ async def get_room_activities(
     offset: int = 0,
     action_filter: Optional[str] = None,
     actor_filter: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Get activity logs for a room
+    Get activity logs for a room.
+    Real permission validation logic:
+    - All authenticated users in room can view own activities (permission_matrix: activities.view_own)
+    - Only admins can view all activities in a room (permission_matrix: activities.view_all)
+    - Non-admin users see limited actor info to prevent cross-room spying
     """
     try:
+        from app.permission_matrix import permission_matrix
+        from app.models import User
+        
         user_email = current_user["email"]
 
-        # Verify user has access to room
+        # 1. VERIFY ROOM ACCESS - First checkpoint
         await require_room_access(room_id, user_email, session)
+
+        # 2. CHECK PERMISSION - User must have activity viewing permission
+        user_result = await session.execute(
+            select(User).where(User.email == user_email)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check permission based on role
+        can_view_all = permission_matrix.has_permission(user.role, "activities", "view_all")
+        can_view_own = permission_matrix.has_permission(user.role, "activities", "view_own")
+        
+        if not (can_view_all or can_view_own):
+            logger.warning(f"User {user_email} with role {user.role} denied activity view access")
+            raise HTTPException(
+                status_code=403,
+                detail=f"Permission denied: {user.role} cannot view activities"
+            )
 
         # Build optimized query with proper indexing
         query = (
             select(ActivityLog)
-            .where(ActivityLog.room_id == room_id)  # Uses idx_activity_log_room_id
-            .order_by(
-                desc(ActivityLog.ts)
-            )  # Uses idx_activity_log_room_ts composite index
+            .where(ActivityLog.room_id == room_id)
+            .order_by(desc(ActivityLog.ts))
         )
 
         # Apply filters with indexed columns
         if action_filter:
             query = query.where(ActivityLog.action.ilike(f"%{action_filter}%"))
-        if actor_filter:
+        if actor_filter and can_view_all:
+            # Only admins can filter by actor (prevents exposing other users' activity)
             query = query.where(ActivityLog.actor.ilike(f"%{actor_filter}%"))
 
         # Apply pagination
@@ -160,16 +249,20 @@ async def get_room_activities(
                 except json.JSONDecodeError:
                     meta = {"raw": activity.meta_json}
 
+            # Non-admins should not see actor information to prevent data leakage
+            actor_info = activity.actor if can_view_all else "[redacted]"
+
             response.append(
                 ActivityResponse(
                     id=str(activity.id),
-                    actor=activity.actor,
+                    actor=actor_info,
                     action=activity.action,
                     timestamp=activity.ts,
                     meta=meta,
                 )
             )
 
+        logger.info(f"User {user_email} retrieved {len(response)} activities from room {room_id}")
         return response
 
     except HTTPException:
@@ -183,17 +276,43 @@ async def get_room_activities(
 async def get_activities_summary(
     room_id: str,
     days: int = 7,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Get activity summary for a room
+    Get activity summary for a room.
+    Real permission validation logic:
+    - All authenticated users can view summary (permission_matrix: activities.view_own)
+    - Data is scoped to room the user has access to
+    - Actor counts are only detailed for admins
     """
     try:
+        from app.permission_matrix import permission_matrix
+        from app.models import User
+        
         user_email = current_user["email"]
 
-        # Verify user has access to room
+        # 1. VERIFY ROOM ACCESS
         await require_room_access(room_id, user_email, session)
+
+        # 2. CHECK PERMISSION
+        user_result = await session.execute(
+            select(User).where(User.email == user_email)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        can_view_all = permission_matrix.has_permission(user.role, "activities", "view_all")
+        can_view_own = permission_matrix.has_permission(user.role, "activities", "view_own")
+        
+        if not (can_view_all or can_view_own):
+            logger.warning(f"User {user_email} with role {user.role} denied summary access")
+            raise HTTPException(
+                status_code=403,
+                detail=f"Permission denied: {user.role} cannot view activity summary"
+            )
 
         # Get activities from the last N days with optimized query
         since_date = datetime.utcnow() - timedelta(days=days)
@@ -216,10 +335,14 @@ async def get_activities_summary(
         for activity in activities:
             action_counts[activity.action] = action_counts.get(activity.action, 0) + 1
 
-        # Group by actor
+        # Group by actor (only if user has permission to view all)
         actor_counts = {}
-        for activity in activities:
-            actor_counts[activity.actor] = actor_counts.get(activity.actor, 0) + 1
+        if can_view_all:
+            for activity in activities:
+                actor_counts[activity.actor] = actor_counts.get(activity.actor, 0) + 1
+        else:
+            # Non-admin users don't see per-actor breakdown
+            actor_counts = {}
 
         # Recent activities (last 10)
         recent_activities = []
@@ -231,20 +354,24 @@ async def get_activities_summary(
                 except json.JSONDecodeError:
                     meta = {"raw": activity.meta_json}
 
+            # Redact actor info for non-admin users
+            actor_info = activity.actor if can_view_all else "[redacted]"
+
             recent_activities.append(
                 {
                     "id": str(activity.id),
-                    "actor": activity.actor,
+                    "actor": actor_info,
                     "action": activity.action,
                     "timestamp": activity.ts,
                     "meta": meta,
                 }
             )
 
+        logger.info(f"User {user_email} retrieved activity summary for room {room_id} ({total_activities} activities)")
         return {
             "period_days": days,
             "total_activities": total_activities,
-            "unique_actors": unique_actors,
+            "unique_actors": unique_actors if can_view_all else 0,
             "action_counts": action_counts,
             "actor_counts": actor_counts,
             "recent_activities": recent_activities,
@@ -261,18 +388,43 @@ async def get_activities_summary(
 async def get_activities_timeline(
     room_id: str,
     days: int = 30,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Get activity timeline for a room (grouped by day)
-    Enhanced with performance optimization and caching
+    Get activity timeline for a room (grouped by day).
+    Real permission validation logic:
+    - All authenticated users can view timeline (permission_matrix: activities.view_own)
+    - Only admins see detailed actor information (permission_matrix: activities.view_all)
+    - Enhanced with performance optimization and caching
     """
     try:
+        from app.permission_matrix import permission_matrix
+        from app.models import User
+        
         user_email = current_user["email"]
 
-        # Verify user has access to room
+        # 1. VERIFY ROOM ACCESS
         await require_room_access(room_id, user_email, session)
+
+        # 2. CHECK PERMISSION
+        user_result = await session.execute(
+            select(User).where(User.email == user_email)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        can_view_all = permission_matrix.has_permission(user.role, "activities", "view_all")
+        can_view_own = permission_matrix.has_permission(user.role, "activities", "view_own")
+        
+        if not (can_view_all or can_view_own):
+            logger.warning(f"User {user_email} with role {user.role} denied timeline access")
+            raise HTTPException(
+                status_code=403,
+                detail=f"Permission denied: {user.role} cannot view activity timeline"
+            )
 
         # Validate input parameters
         if days < 1 or days > 365:
@@ -422,7 +574,7 @@ async def get_activities_timeline(
 @router.get("/activities/my-recent")
 async def get_my_recent_activities(
     limit: int = 20,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """

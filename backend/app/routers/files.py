@@ -262,7 +262,8 @@ async def delete_document_file(
             file_path.unlink()
 
         # Delete from database
-        await session.delete(doc_version)
+        from sqlalchemy import delete as delete_stmt
+        await session.execute(delete_stmt(DocumentVersion).where(DocumentVersion.id == version_id))
         await session.commit()
 
         # Log activity

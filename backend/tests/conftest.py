@@ -130,6 +130,50 @@ def test_user():
     }
 
 
+@pytest_asyncio.fixture
+async def admin_user_in_db(db_session: AsyncSession):
+    """Create an admin user in the database for testing."""
+    user_id = str(uuid.uuid4())
+    admin = User(
+        id=user_id,
+        email="admin@maritime.com",
+        name="Admin User",
+        role="admin",
+        password_hash="hashed_test_password",
+    )
+    db_session.add(admin)
+    await db_session.commit()
+    return {
+        "user_id": user_id,
+        "id": user_id,
+        "email": "admin@maritime.com",
+        "name": "Admin User",
+        "role": "admin",
+    }
+
+
+@pytest_asyncio.fixture
+async def regular_user_in_db(db_session: AsyncSession):
+    """Create a regular user in the database for testing."""
+    user_id = str(uuid.uuid4())
+    user = User(
+        id=user_id,
+        email="user@maritime.com",
+        name="Regular User",
+        role="user",
+        password_hash="hashed_test_password",
+    )
+    db_session.add(user)
+    await db_session.commit()
+    return {
+        "user_id": user_id,
+        "id": user_id,
+        "email": "user@maritime.com",
+        "name": "Regular User",
+        "role": "user",
+    }
+
+
 @pytest.fixture
 def mock_current_user(test_user):
     """Mock current user dependency."""
@@ -148,7 +192,7 @@ def authenticated_client(test_client, mock_current_user):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sample_document_types(db_session: AsyncSession):
     """Create sample document types for testing."""
     document_types = [
@@ -189,7 +233,7 @@ async def sample_document_types(db_session: AsyncSession):
     return document_types
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sample_room(db_session: AsyncSession, test_user):
     """Create a sample room for testing."""
     room = Room(
@@ -206,7 +250,7 @@ async def sample_room(db_session: AsyncSession, test_user):
     return room
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sample_parties(db_session: AsyncSession, sample_room):
     """Create sample parties for testing."""
     parties = [
@@ -240,7 +284,7 @@ async def sample_parties(db_session: AsyncSession, sample_room):
     return parties
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sample_vessels(db_session: AsyncSession, sample_room):
     """Create sample vessels for testing."""
     vessels = [
@@ -285,7 +329,7 @@ async def sample_vessels(db_session: AsyncSession, sample_room):
     return vessels
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def sample_documents(
     db_session: AsyncSession, sample_room, sample_document_types
 ):

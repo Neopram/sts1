@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/v1/search", tags=["search"])
 async def search_root(
     q: str = Query(..., min_length=2, description="Search query"),
     limit: int = Query(20, le=100, description="Maximum number of results"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -38,7 +38,7 @@ async def search_root(
 async def global_search(
     q: str = Query(..., min_length=2, description="Search query"),
     limit: int = Query(20, le=100, description="Maximum number of results"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -208,7 +208,7 @@ async def global_search(
 async def search_rooms(
     q: str = Query(..., min_length=2, description="Search query"),
     limit: int = Query(20, le=100, description="Maximum number of results"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -295,7 +295,7 @@ async def search_documents(
     status: Optional[str] = Query(None, description="Filter by document status"),
     room_id: Optional[str] = Query(None, description="Filter by room ID"),
     limit: int = Query(20, le=100, description="Maximum number of results"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -373,7 +373,7 @@ async def search_documents(
 @router.get("/suggestions")
 async def get_search_suggestions(
     q: str = Query(..., min_length=1, description="Partial search query"),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """

@@ -1,6 +1,8 @@
 """
 Documents router for STS Clearance system
 Handles document management, uploads, and approvals
+
+Uses centralized permission manager for consistent permission checking
 """
 
 import logging
@@ -24,6 +26,7 @@ from app.dependencies import (get_current_user, log_activity,
                               require_room_access)
 from app.models import Document, DocumentType, Party, Room
 from app.services.file_service import file_service
+from app.permission_decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +36,7 @@ router = APIRouter(prefix="/api/v1", tags=["documents"])
 # Basic documents endpoint (requires authentication)
 @router.get("/documents")
 async def get_documents(
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session)
 ):
     """
@@ -76,7 +79,7 @@ class DocumentTypeResponse(BaseModel):
 @router.get("/rooms/{room_id}/documents", response_model=List[DocumentResponse])
 async def get_room_documents(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -168,11 +171,12 @@ async def get_room_documents(
 async def get_document(
     room_id: str,
     document_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
     Get specific document information
+    Validates user has access to the specific document
     """
     try:
         user_email = current_user["email"]
@@ -180,7 +184,11 @@ async def get_document(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Get document with type information
+        # ✅ VALIDATION: Get user's accessible vessel IDs to filter documents
+        from app.dependencies import get_user_accessible_vessels
+        accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
+
+        # Get document with type information - validate vessel access
         doc_result = await session.execute(
             select(
                 Document.id,
@@ -195,12 +203,17 @@ async def get_document(
                 DocumentType.criticality,
             )
             .join(DocumentType)
-            .where(Document.id == document_id, Document.room_id == room_id)
+            .where(
+                Document.id == document_id, 
+                Document.room_id == room_id,
+                (Document.vessel_id.in_(accessible_vessel_ids) if accessible_vessel_ids else False) |
+                ((Document.vessel_id.is_(None)) & (current_user.get("role") == "broker"))
+            )
         )
 
         row = doc_result.first()
         if not row:
-            raise HTTPException(status_code=404, detail="Document not found")
+            raise HTTPException(status_code=403, detail="Access denied to this document")
 
         return DocumentResponse(
             id=str(row.id),
@@ -229,7 +242,7 @@ async def upload_document(
     file: UploadFile = File(...),
     expires_on: Optional[str] = Form(None),
     notes: Optional[str] = Form(None),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -303,7 +316,7 @@ async def update_document(
     room_id: str,
     document_id: str,
     document_data: UpdateDocumentRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -377,14 +390,18 @@ async def update_document(
 
 
 @router.post("/rooms/{room_id}/documents/{document_id}/approve")
+@require_permission("documents", "approve")
 async def approve_document(
     room_id: str,
     document_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
     Approve a document
+    Only Owner, Broker, and Charterer roles can approve documents
+    
+    Permission validation is handled by @require_permission decorator
     """
     try:
         user_email = current_user["email"]
@@ -422,15 +439,19 @@ async def approve_document(
 
 
 @router.post("/rooms/{room_id}/documents/{document_id}/reject")
+@require_permission("documents", "reject")
 async def reject_document(
     room_id: str,
     document_id: str,
     notes: str = Form(...),
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
     Reject a document
+    Only Owner, Broker, and Charterer roles can reject documents
+    
+    Permission validation is handled by @require_permission decorator
     """
     try:
         user_email = current_user["email"]
@@ -475,11 +496,12 @@ async def reject_document(
 async def download_document(
     room_id: str,
     document_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
     Download a document file
+    Validates user has access to the specific document
     """
     try:
         user_email = current_user["email"]
@@ -487,16 +509,23 @@ async def download_document(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Get document
+        # ✅ VALIDATION: Get user's accessible vessel IDs to filter documents
+        from app.dependencies import get_user_accessible_vessels
+        accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
+
+        # Get document - validate vessel access
         doc_result = await session.execute(
             select(Document).where(
-                Document.id == document_id, Document.room_id == room_id
+                Document.id == document_id, 
+                Document.room_id == room_id,
+                (Document.vessel_id.in_(accessible_vessel_ids) if accessible_vessel_ids else False) |
+                ((Document.vessel_id.is_(None)) & (current_user.get("role") == "broker"))
             )
         )
         document = doc_result.scalar_one_or_none()
 
         if not document:
-            raise HTTPException(status_code=404, detail="Document not found")
+            raise HTTPException(status_code=403, detail="Access denied to this document")
 
         if not document.file_url:
             raise HTTPException(status_code=404, detail="Document file not found")
@@ -555,11 +584,12 @@ async def get_document_types(session: AsyncSession = Depends(get_async_session))
 @router.get("/rooms/{room_id}/documents/status-summary")
 async def get_documents_status_summary(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
     Get summary of document statuses for a room
+    Filters documents by user's accessible vessels
     """
     try:
         user_email = current_user["email"]
@@ -567,12 +597,42 @@ async def get_documents_status_summary(
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Get all documents for the room
-        docs_result = await session.execute(
-            select(Document.status, DocumentType.criticality, DocumentType.required)
-            .join(DocumentType)
-            .where(Document.room_id == room_id)
-        )
+        # ✅ VALIDATION: Get user's accessible vessel IDs to filter documents
+        from app.dependencies import get_user_accessible_vessels
+        accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
+
+        # Build query based on vessel access
+        if accessible_vessel_ids:
+            # User has access to specific vessels - filter documents by vessel
+            docs_result = await session.execute(
+                select(Document.status, DocumentType.criticality, DocumentType.required)
+                .join(DocumentType)
+                .where(
+                    Document.room_id == room_id,
+                    Document.vessel_id.in_(accessible_vessel_ids)
+                )
+            )
+        else:
+            # User has no vessel access - return room-level documents only for brokers
+            if current_user.get("role") == "broker":
+                docs_result = await session.execute(
+                    select(Document.status, DocumentType.criticality, DocumentType.required)
+                    .join(DocumentType)
+                    .where(Document.room_id == room_id, Document.vessel_id.is_(None))
+                )
+            else:
+                # Non-brokers with no vessel access - return empty summary
+                return {
+                    "total_documents": 0,
+                    "missing": 0,
+                    "under_review": 0,
+                    "approved": 0,
+                    "rejected": 0,
+                    "expired": 0,
+                    "critical_documents": {"total": 0, "missing": 0, "approved": 0},
+                    "required_documents": {"total": 0, "missing": 0, "approved": 0},
+                    "completion_percentage": 0.0,
+                }
 
         documents = docs_result.all()
 

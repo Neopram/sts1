@@ -14,8 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_async_session
 from app.dependencies import get_current_user, get_user_role_permissions
 from app.models import User
+from app.permission_decorators import require_role
+from app.permission_manager import PermissionManager
 
 logger = logging.getLogger(__name__)
+permission_manager = PermissionManager()
 
 router = APIRouter(prefix="/api/v1", tags=["users"])
 
@@ -135,6 +138,11 @@ async def update_user(
 ):
     """
     Update user (admin, owner, or self only)
+    
+    Permission rules:
+    - Self: Can edit own name only
+    - Admin/Owner: Can edit anyone's profile and change roles
+    - Role changes: Requires admin/owner permission
     """
     try:
         user_role = current_user.get("role", "")
@@ -147,18 +155,28 @@ async def update_user(
         if not target_user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Check permissions
+        # ✅ PERMISSION CHECK - Using PermissionManager for complex logic
         is_self = target_user.email == user_email
         can_edit_others = user_role in ["admin", "owner"]
 
+        # Check if trying to edit someone else's profile
         if not is_self and not can_edit_others:
+            # Log permission denial
+            await permission_manager.check_permission(
+                user_email, "users", "update", None, session, audit=True
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only edit your own profile",
             )
 
-        # Role changes require admin/owner permissions
+        # Check role change permission
         if update_data.role and update_data.role != target_user.role:
+            # Audit role change attempt
+            allowed, error = await permission_manager.check_permission(
+                user_email, "users", "change_role", None, session, audit=True
+            )
+            
             if not can_edit_others:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -198,6 +216,7 @@ async def update_user(
 
 
 @router.delete("/users/{user_id}")
+@require_role("admin")
 async def delete_user(
     user_id: str,
     current_user: dict = Depends(get_current_user),
@@ -205,17 +224,12 @@ async def delete_user(
 ):
     """
     Delete user (admin only)
+    
+    Permission validation is handled by @require_role decorator
     """
     try:
         user_role = current_user.get("role", "")
         user_email = current_user.get("email", "")
-
-        # Only admins can delete users
-        if user_role != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only admins can delete users",
-            )
 
         # Get target user
         result = await session.execute(select(User).where(User.id == user_id))
@@ -231,7 +245,8 @@ async def delete_user(
                 detail="You cannot delete your own account",
             )
 
-        await session.delete(target_user)
+        from sqlalchemy import delete as delete_stmt
+        await session.execute(delete_stmt(User).where(User.id == user_id))
         await session.commit()
 
         return {"message": "User deleted successfully"}

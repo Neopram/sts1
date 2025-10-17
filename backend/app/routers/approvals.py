@@ -22,6 +22,7 @@ from app.database import get_async_session
 from app.dependencies import (get_current_user, log_activity,
                               require_room_access)
 from app.models import Approval, Document, DocumentType, Party, Room
+from app.permission_decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -48,25 +49,49 @@ class ApprovalResponse(BaseModel):
 @router.get("/rooms/{room_id}/approvals", response_model=List[ApprovalResponse])
 async def get_room_approvals(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Get all approvals for a room, filtered by user's vessel access
+    Get all approvals for a room, filtered by user's vessel access and role-based permissions.
+    Real permission validation logic:
+    - All authenticated users in the room can VIEW approvals (permission_matrix: view)
+    - Only specific roles can see approval details (owner, broker, charterer)
+    - Data is filtered by vessel access for vessel-specific approvals
     """
     try:
+        from app.permission_matrix import permission_matrix
+        from app.models import User
+        
         user_email = current_user["email"]
 
-        # Verify user has access to room
+        # 1. VERIFY ROOM ACCESS - Required first checkpoint
         await require_room_access(room_id, user_email, session)
 
-        # Get user's accessible vessel IDs
+        # 2. CHECK PERMISSION - User must have "approvals.view" permission
+        user_result = await session.execute(
+            select(User).where(User.email == user_email)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check if user role can view approvals
+        if not permission_matrix.has_permission(user.role, "approvals", "view"):
+            logger.warning(f"User {user_email} with role {user.role} denied approval view access")
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Permission denied: {user.role} cannot view approvals"
+            )
+
+        # 3. GET USER'S ACCESSIBLE DATA SCOPE
         from app.dependencies import get_user_accessible_vessels
         accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
 
-        # Build query based on vessel access
+        # 4. FILTER APPROVALS BY SCOPE
         if accessible_vessel_ids:
-            # User has access to specific vessels - filter approvals by vessel
+            # User has vessel-level access - filter by vessel
             approvals_result = await session.execute(
                 select(
                     Approval.id,
@@ -84,9 +109,9 @@ async def get_room_approvals(
                 )
             )
         else:
-            # User has no vessel access - return empty list (room-level approvals only for brokers)
-            if current_user.get("role") == "broker":
-                # Brokers can see room-level approvals
+            # User has no vessel access
+            if user.role == "broker" or user.role == "admin":
+                # Brokers/Admins can see room-level approvals
                 approvals_result = await session.execute(
                     select(
                         Approval.id,
@@ -102,8 +127,10 @@ async def get_room_approvals(
                 )
             else:
                 # Non-brokers with no vessel access see nothing
+                logger.info(f"User {user_email} with role {user.role} has no accessible data scope")
                 return []
 
+        # 5. CONVERT TO RESPONSE
         approvals = []
         for row in approvals_result:
             approvals.append(
@@ -118,6 +145,7 @@ async def get_room_approvals(
                 )
             )
 
+        logger.info(f"User {user_email} retrieved {len(approvals)} approvals from room {room_id}")
         return approvals
 
     except HTTPException:
@@ -128,14 +156,18 @@ async def get_room_approvals(
 
 
 @router.post("/rooms/{room_id}/approvals")
+@require_permission("approvals", "create")
 async def create_approval(
     room_id: str,
     approval_data: ApprovalRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
     Create or update approval for current user in room
+    Only Owner, Broker, and Charterer can create approvals
+    
+    Permission validation is handled by @require_permission decorator
     """
     try:
         user_email = current_user["email"]
@@ -198,7 +230,7 @@ async def create_approval(
 @router.get("/rooms/{room_id}/approvals/status")
 async def get_approval_status(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -285,7 +317,7 @@ async def get_approval_status(
 @router.get("/rooms/{room_id}/approvals/my-status")
 async def get_my_approval_status(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -328,13 +360,17 @@ async def get_my_approval_status(
 
 
 @router.delete("/rooms/{room_id}/approvals")
+@require_permission("approvals", "revoke")
 async def revoke_approval(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
     Revoke current user's approval
+    Only Owner, Broker, and Charterer can revoke approvals
+    
+    Permission validation is handled by @require_permission decorator
     """
     try:
         user_email = current_user["email"]
@@ -379,7 +415,7 @@ async def revoke_approval(
 @router.get("/rooms/{room_id}/approvals/required-documents")
 async def get_required_documents_for_approval(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -441,7 +477,7 @@ async def update_approval(
     room_id: str,
     approval_id: str,
     update_data: UpdateApprovalRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
@@ -513,7 +549,7 @@ async def update_approval(
 async def update_approval_by_id(
     approval_id: str,
     update_data: UpdateApprovalRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session)
 ):
     """

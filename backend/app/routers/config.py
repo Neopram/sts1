@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_async_session
 from app.dependencies import get_current_user
 from app.models import DocumentType, FeatureFlag
+from app.permission_decorators import require_role
 
 logger = logging.getLogger(__name__)
 
@@ -103,35 +104,107 @@ async def update_feature_flag(
 ):
     """
     Update a feature flag (admin only)
+    
+    🔐 5-Level Security Validation:
+    1. Authentication: Verify user is logged in and exists in database
+    2. Role-Based Permission: Check user role is "admin" via permission_matrix
+    3. Data Validation: Validate input data format and business rules
+    4. Change Tracking: Track what changed for audit trail
+    5. Audit Logging: Log all changes with complete context
     """
     try:
-        user_role = current_user.get("role", "")
-
-        # Check if user is admin
-        if user_role != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only administrators can modify feature flags",
+        from app.models import User
+        from app.permission_matrix import PermissionMatrix
+        from datetime import datetime
+        
+        # ===== LEVEL 1: AUTHENTICATION =====
+        user_id = current_user.get("user_id")
+        user_email = current_user.get("email", "unknown")
+        
+        if not user_id:
+            logger.warning(f"Missing user_id in token for update_feature_flag")
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Verify user exists in database
+        user_result = await session.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = user_result.scalar_one_or_none()
+        if not user:
+            logger.warning(f"User {user_id} not found in database during feature flag update")
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        # ===== LEVEL 2: ROLE-BASED PERMISSION =====
+        user_role = user.role or current_user.get("role", "")
+        
+        if not PermissionMatrix.has_permission(user_role, "config", "manage_feature_flags"):
+            logger.warning(
+                f"User {user_email} (ID: {user_id}, Role: {user_role}) "
+                f"attempted unauthorized feature flag update: {flag_key}"
             )
-
-        # Update feature flag
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # ===== LEVEL 3: DATA VALIDATION =====
+        # Validate flag_key format (alphanumeric, underscore, hyphen only)
+        import re
+        if not re.match(r"^[a-zA-Z0-9_-]+$", flag_key):
+            raise HTTPException(status_code=400, detail="Invalid feature flag key format")
+        
+        # Get current flag to track changes
+        current_flag_result = await session.execute(
+            select(FeatureFlag).where(FeatureFlag.key == flag_key)
+        )
+        current_flag = current_flag_result.scalar_one_or_none()
+        
+        if not current_flag:
+            logger.warning(f"Feature flag '{flag_key}' not found for update by {user_email}")
+            raise HTTPException(status_code=404, detail="Feature flag not found")
+        
+        # ===== LEVEL 4: CHANGE TRACKING =====
+        old_enabled = current_flag.enabled
+        new_enabled = flag_data.enabled
+        
+        # Only update if value actually changed
+        if old_enabled == new_enabled:
+            return {
+                "message": f"Feature flag '{flag_key}' unchanged",
+                "key": flag_key,
+                "enabled": new_enabled,
+                "change_detected": False
+            }
+        
+        # ===== UPDATE FLAG =====
         result = await session.execute(
             update(FeatureFlag)
             .where(FeatureFlag.key == flag_key)
             .values(enabled=flag_data.enabled)
         )
-
-        if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Feature flag not found")
-
+        
         await session.commit()
-
-        return {"message": f"Feature flag '{flag_key}' updated successfully"}
+        
+        # ===== LEVEL 5: AUDIT LOGGING =====
+        logger.warning(
+            f"🔐 CONFIG_FEATURE_FLAG_UPDATE | "
+            f"User: {user_email} (ID: {user_id}, Role: {user_role}) | "
+            f"Flag: {flag_key} | "
+            f"Change: {old_enabled} → {new_enabled} | "
+            f"Timestamp: {datetime.utcnow().isoformat()}"
+        )
+        
+        return {
+            "message": f"Feature flag '{flag_key}' updated successfully",
+            "key": flag_key,
+            "old_value": old_enabled,
+            "new_value": new_enabled,
+            "updated_by": user_email,
+            "updated_at": datetime.utcnow().isoformat(),
+            "change_detected": True
+        }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating feature flag: {e}")
+        logger.error(f"Error updating feature flag: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -168,56 +241,131 @@ async def create_document_type(
 ):
     """
     Create a new document type (admin only)
+    
+    🔐 5-Level Security Validation:
+    1. Authentication: Verify user is logged in and exists in database
+    2. Role-Based Permission: Check user role is "admin" via permission_matrix
+    3. Data Validation: Input sanitization, format validation, duplicate prevention
+    4. Change Tracking: Record creation details for audit trail
+    5. Audit Logging: Log all creations with complete context
     """
     try:
-        user_role = current_user.get("role", "")
-
-        # Check if user is admin
-        if user_role != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only administrators can create document types",
+        from app.models import User
+        from app.permission_matrix import PermissionMatrix
+        from datetime import datetime
+        
+        # ===== LEVEL 1: AUTHENTICATION =====
+        user_id = current_user.get("user_id")
+        user_email = current_user.get("email", "unknown")
+        
+        if not user_id:
+            logger.warning(f"Missing user_id in token for create_document_type")
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Verify user exists in database
+        user_result = await session.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = user_result.scalar_one_or_none()
+        if not user:
+            logger.warning(f"User {user_id} not found in database during document type creation")
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        # ===== LEVEL 2: ROLE-BASED PERMISSION =====
+        user_role = user.role or current_user.get("role", "")
+        
+        if not PermissionMatrix.has_permission(user_role, "config", "manage_document_types"):
+            logger.warning(
+                f"User {user_email} (ID: {user_id}, Role: {user_role}) "
+                f"attempted unauthorized document type creation: {doc_type_data.code}"
             )
-
-        # Validate criticality
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # ===== LEVEL 3: DATA VALIDATION =====
+        # Validate criticality (whitelist approach)
         valid_criticalities = ["high", "med", "low"]
         if doc_type_data.criticality not in valid_criticalities:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid criticality. Must be one of: {', '.join(valid_criticalities)}",
             )
-
-        # Check if code already exists
+        
+        # Sanitize and validate code (alphanumeric, underscore, hyphen only, max 50 chars)
+        import re
+        code = doc_type_data.code.strip() if doc_type_data.code else ""
+        if not code or len(code) > 50:
+            raise HTTPException(
+                status_code=400, 
+                detail="Code must be 1-50 characters"
+            )
+        if not re.match(r"^[A-Z0-9_-]+$", code):
+            raise HTTPException(
+                status_code=400, 
+                detail="Code must contain only uppercase letters, numbers, underscore, or hyphen"
+            )
+        
+        # Sanitize name (max 200 chars)
+        name = doc_type_data.name.strip() if doc_type_data.name else ""
+        if not name or len(name) > 200:
+            raise HTTPException(
+                status_code=400, 
+                detail="Name must be 1-200 characters"
+            )
+        
+        # Check if code already exists (prevent duplicates)
         existing_result = await session.execute(
-            select(DocumentType).where(DocumentType.code == doc_type_data.code)
+            select(DocumentType).where(DocumentType.code == code)
         )
         if existing_result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=400, detail="Document type with this code already exists"
+            logger.warning(
+                f"Duplicate document type code '{code}' creation attempted by {user_email}"
             )
-
-        # Create document type
-        doc_type = DocumentType(
-            code=doc_type_data.code,
-            name=doc_type_data.name,
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Document type with code '{code}' already exists"
+            )
+        
+        # ===== ATOMIC TRANSACTION WITH SAVEPOINT =====
+        async with session.begin_nested():
+            # Create document type
+            doc_type = DocumentType(
+                code=code,
+                name=name,
+                required=bool(doc_type_data.required),
+                criticality=doc_type_data.criticality,
+            )
+            session.add(doc_type)
+            await session.flush()  # Flush to get the ID
+            
+            created_id = str(doc_type.id)
+        
+        # Commit transaction
+        await session.commit()
+        
+        # ===== LEVEL 5: AUDIT LOGGING =====
+        logger.warning(
+            f"🔐 CONFIG_DOCUMENT_TYPE_CREATE | "
+            f"User: {user_email} (ID: {user_id}, Role: {user_role}) | "
+            f"Code: {code} | "
+            f"Name: {name} | "
+            f"Criticality: {doc_type_data.criticality} | "
+            f"Required: {doc_type_data.required} | "
+            f"TypeID: {created_id} | "
+            f"Timestamp: {datetime.utcnow().isoformat()}"
+        )
+        
+        return DocumentTypeResponse(
+            id=created_id,
+            code=code,
+            name=name,
             required=doc_type_data.required,
             criticality=doc_type_data.criticality,
-        )
-        session.add(doc_type)
-        await session.commit()
-
-        return DocumentTypeResponse(
-            id=str(doc_type.id),
-            code=doc_type.code,
-            name=doc_type.name,
-            required=doc_type.required,
-            criticality=doc_type.criticality,
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating document type: {e}")
+        logger.error(f"Error creating document type: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -230,33 +378,85 @@ async def update_document_type(
 ):
     """
     Update a document type (admin only)
+    
+    🔐 5-Level Security Validation:
+    1. Authentication: Verify user is logged in and exists in database
+    2. Role-Based Permission: Check user role is "admin" via permission_matrix
+    3. Data Validation: Whitelist criticality values, sanitize inputs
+    4. Change Tracking: Track exactly what changed (before/after for each field)
+    5. Audit Logging: Log all changes with complete context
     """
     try:
-        user_role = current_user.get("role", "")
-
-        # Check if user is admin
-        if user_role != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only administrators can modify document types",
+        from app.models import User
+        from app.permission_matrix import PermissionMatrix
+        from datetime import datetime
+        
+        # ===== LEVEL 1: AUTHENTICATION =====
+        user_id = current_user.get("user_id")
+        user_email = current_user.get("email", "unknown")
+        
+        if not user_id:
+            logger.warning(f"Missing user_id in token for update_document_type")
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Verify user exists in database
+        user_result = await session.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = user_result.scalar_one_or_none()
+        if not user:
+            logger.warning(f"User {user_id} not found in database during document type update")
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        # ===== LEVEL 2: ROLE-BASED PERMISSION =====
+        user_role = user.role or current_user.get("role", "")
+        
+        if not PermissionMatrix.has_permission(user_role, "config", "manage_document_types"):
+            logger.warning(
+                f"User {user_email} (ID: {user_id}, Role: {user_role}) "
+                f"attempted unauthorized document type update: {doc_type_id}"
             )
-
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # ===== LEVEL 3: DATA VALIDATION =====
         # Get document type
         result = await session.execute(
             select(DocumentType).where(DocumentType.id == doc_type_id)
         )
         doc_type = result.scalar_one_or_none()
-
+        
         if not doc_type:
+            logger.warning(f"Document type {doc_type_id} not found for update by {user_email}")
             raise HTTPException(status_code=404, detail="Document type not found")
-
-        # Update fields
+        
+        # ===== LEVEL 4: CHANGE TRACKING =====
+        changes = {}
+        
+        # Track name change
         if doc_type_data.name is not None:
-            doc_type.name = doc_type_data.name
-
+            name = doc_type_data.name.strip() if doc_type_data.name else ""
+            if not name or len(name) > 200:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Name must be 1-200 characters"
+                )
+            if name != doc_type.name:
+                changes["name"] = {
+                    "old": doc_type.name,
+                    "new": name
+                }
+                doc_type.name = name
+        
+        # Track required change
         if doc_type_data.required is not None:
-            doc_type.required = doc_type_data.required
-
+            if bool(doc_type_data.required) != doc_type.required:
+                changes["required"] = {
+                    "old": doc_type.required,
+                    "new": bool(doc_type_data.required)
+                }
+                doc_type.required = bool(doc_type_data.required)
+        
+        # Track criticality change
         if doc_type_data.criticality is not None:
             valid_criticalities = ["high", "med", "low"]
             if doc_type_data.criticality not in valid_criticalities:
@@ -264,68 +464,191 @@ async def update_document_type(
                     status_code=400,
                     detail=f"Invalid criticality. Must be one of: {', '.join(valid_criticalities)}",
                 )
-            doc_type.criticality = doc_type_data.criticality
-
+            if doc_type_data.criticality != doc_type.criticality:
+                changes["criticality"] = {
+                    "old": doc_type.criticality,
+                    "new": doc_type_data.criticality
+                }
+                doc_type.criticality = doc_type_data.criticality
+        
+        # Only commit if something changed
+        if not changes:
+            return {
+                "message": "Document type unchanged",
+                "doc_type_id": doc_type_id,
+                "change_detected": False
+            }
+        
+        # ===== ATOMIC UPDATE =====
+        async with session.begin_nested():
+            await session.merge(doc_type)
+        
         await session.commit()
-
-        return {"message": "Document type updated successfully"}
+        
+        # ===== LEVEL 5: AUDIT LOGGING =====
+        changes_str = " | ".join([
+            f"{field}: {change['old']} → {change['new']}"
+            for field, change in changes.items()
+        ])
+        
+        logger.warning(
+            f"🔐 CONFIG_DOCUMENT_TYPE_UPDATE | "
+            f"User: {user_email} (ID: {user_id}, Role: {user_role}) | "
+            f"TypeID: {doc_type_id} | "
+            f"TypeCode: {doc_type.code} | "
+            f"Changes: {changes_str} | "
+            f"Timestamp: {datetime.utcnow().isoformat()}"
+        )
+        
+        return {
+            "message": "Document type updated successfully",
+            "doc_type_id": doc_type_id,
+            "changes": changes,
+            "updated_by": user_email,
+            "updated_at": datetime.utcnow().isoformat(),
+            "change_detected": True
+        }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating document type: {e}")
+        logger.error(f"Error updating document type: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+class DeleteDocumentTypeRequest(BaseModel):
+    """Request body for deleting document types with reason"""
+    reason: str = None  # Optional but recommended reason for deletion
 
 
 @router.delete("/document-types/{doc_type_id}")
 async def delete_document_type(
     doc_type_id: str,
+    delete_request: DeleteDocumentTypeRequest = None,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
     Delete a document type (admin only)
+    
+    🔐 5-Level Security Validation:
+    1. Authentication: Verify user is logged in and exists in database
+    2. Role-Based Permission: Check user role is "admin" via permission_matrix
+    3. Data Validation: Validate reason (if provided), check if type is in use
+    4. Change Tracking: Record deletion details including who deleted and when
+    5. Audit Logging: Log all deletions with complete context and reason
     """
     try:
-        user_role = current_user.get("role", "")
-
-        # Check if user is admin
-        if user_role != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only administrators can delete document types",
+        from app.models import User, Document
+        from app.permission_matrix import PermissionMatrix
+        from datetime import datetime
+        from sqlalchemy import delete as delete_stmt
+        
+        # ===== LEVEL 1: AUTHENTICATION =====
+        user_id = current_user.get("user_id")
+        user_email = current_user.get("email", "unknown")
+        
+        if not user_id:
+            logger.warning(f"Missing user_id in token for delete_document_type")
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        # Verify user exists in database
+        user_result = await session.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = user_result.scalar_one_or_none()
+        if not user:
+            logger.warning(f"User {user_id} not found in database during document type deletion")
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        # ===== LEVEL 2: ROLE-BASED PERMISSION =====
+        user_role = user.role or current_user.get("role", "")
+        
+        if not PermissionMatrix.has_permission(user_role, "config", "manage_document_types"):
+            logger.warning(
+                f"User {user_email} (ID: {user_id}, Role: {user_role}) "
+                f"attempted unauthorized document type deletion: {doc_type_id}"
             )
-
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # ===== LEVEL 3: DATA VALIDATION =====
         # Get document type
         result = await session.execute(
             select(DocumentType).where(DocumentType.id == doc_type_id)
         )
         doc_type = result.scalar_one_or_none()
-
+        
         if not doc_type:
+            logger.warning(f"Document type {doc_type_id} not found for deletion by {user_email}")
             raise HTTPException(status_code=404, detail="Document type not found")
-
+        
+        # Validate deletion reason (if provided)
+        deletion_reason = ""
+        if delete_request and delete_request.reason:
+            reason = delete_request.reason.strip()
+            if len(reason) > 500:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Deletion reason must be 500 characters or less"
+                )
+            if len(reason) > 0:
+                deletion_reason = reason
+        
         # Check if document type is in use
-        from app.models import Document
-
         docs_result = await session.execute(
             select(Document).where(Document.type_id == doc_type_id).limit(1)
         )
         if docs_result.scalar_one_or_none():
-            raise HTTPException(
-                status_code=400, detail="Cannot delete document type that is in use"
+            logger.warning(
+                f"Attempt to delete in-use document type {doc_type_id} by {user_email}"
             )
-
-        # Delete document type
-        await session.delete(doc_type)
+            raise HTTPException(
+                status_code=400, 
+                detail="Cannot delete document type that is in use. Reassign or archive documents first."
+            )
+        
+        # ===== LEVEL 4: CHANGE TRACKING =====
+        deleted_info = {
+            "id": doc_type_id,
+            "code": doc_type.code,
+            "name": doc_type.name,
+            "criticality": doc_type.criticality,
+            "required": doc_type.required,
+            "deleted_at": datetime.utcnow().isoformat(),
+            "deleted_by": user_email,
+            "reason": deletion_reason if deletion_reason else "No reason provided"
+        }
+        
+        # ===== ATOMIC DELETION =====
+        async with session.begin_nested():
+            await session.execute(
+                delete_stmt(DocumentType).where(DocumentType.id == doc_type_id)
+            )
+        
         await session.commit()
-
-        return {"message": "Document type deleted successfully"}
+        
+        # ===== LEVEL 5: AUDIT LOGGING =====
+        logger.warning(
+            f"🔐 CONFIG_DOCUMENT_TYPE_DELETE | "
+            f"User: {user_email} (ID: {user_id}, Role: {user_role}) | "
+            f"TypeID: {doc_type_id} | "
+            f"TypeCode: {doc_type.code} | "
+            f"TypeName: {doc_type.name} | "
+            f"Reason: {deletion_reason if deletion_reason else 'No reason provided'} | "
+            f"Timestamp: {datetime.utcnow().isoformat()}"
+        )
+        
+        return {
+            "message": "Document type deleted successfully",
+            "deleted_info": deleted_info,
+            "deleted_by": user_email,
+            "deleted_at": datetime.utcnow().isoformat()
+        }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting document type: {e}")
+        logger.error(f"Error deleting document type: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

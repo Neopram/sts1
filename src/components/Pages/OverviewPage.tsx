@@ -26,7 +26,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
   cockpitData: propCockpitData,
   vessels: propVessels
 }) => {
-  const { currentRoomId } = useApp();
+  const { currentRoomId, user } = useApp();
   const navigate = useNavigate();
   const [cockpitData, setCockpitData] = useState<any>(propCockpitData);
   const [vessels, setVessels] = useState<any[]>(propVessels || []);
@@ -36,7 +36,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load data from API
+  // Load data from API with vessel filtering
   const loadData = async () => {
     if (!currentRoomId) return;
 
@@ -49,8 +49,29 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
         ApiService.getVessels(currentRoomId)
       ]);
 
+      // Filter vessels based on user role and vessel ownership
+      const filteredVessels = vesselsData.filter((vessel: any) => {
+        if (!user) return false;
+
+        // Brokers see all vessels
+        if (user.role === 'broker') return true;
+
+        // Charterers see vessels they charter
+        if (user.role === 'charterer') {
+          return user.vesselImos?.includes(vessel.imo) || false;
+        }
+
+        // Owners see only their vessels
+        if (user.role === 'owner') {
+          return user.vesselImos?.includes(vessel.imo) || false;
+        }
+
+        // Viewers see nothing (or limited access)
+        return false;
+      });
+
       setCockpitData(summaryData);
-      setVessels(vesselsData);
+      setVessels(filteredVessels);
     } catch (err) {
       console.error('Error loading overview data:', err);
       setError('Failed to load overview data. Please try again.');

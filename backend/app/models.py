@@ -45,6 +45,7 @@ class User(Base):
     preferences = Column(JSON, default=dict)  # User preferences like theme, notifications, etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
 

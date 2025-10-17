@@ -590,37 +590,30 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_async_session),
-) -> dict:
+) -> User:
     """
-    Get current user from JWT token
+    Get current authenticated user as SQLAlchemy object
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-
-        # For development, return demo user if no party found
-        if os.getenv("DEBUG", "false").lower() == "true":
-            return {"email": email, "role": "owner", "name": "Demo User"}
-
-        # Find user in users table
-        result = await session.execute(select(User).where(User.email == email).limit(1))
-        user = result.scalar_one_or_none()
-
-        if not user:
-            raise credentials_exception
-
-        return {"email": user.email, "role": user.role, "name": user.name}
-
     except jwt.PyJWTError:
         raise credentials_exception
+
+    # CAMBIO: Retornar objeto User, no diccionario
+    result = await session.execute(select(User).where(User.email == email).limit(1))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise credentials_exception
+    # Retornar el objeto User completo
+    return user
 
 
 def get_user_role_permissions(role: str) -> dict:
@@ -628,6 +621,16 @@ def get_user_role_permissions(role: str) -> dict:
     Get permissions for a user role
     """
     permissions = {
+        "admin": {
+            "can_create_rooms": True,
+            "can_edit_rooms": True,
+            "can_delete_rooms": True,
+            "can_add_parties": True,
+            "can_remove_parties": True,
+            "can_upload_documents": True,
+            "can_approve_documents": True,
+            "can_create_snapshots": True,
+        },
         "owner": {
             "can_create_rooms": True,
             "can_edit_rooms": True,

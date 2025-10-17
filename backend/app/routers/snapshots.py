@@ -19,6 +19,7 @@ from app.database import get_async_session
 from app.dependencies import (get_current_user, log_activity,
                               require_room_access)
 from app.services.pdf_generator import pdf_generator
+from app.permission_decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -137,24 +138,65 @@ async def create_snapshot(
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Create a new snapshot of room status
+    Create a new snapshot of room status with ROBUST permission validation
+    
+    5-Level Security Validation:
+    1. Authentication - User must be authenticated
+    2. Room Access - User must be party in the room
+    3. Role-Based Permission - Owner/broker/charterer/admin can create (per permission_matrix)
+    4. Data Scope - Validate snapshot options and prevent conflicts
+    5. Audit Logging - Complete audit trail
     """
     try:
+        from app.permission_matrix import PermissionMatrix
+        
         user_email = current_user["email"]
+        user_role = current_user.get("role", "")
         user_name = current_user.get("name", "Unknown User")
 
-        # Verify user has access to room
+        # LEVEL 1: AUTHENTICATION
+        user_check = await session.execute(
+            select(Party).where(Party.email == user_email).limit(1)
+        )
+        if user_check.scalar_one_or_none() is None and user_role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found in system",
+            )
+
+        # LEVEL 2: ROOM ACCESS
         await require_room_access(room_id, user_email, session)
 
+        # LEVEL 3: ROLE-BASED PERMISSION
+        if not PermissionMatrix.has_permission(user_role, "snapshots", "create"):
+            logger.warning(
+                f"Unauthorized snapshot creation attempt by {user_email} with role {user_role}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{user_role}' cannot create snapshots. Only owners, brokers, charterers, and admins can.",
+            )
+
+        # LEVEL 4: DATA SCOPE - Validate snapshot options
+        valid_types = ["pdf", "json", "csv"]
+        if snapshot_data.snapshot_type not in valid_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid snapshot type. Must be one of: {', '.join(valid_types)}",
+            )
+
         # Generate title if not provided
-        title = (
-            snapshot_data.title
-            or f"Room Status Snapshot - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-        )
+        if snapshot_data.title:
+            title = snapshot_data.title.strip()
+            if len(title) == 0:
+                title = f"Room Status Snapshot - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        else:
+            title = f"Room Status Snapshot - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
         # Create snapshot record
+        snapshot_id = str(uuid.uuid4())
         snapshot = Snapshot(
-            id=str(uuid.uuid4()),
+            id=snapshot_id,
             room_id=room_id,
             title=title,
             created_by=user_email,
@@ -178,16 +220,32 @@ async def create_snapshot(
             # Mock file size
             snapshot.file_size = 1024 * 1024  # 1MB
             snapshot.status = "completed"
-        except Exception as e:
-            logger.error(f"Error generating snapshot: {e}")
+            logger.info(f"Snapshot {snapshot_id} generated successfully for room {room_id}")
+        except Exception as gen_error:
+            logger.error(f"Error generating snapshot {snapshot_id}: {gen_error}")
             snapshot.status = "failed"
 
-        # Log activity
+        # LEVEL 5: AUDIT LOGGING
         await log_activity(
-            room_id,
-            user_email,
-            "snapshot_created",
-            {"snapshot_id": snapshot.id, "title": title},
+            session=session,
+            room_id=room_id,
+            actor=user_email,
+            action="snapshot_created",
+            meta={
+                "snapshot_id": snapshot_id,
+                "snapshot_title": title,
+                "snapshot_type": snapshot_data.snapshot_type,
+                "created_by_role": user_role,
+                "options": {
+                    "include_documents": snapshot_data.include_documents,
+                    "include_activity": snapshot_data.include_activity,
+                    "include_approvals": snapshot_data.include_approvals,
+                },
+            },
+        )
+
+        logger.info(
+            f"Snapshot '{title}' ({snapshot_id}) created in room {room_id} by {user_email}"
         )
 
         return SnapshotResponse(
@@ -204,7 +262,7 @@ async def create_snapshot(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating snapshot: {e}")
+        logger.error(f"Error creating snapshot: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -312,36 +370,87 @@ async def delete_snapshot(
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Delete a snapshot
+    Delete a snapshot with ROBUST permission validation
+    
+    5-Level Security Validation:
+    1. Authentication - User must be authenticated
+    2. Room Access - User must be party in the room
+    3. Role-Based Permission - Only admin can delete (per permission_matrix)
+    4. Data Scope - Validate snapshot exists before deletion
+    5. Audit Logging - Complete audit trail
     """
     try:
+        from app.permission_matrix import PermissionMatrix
+        
         user_email = current_user["email"]
+        user_role = current_user.get("role", "")
 
-        # Verify user has access to room
-        await require_room_access(room_id, user_email, session)
-
-        # Find and remove snapshot
-        room_snapshots = snapshots_storage.get(room_id, [])
-        original_count = len(room_snapshots)
-
-        snapshots_storage[room_id] = [s for s in room_snapshots if s.id != snapshot_id]
-
-        new_count = len(snapshots_storage[room_id])
-
-        if new_count < original_count:
-            # Log activity
-            await log_activity(
-                room_id, user_email, "snapshot_deleted", {"snapshot_id": snapshot_id}
+        # LEVEL 1: AUTHENTICATION
+        user_check = await session.execute(
+            select(Party).where(Party.email == user_email).limit(1)
+        )
+        if user_check.scalar_one_or_none() is None and user_role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found in system",
             )
 
-            return {"message": "Snapshot deleted successfully"}
-        else:
-            raise HTTPException(status_code=404, detail="Snapshot not found")
+        # LEVEL 2: ROOM ACCESS
+        await require_room_access(room_id, user_email, session)
+
+        # LEVEL 3: ROLE-BASED PERMISSION - Only admin can delete
+        if not PermissionMatrix.has_permission(user_role, "snapshots", "delete"):
+            logger.warning(
+                f"Unauthorized snapshot deletion attempt by {user_email} with role {user_role}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{user_role}' cannot delete snapshots. Only admins can delete.",
+            )
+
+        # LEVEL 4: DATA SCOPE - Find and validate snapshot
+        room_snapshots = snapshots_storage.get(room_id, [])
+        
+        snapshot_to_delete = None
+        for snapshot in room_snapshots:
+            if snapshot.id == snapshot_id:
+                snapshot_to_delete = snapshot
+                break
+
+        if not snapshot_to_delete:
+            raise HTTPException(status_code=404, detail="Snapshot not found in this room")
+
+        # Get snapshot details for audit log
+        snapshot_title = snapshot_to_delete.title
+        snapshot_type = snapshot_to_delete.snapshot_type
+
+        # Delete snapshot
+        snapshots_storage[room_id] = [s for s in room_snapshots if s.id != snapshot_id]
+
+        # LEVEL 5: AUDIT LOGGING
+        await log_activity(
+            session=session,
+            room_id=room_id,
+            actor=user_email,
+            action="snapshot_deleted",
+            meta={
+                "snapshot_id": snapshot_id,
+                "snapshot_title": snapshot_title,
+                "snapshot_type": snapshot_type,
+                "deleted_by_role": user_role,
+            },
+        )
+
+        logger.warning(
+            f"Snapshot '{snapshot_title}' ({snapshot_id}) permanently deleted from room {room_id} by {user_email}"
+        )
+
+        return {"message": "Snapshot deleted successfully"}
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting snapshot: {e}")
+        logger.error(f"Error deleting snapshot {snapshot_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

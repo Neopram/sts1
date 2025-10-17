@@ -7,7 +7,7 @@ import logging
 import os
 from datetime import datetime
 
-import bcrypt
+from passlib.hash import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -126,7 +126,7 @@ async def login(
 
         # Validate password
         if user.password_hash:
-            if not bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+            if not bcrypt.verify(password, user.password_hash):
                 logger.warning(f"Invalid password for: {email}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -157,30 +157,48 @@ async def login(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     Get current user information
     """
-    return UserResponse(**current_user)
+    # CAMBIO: current_user ya es objeto User
+    return UserResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        name=current_user.name,
+        role=current_user.role,
+        avatar_url=current_user.avatar_url,
+        created_at=current_user.created_at,
+        updated_at=current_user.updated_at
+    )
 
 
 @router.get("/validate", response_model=UserResponse)
-async def validate_token(current_user: dict = Depends(get_current_user)):
+async def validate_token(current_user: User = Depends(get_current_user)):
     """
     Validate token and return user information
     """
-    return UserResponse(**current_user)
+    # CAMBIO: current_user ya es objeto User
+    return UserResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        name=current_user.name,
+        role=current_user.role,
+        avatar_url=current_user.avatar_url,
+        created_at=current_user.created_at,
+        updated_at=current_user.updated_at
+    )
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(current_user: dict = Depends(get_current_user)):
+async def refresh_token(current_user: User = Depends(get_current_user)):
     """
     Refresh access token
     """
     try:
         # Create new access token
-        new_token = create_access_token(data={"sub": current_user["email"]})
-        
+        new_token = create_access_token(data={"sub": current_user.email})
+
         return TokenResponse(
             access_token=new_token,
             token_type="bearer",
@@ -195,20 +213,20 @@ async def refresh_token(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/logout")
-async def logout(current_user: dict = Depends(get_current_user)):
+async def logout(current_user: User = Depends(get_current_user)):
     """
     Logout endpoint with server-side token invalidation
     """
     try:
         # Log the logout action
-        logger.info(f"User {current_user.get('email', 'unknown')} logged out")
+        logger.info(f"User {current_user.email} logged out")
 
         # In production, you could add the token to a blacklist
         # For now, we rely on client-side token removal
 
         return {
             "message": "Successfully logged out",
-            "user_email": current_user.get("email"),
+            "user_email": current_user.email,
             "timestamp": datetime.now().isoformat(),
         }
     except Exception as e:
