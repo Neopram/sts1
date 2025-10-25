@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_async_session
 from app.dependencies import get_current_user, require_room_access
-from app.models import Vessel
+from app.models import Vessel, User
 from app.permission_decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ async def get_room_vessels(
     Get all vessels for a room, filtered by user's vessel ownership
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -99,7 +99,7 @@ async def get_room_vessels(
             )
         else:
             # User has no vessel access - return empty list (only brokers can see all vessels)
-            if current_user.get("role") == "broker":
+            if current_user.role == "broker":
                 # Brokers can see all vessels in the room
                 vessels_result = await session.execute(
                     select(Vessel).where(Vessel.room_id == room_id)
@@ -185,8 +185,8 @@ async def create_vessel(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -322,7 +322,7 @@ async def get_vessel(
     Get specific vessel information
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -404,8 +404,8 @@ async def update_vessel(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -598,8 +598,8 @@ async def delete_vessel(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_async_session
 from app.dependencies import get_current_user
-from app.models import Room, Vessel, Document, Approval, Message
+from app.models import Room, User, Vessel, Document, Approval, Message
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +73,8 @@ async def get_notifications(
     Get notifications for the current user
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
         user_company = current_user.get("company", "")
 
         # Get user's accessible vessels
@@ -122,8 +122,8 @@ async def get_notification_summary(
     Get summary of notifications for the current user
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
         user_company = current_user.get("company", "")
 
         # Get user's accessible vessels
@@ -194,7 +194,7 @@ async def mark_notification_read(
     Mark a notification as read
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # In a real implementation, notifications would be stored in database
         # For now, just return success since we're generating them on-the-fly
@@ -217,7 +217,7 @@ async def mark_all_notifications_read(
     Mark all notifications as read for the current user
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # In a real implementation, this would update all user notifications in database
         return {
@@ -239,7 +239,7 @@ async def get_notification_settings(
     Get user's notification settings
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # In a real implementation, this would be stored in user preferences
         # For now, return default settings
@@ -260,7 +260,7 @@ async def update_notification_settings(
     Update user's notification settings
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # In a real implementation, this would update user preferences in database
         return {

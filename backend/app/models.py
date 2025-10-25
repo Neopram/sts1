@@ -285,6 +285,40 @@ class WeatherData(Base):
     vessel = relationship("Vessel", backref="weather_data")
 
 
+class UserMessageAccess(Base):
+    """
+    Granular message access permissions per user per room.
+    Allows flexible role-based message visibility configuration.
+    """
+    __tablename__ = "user_message_access"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    user_email = Column(String(255), nullable=False)
+    room_id = Column(UUIDType, ForeignKey("rooms.id"), nullable=False)
+    vessel_id = Column(UUIDType, ForeignKey("vessels.id"), nullable=True)  # NULL = room-level access
+    access_level = Column(String(50), nullable=False)  # "room_level", "vessel_specific", "all"
+    granted_by = Column(String(255), nullable=False)
+    granted_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    room = relationship("Room", backref="user_message_access")
+    vessel = relationship("Vessel", backref="user_message_access")
+
+
+class UserRolePermission(Base):
+    """
+    Default message permissions by role.
+    Allows defining what message types each role can see by default.
+    """
+    __tablename__ = "user_role_permissions"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    role = Column(String(50), nullable=False, unique=True)  # owner, seller, buyer, charterer, broker, viewer
+    can_see_room_level = Column(Boolean, default=True)  # Can see room-level messages
+    can_see_vessel_level = Column(Boolean, default=False)  # Can see their own vessel messages
+    can_see_all_vessels = Column(Boolean, default=False)  # Can see all vessel messages
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class UserSettings(Base):
     __tablename__ = "user_settings"
 

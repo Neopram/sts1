@@ -55,11 +55,19 @@ async def get_async_session() -> AsyncSession:
 
 
 async def init_db():
-    """Initialize database tables"""
+    """Initialize database tables and default permissions"""
     from app.models import Base
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Initialize default role-based message permissions
+    async with AsyncSessionLocal() as session:
+        try:
+            from app.dependencies import initialize_default_role_permissions
+            await initialize_default_role_permissions(session)
+        except Exception as e:
+            print(f"Warning: Could not initialize default role permissions: {e}")
 
 
 async def close_db():

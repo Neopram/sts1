@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_async_session
 from app.dependencies import get_current_user
-from app.models import Room, Vessel, VesselPair
+from app.models import Room, User, Vessel, VesselPair
 
 logger = logging.getLogger(__name__)
 
@@ -70,8 +70,8 @@ async def get_regional_dashboard(
     Get regional dashboard with filtered operations based on user involvement
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
         user_company = current_user.get("company", "")
 
         # Get user's accessible vessels across all regions
@@ -128,8 +128,8 @@ async def get_regional_operations(
     Get operations filtered by region and user involvement
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
         user_company = current_user.get("company", "")
 
         # Build query filters
@@ -205,8 +205,8 @@ async def get_operation_vessels_by_region(
     Get vessels in an operation that the user has access to
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
         user_company = current_user.get("company", "")
 
         # Get all vessels in the room
@@ -271,8 +271,8 @@ async def get_regional_statistics(
     Get regional statistics for user's operations
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
         user_company = current_user.get("company", "")
 
         # Get user's vessels grouped by region

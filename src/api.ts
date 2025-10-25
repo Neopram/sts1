@@ -13,7 +13,12 @@ class ApiService {
   private token: string | null;
 
   constructor() {
-    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+    // In development, use the proxy; in production, use the configured URL
+    if (import.meta.env.DEV) {
+      this.baseURL = '';  // Use Vite proxy (same origin)
+    } else {
+      this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+    }
     this.token = localStorage.getItem('auth-token');
   }
 

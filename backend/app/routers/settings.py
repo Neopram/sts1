@@ -58,7 +58,7 @@ async def get_user_settings(
     Get current user's settings
     """
     try:
-        user_email = current_user.get("email", "")
+        user_email = current_user.email
 
         # Get user
         result = await session.execute(select(User).where(User.email == user_email))
@@ -149,7 +149,7 @@ async def update_user_settings(
     Update current user's settings
     """
     try:
-        user_email = current_user.get("email", "")
+        user_email = current_user.email
 
         # Get user
         result = await session.execute(select(User).where(User.email == user_email))
@@ -225,7 +225,7 @@ async def export_user_data(
     Export user's data and settings
     """
     try:
-        user_email = current_user.get("email", "")
+        user_email = current_user.email
 
         # Get user and settings
         result = await session.execute(select(User).where(User.email == user_email))

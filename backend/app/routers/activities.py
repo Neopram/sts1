@@ -193,7 +193,7 @@ async def get_room_activities(
         from app.permission_matrix import permission_matrix
         from app.models import User
         
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # 1. VERIFY ROOM ACCESS - First checkpoint
         await require_room_access(room_id, user_email, session)
@@ -290,7 +290,7 @@ async def get_activities_summary(
         from app.permission_matrix import permission_matrix
         from app.models import User
         
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # 1. VERIFY ROOM ACCESS
         await require_room_access(room_id, user_email, session)
@@ -402,7 +402,7 @@ async def get_activities_timeline(
         from app.permission_matrix import permission_matrix
         from app.models import User
         
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # 1. VERIFY ROOM ACCESS
         await require_room_access(room_id, user_email, session)
@@ -581,7 +581,7 @@ async def get_my_recent_activities(
     Get recent activities for current user across all rooms
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Get user's recent activities
         activities_result = await session.execute(

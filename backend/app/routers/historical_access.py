@@ -72,8 +72,8 @@ async def get_historical_operations(
     Get historical operations that the user has access to
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
         user_company = current_user.get("company", "")
 
         # Get rooms that are completed or older than 30 days
@@ -139,8 +139,8 @@ async def get_historical_operation_details(
     Get detailed historical data for a specific operation
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
         user_company = current_user.get("company", "")
 
         # Verify user has access to this historical operation
@@ -257,8 +257,8 @@ async def get_historical_vessel_data(
     Get historical data for a specific vessel (documents, approvals, or messages)
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
         user_company = current_user.get("company", "")
 
         # Verify user has access to this vessel
@@ -311,7 +311,7 @@ async def get_privacy_settings(
     Get user's privacy settings for historical data
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # For now, return default settings
         # In a real implementation, this would be stored in user preferences
@@ -332,7 +332,7 @@ async def update_privacy_settings(
     Update user's privacy settings for historical data
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # In a real implementation, this would update user preferences in database
         # For now, just return success

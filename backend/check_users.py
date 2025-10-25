@@ -1,15 +1,25 @@
-import asyncio
-from app.database import get_async_session
-from app.models import User
-from sqlalchemy import select
+import sqlite3
 
-async def check_users():
-    async for session in get_async_session():
-        result = await session.execute(select(User))
-        users = result.scalars().all()
-        for user in users:
-            print(f'{user.email}: {user.password_hash}')
-        break
+db_path = 'sts_clearance.db'
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
 
-if __name__ == "__main__":
-    asyncio.run(check_users())
+# Get users - try both table names
+try:
+    cursor.execute('SELECT email, role FROM users')
+    users = cursor.fetchall()
+    print("=== USERS (from 'users' table) ===")
+    for u in users:
+        print(f"  {u[0]:30} | Role: {u[1]}")
+except Exception as e:
+    print(f"Error: {e}")
+    try:
+        cursor.execute('SELECT email, role FROM "user"')
+        users = cursor.fetchall()
+        print("=== USERS (from 'user' table) ===")
+        for u in users:
+            print(f"  {u[0]:30} | Role: {u[1]}")
+    except Exception as e2:
+        print(f"Also failed: {e2}")
+
+conn.close()

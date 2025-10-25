@@ -1,0 +1,22 @@
+{
+  "owner@sts.com": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6Im93bmVyQHN0cy5jb20iLCJleHAiOjE3NjE4MTc2NzN9.AQETYOq-nSQflaWvNvHLuAsm_huGm3sbnd9VVDO1efk",
+    "role": "owner",
+    "name": "Ship Owner"
+  },
+  "charterer@sts.com": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImNoYXJ0ZXJlckBzdHMuY29tIiwiZXhwIjoxNzYxODE3NjczfQ.8XZvYX0FseyN2gnRWWvDjgwPR4P9tcqLmk7ffP6CEYQ",
+    "role": "charterer",
+    "name": "Charterer Company"
+  },
+  "broker@sts.com": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImJyb2tlckBzdHMuY29tIiwiZXhwIjoxNzYxODE3NjczfQ.YE0lT6dhC6Z6I7WfxW0ZJmhvg4Qit1atg_JIkC0IdvM",
+    "role": "broker",
+    "name": "Maritime Broker"
+  },
+  "viewer@sts.com": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InZpZXdlckBzdHMuY29tIiwiZXhwIjoxNzYxODE3NjczfQ.P1D_-z8Tivg7bW5Z0H7QPsYCmuCHEv6f79zw4LUzfhg",
+    "role": "viewer",
+    "name": "Port Authority"
+  }
+}

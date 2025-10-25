@@ -49,7 +49,7 @@ async def get_users(
     Get all users (admin and owner only)
     """
     try:
-        user_role = current_user.get("role", "")
+        user_role = current_user.role
 
         # Check permissions
         if user_role not in ["admin", "owner"]:
@@ -97,8 +97,8 @@ async def get_user(
     Get user by ID (admin, owner, or self only)
     """
     try:
-        user_role = current_user.get("role", "")
-        user_email = current_user.get("email", "")
+        user_role = current_user.role
+        user_email = current_user.email
 
         # Get target user
         result = await session.execute(select(User).where(User.id == user_id))
@@ -145,8 +145,8 @@ async def update_user(
     - Role changes: Requires admin/owner permission
     """
     try:
-        user_role = current_user.get("role", "")
-        user_email = current_user.get("email", "")
+        user_role = current_user.role
+        user_email = current_user.email
 
         # Get target user
         result = await session.execute(select(User).where(User.id == user_id))
@@ -228,8 +228,8 @@ async def delete_user(
     Permission validation is handled by @require_role decorator
     """
     try:
-        user_role = current_user.get("role", "")
-        user_email = current_user.get("email", "")
+        user_role = current_user.role
+        user_email = current_user.email
 
         # Get target user
         result = await session.execute(select(User).where(User.id == user_id))

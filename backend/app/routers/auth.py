@@ -126,8 +126,15 @@ async def login(
 
         # Validate password
         if user.password_hash:
-            if not bcrypt.verify(password, user.password_hash):
-                logger.warning(f"Invalid password for: {email}")
+            try:
+                if not bcrypt.verify(password, user.password_hash):
+                    logger.warning(f"Invalid password for: {email}")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid email or password",
+                    )
+            except Exception as verify_error:
+                logger.error(f"Password verification error: {verify_error}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid email or password",

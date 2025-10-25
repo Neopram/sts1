@@ -42,7 +42,7 @@ async def upload_document_file(
     Upload a file for a document
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -152,7 +152,7 @@ async def download_document_file(
     Download the latest version of a document file
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -216,6 +216,47 @@ async def serve_static_file(file_path: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/files/proxy")
+async def proxy_document_file(
+    url: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Proxy endpoint to serve S3 files or other URLs
+    Provides CORS-friendly access to files from different storage backends
+    """
+    try:
+        import boto3
+        
+        # Parse S3 URL
+        if not url.startswith("s3://"):
+            raise HTTPException(status_code=400, detail="Invalid URL")
+        
+        parts = url.replace("s3://", "").split("/", 1)
+        if len(parts) != 2:
+            raise HTTPException(status_code=400, detail="Invalid S3 URL format")
+        
+        bucket, key = parts
+        
+        # Create S3 client
+        s3_client = boto3.client("s3")
+        
+        # Generate presigned URL for browser access
+        presigned_url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=3600  # 1 hour
+        )
+        
+        return {"url": presigned_url}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error proxying file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to access file")
+
+
 @router.delete("/rooms/{room_id}/documents/{document_id}/files/{version_id}")
 async def delete_document_file(
     room_id: str,
@@ -228,7 +269,7 @@ async def delete_document_file(
     Delete a specific version of a document file
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)

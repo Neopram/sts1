@@ -54,7 +54,7 @@ async def get_room_weather(
     Get weather data for a room location
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)

@@ -13,8 +13,9 @@ from fastapi import (APIRouter, Depends, File, Form, HTTPException, UploadFile,
                      status)
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import select, update
+from sqlalchemy import select, update, or_, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 # Pydantic models for request/response
 class DocumentStatusUpdate(BaseModel):
@@ -24,7 +25,7 @@ class DocumentStatusUpdate(BaseModel):
 from app.database import get_async_session
 from app.dependencies import (get_current_user, log_activity,
                               require_room_access)
-from app.models import Document, DocumentType, Party, Room
+from app.models import Document, DocumentType, DocumentVersion, Party, Room, User
 from app.services.file_service import file_service
 from app.permission_decorators import require_permission
 
@@ -45,7 +46,7 @@ async def get_documents(
     """
     # This endpoint requires authentication via get_current_user dependency
     # If we reach here, the user is authenticated
-    return {"message": "Documents endpoint - authentication required", "user": current_user["email"]}
+    return {"message": "Documents endpoint - authentication required", "user": current_user.email}
 
 
 # Request/Response schemas
@@ -86,7 +87,7 @@ async def get_room_documents(
     Get all documents for a room, filtered by user's vessel access
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -96,65 +97,56 @@ async def get_room_documents(
         accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
 
         # Build query based on vessel access
+        from sqlalchemy.orm import joinedload
+        
+        where_conditions = [Document.room_id == room_id]
+        
+        # All users in a room can see common documents (vessel_id IS NULL)
+        # Users with vessel access also see their vessel-specific documents
         if accessible_vessel_ids:
-            # User has access to specific vessels - filter documents by vessel
-            docs_result = await session.execute(
-                select(
-                    Document.id,
-                    Document.status,
-                    Document.expires_on,
-                    Document.uploaded_by,
-                    Document.uploaded_at,
-                    Document.notes,
-                    Document.file_url,
-                    DocumentType.code,
-                    DocumentType.name,
-                    DocumentType.criticality,
-                )
-                .join(DocumentType)
-                .where(
-                    Document.room_id == room_id,
-                    Document.vessel_id.in_(accessible_vessel_ids)
+            # User has access to specific vessels - show documents from those vessels + common documents
+            where_conditions.append(
+                or_(
+                    Document.vessel_id.in_(accessible_vessel_ids),
+                    Document.vessel_id.is_(None)
                 )
             )
         else:
-            # User has no vessel access - return empty list (room-level documents only for brokers)
-            if current_user.get("role") == "broker":
-                # Brokers can see room-level documents
-                docs_result = await session.execute(
-                    select(
-                        Document.id,
-                        Document.status,
-                        Document.expires_on,
-                        Document.uploaded_by,
-                        Document.uploaded_at,
-                        Document.notes,
-                        Document.file_url,
-                        DocumentType.code,
-                        DocumentType.name,
-                        DocumentType.criticality,
-                    )
-                    .join(DocumentType)
-                    .where(Document.room_id == room_id, Document.vessel_id.is_(None))
-                )
-            else:
-                # Non-brokers with no vessel access see nothing
-                return []
+            # User has no vessel access - show only common documents (room-level)
+            # This includes all parties in the room, not just brokers
+            where_conditions.append(Document.vessel_id.is_(None))
+
+        # Get documents with their document type eagerly loaded
+        query = (
+            select(Document)
+            .join(DocumentType)
+            .options(joinedload(Document.document_type))
+            .options(joinedload(Document.versions))
+            .where(*where_conditions)
+        )
+        
+        docs_result = await session.execute(query)
+        doc_list = docs_result.unique().scalars().all()
 
         documents = []
-        for row in docs_result:
+        for doc in doc_list:
+            # Get file_url from latest version (versions are ordered by created_at DESC)
+            file_url = None
+            if doc.versions:
+                file_url = doc.versions[0].file_url
+            
             documents.append(
                 DocumentResponse(
-                    id=str(row.id),
-                    type_code=row.code,
-                    type_name=row.name,
-                    status=row.status,
-                    expires_on=row.expires_on,
-                    uploaded_by=row.uploaded_by,
-                    uploaded_at=row.uploaded_at,
-                    notes=row.notes,
-                    file_url=row.file_url,
-                    criticality=row.criticality,
+                    id=str(doc.id),
+                    type_code=doc.document_type.code,
+                    type_name=doc.document_type.name,
+                    status=doc.status,
+                    expires_on=doc.expires_on,
+                    uploaded_by=doc.uploaded_by,
+                    uploaded_at=doc.uploaded_at,
+                    notes=doc.notes,
+                    file_url=file_url,
+                    criticality=doc.document_type.criticality,
                 )
             )
 
@@ -179,7 +171,7 @@ async def get_document(
     Validates user has access to the specific document
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -189,43 +181,45 @@ async def get_document(
         accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
 
         # Get document with type information - validate vessel access
+        # All room members can see common documents (vessel_id IS NULL)
+        # Users with vessel access also see their vessel-specific documents
+        access_condition = Document.vessel_id.is_(None)  # All users can see common documents
+        if accessible_vessel_ids:
+            access_condition = access_condition | Document.vessel_id.in_(accessible_vessel_ids)
+        
         doc_result = await session.execute(
-            select(
-                Document.id,
-                Document.status,
-                Document.expires_on,
-                Document.uploaded_by,
-                Document.uploaded_at,
-                Document.notes,
-                Document.file_url,
-                DocumentType.code,
-                DocumentType.name,
-                DocumentType.criticality,
+            select(Document)
+            .options(
+                selectinload(Document.document_type),
+                selectinload(Document.versions)
             )
-            .join(DocumentType)
             .where(
                 Document.id == document_id, 
                 Document.room_id == room_id,
-                (Document.vessel_id.in_(accessible_vessel_ids) if accessible_vessel_ids else False) |
-                ((Document.vessel_id.is_(None)) & (current_user.get("role") == "broker"))
+                access_condition
             )
         )
 
-        row = doc_result.first()
-        if not row:
+        doc = doc_result.unique().scalar_one_or_none()
+        if not doc:
             raise HTTPException(status_code=403, detail="Access denied to this document")
 
+        # Get file_url from latest version
+        file_url = None
+        if doc.versions:
+            file_url = doc.versions[0].file_url
+
         return DocumentResponse(
-            id=str(row.id),
-            type_code=row.code,
-            type_name=row.name,
-            status=row.status,
-            expires_on=row.expires_on,
-            uploaded_by=row.uploaded_by,
-            uploaded_at=row.uploaded_at,
-            notes=row.notes,
-            file_url=row.file_url,
-            criticality=row.criticality,
+            id=str(doc.id),
+            type_code=doc.document_type.code,
+            type_name=doc.document_type.name,
+            status=doc.status,
+            expires_on=doc.expires_on,
+            uploaded_by=doc.uploaded_by,
+            uploaded_at=doc.uploaded_at,
+            notes=doc.notes,
+            file_url=file_url,
+            criticality=doc.document_type.criticality,
         )
 
     except HTTPException:
@@ -249,8 +243,8 @@ async def upload_document(
     Upload a document file
     """
     try:
-        user_email = current_user["email"]
-        user_name = current_user.get("name", "Unknown User")
+        user_email = current_user.email
+        user_name = current_user.name
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -268,6 +262,7 @@ async def upload_document(
 
         # Save file
         file_path = await file_service.save_file(file, room_id, "documents")
+        file_url = f"/api/v1/files/{file_path}"
 
         # Parse expires_on if provided
         expires_datetime = None
@@ -279,13 +274,23 @@ async def upload_document(
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid expires_on format")
 
-        # Update document
-        document.file_url = f"/api/v1/files/{file_path}"
+        # Update document metadata
         document.status = "under_review"
         document.uploaded_by = user_email
         document.uploaded_at = datetime.utcnow()
         document.expires_on = expires_datetime
         document.notes = notes
+
+        # Create document version with file info
+        # For now, using placeholder SHA256 and size - these should come from file_service
+        doc_version = DocumentVersion(
+            document_id=document.id,
+            file_url=file_url,
+            sha256="",  # Could be calculated from file_service
+            size_bytes=0,  # Could come from file_service
+            mime=file.content_type or "application/octet-stream"
+        )
+        session.add(doc_version)
 
         await session.commit()
 
@@ -299,7 +304,7 @@ async def upload_document(
 
         return {
             "message": "Document uploaded successfully",
-            "file_url": document.file_url,
+            "file_url": file_url,
         }
 
     except HTTPException:
@@ -323,7 +328,7 @@ async def update_document(
     Update document information
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -369,6 +374,11 @@ async def update_document(
             {"document_id": document_id, "changes": changes},
         )
 
+        # Get file_url from latest version
+        file_url = None
+        if document.versions:
+            file_url = document.versions[0].file_url
+
         return DocumentResponse(
             id=str(document.id),
             type_code=doc_type.code,
@@ -378,7 +388,7 @@ async def update_document(
             uploaded_by=document.uploaded_by,
             uploaded_at=document.uploaded_at,
             notes=document.notes,
-            file_url=document.file_url,
+            file_url=file_url,
             criticality=doc_type.criticality,
         )
 
@@ -404,7 +414,7 @@ async def approve_document(
     Permission validation is handled by @require_permission decorator
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -454,7 +464,7 @@ async def reject_document(
     Permission validation is handled by @require_permission decorator
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -504,7 +514,7 @@ async def download_document(
     Validates user has access to the specific document
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -514,12 +524,17 @@ async def download_document(
         accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
 
         # Get document - validate vessel access
+        # All room members can see common documents (vessel_id IS NULL)
+        # Users with vessel access also see their vessel-specific documents
+        access_condition = Document.vessel_id.is_(None)  # All users can see common documents
+        if accessible_vessel_ids:
+            access_condition = access_condition | Document.vessel_id.in_(accessible_vessel_ids)
+        
         doc_result = await session.execute(
             select(Document).where(
                 Document.id == document_id, 
                 Document.room_id == room_id,
-                (Document.vessel_id.in_(accessible_vessel_ids) if accessible_vessel_ids else False) |
-                ((Document.vessel_id.is_(None)) & (current_user.get("role") == "broker"))
+                access_condition
             )
         )
         document = doc_result.scalar_one_or_none()
@@ -527,11 +542,14 @@ async def download_document(
         if not document:
             raise HTTPException(status_code=403, detail="Access denied to this document")
 
-        if not document.file_url:
+        # Get file_url from latest version
+        if not document.versions or len(document.versions) == 0:
             raise HTTPException(status_code=404, detail="Document file not found")
+        
+        file_url = document.versions[0].file_url
 
         # Extract file path from URL
-        file_path = document.file_url.replace("/api/v1/files/", "")
+        file_path = file_url.replace("/api/v1/files/", "")
         full_path = file_service.get_file_path(file_path)
 
         if not full_path or not full_path.exists():
@@ -592,7 +610,7 @@ async def get_documents_status_summary(
     Filters documents by user's accessible vessels
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -602,37 +620,26 @@ async def get_documents_status_summary(
         accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
 
         # Build query based on vessel access
+        # All room members can see common documents (vessel_id IS NULL)
+        # Users with vessel access also see their vessel-specific documents
         if accessible_vessel_ids:
-            # User has access to specific vessels - filter documents by vessel
+            # User has access to specific vessels - filter documents by vessel + common documents
             docs_result = await session.execute(
                 select(Document.status, DocumentType.criticality, DocumentType.required)
                 .join(DocumentType)
                 .where(
                     Document.room_id == room_id,
-                    Document.vessel_id.in_(accessible_vessel_ids)
+                    (Document.vessel_id.in_(accessible_vessel_ids) | Document.vessel_id.is_(None))
                 )
             )
         else:
-            # User has no vessel access - return room-level documents only for brokers
-            if current_user.get("role") == "broker":
-                docs_result = await session.execute(
-                    select(Document.status, DocumentType.criticality, DocumentType.required)
-                    .join(DocumentType)
-                    .where(Document.room_id == room_id, Document.vessel_id.is_(None))
-                )
-            else:
-                # Non-brokers with no vessel access - return empty summary
-                return {
-                    "total_documents": 0,
-                    "missing": 0,
-                    "under_review": 0,
-                    "approved": 0,
-                    "rejected": 0,
-                    "expired": 0,
-                    "critical_documents": {"total": 0, "missing": 0, "approved": 0},
-                    "required_documents": {"total": 0, "missing": 0, "approved": 0},
-                    "completion_percentage": 0.0,
-                }
+            # User has no vessel access - show only common documents (room-level)
+            # This includes all parties in the room, not just brokers
+            docs_result = await session.execute(
+                select(Document.status, DocumentType.criticality, DocumentType.required)
+                .join(DocumentType)
+                .where(Document.room_id == room_id, Document.vessel_id.is_(None))
+            )
 
         documents = docs_result.all()
 

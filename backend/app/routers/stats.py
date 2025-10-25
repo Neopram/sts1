@@ -30,7 +30,7 @@ async def get_dashboard_stats(
     Get dashboard statistics for the current user
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Get user's rooms
         user_rooms_result = await session.execute(
@@ -165,7 +165,7 @@ async def get_room_analytics(
     Get detailed analytics for a specific room
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         from app.dependencies import require_room_access

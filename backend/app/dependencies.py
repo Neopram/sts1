@@ -684,3 +684,178 @@ def get_user_role_permissions(role: str) -> dict:
     }
 
     return permissions.get(role, {})
+
+
+async def get_user_message_visibility(
+    room_id: str, user_email: str, session: AsyncSession
+) -> dict:
+    """
+    Get message visibility rules for a user in a specific room.
+    Returns configuration for what messages the user should see.
+    
+    Args:
+        room_id: Room identifier
+        user_email: User's email address
+        session: Database session
+        
+    Returns:
+        Dictionary with message visibility configuration:
+        {
+            "can_see_room_level": bool,
+            "can_see_vessel_level": bool,
+            "accessible_vessel_ids": list[str],
+            "can_see_all_vessels": bool
+        }
+    """
+    try:
+        from app.models import User, UserRolePermission, UserMessageAccess, Vessel
+        
+        # Get user and their role
+        user_result = await session.execute(
+            select(User).where(User.email == user_email)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            return {
+                "can_see_room_level": False,
+                "can_see_vessel_level": False,
+                "accessible_vessel_ids": [],
+                "can_see_all_vessels": False
+            }
+        
+        # Check for explicit user-specific overrides
+        user_access_result = await session.execute(
+            select(UserMessageAccess).where(
+                UserMessageAccess.user_email == user_email,
+                UserMessageAccess.room_id == room_id
+            )
+        )
+        user_accesses = user_access_result.scalars().all()
+        
+        if user_accesses:
+            # User has explicit permissions configured
+            can_see_room_level = any(
+                ua.access_level in ["room_level", "all"] and ua.vessel_id is None
+                for ua in user_accesses
+            )
+            accessible_vessel_ids = [
+                str(ua.vessel_id) for ua in user_accesses 
+                if ua.vessel_id is not None
+            ]
+            can_see_all_vessels = any(
+                ua.access_level == "all" and ua.vessel_id is None
+                for ua in user_accesses
+            )
+            
+            return {
+                "can_see_room_level": can_see_room_level,
+                "can_see_vessel_level": len(accessible_vessel_ids) > 0 or can_see_all_vessels,
+                "accessible_vessel_ids": accessible_vessel_ids,
+                "can_see_all_vessels": can_see_all_vessels
+            }
+        
+        # Fall back to role-based defaults
+        role_perm_result = await session.execute(
+            select(UserRolePermission).where(UserRolePermission.role == user.role)
+        )
+        role_perm = role_perm_result.scalar_one_or_none()
+        
+        if role_perm:
+            # Get accessible vessels based on role
+            accessible_vessel_ids = await get_user_accessible_vessels(
+                room_id, user_email, session
+            )
+            
+            return {
+                "can_see_room_level": role_perm.can_see_room_level,
+                "can_see_vessel_level": role_perm.can_see_vessel_level,
+                "accessible_vessel_ids": accessible_vessel_ids,
+                "can_see_all_vessels": role_perm.can_see_all_vessels
+            }
+        
+        # Default: everyone sees room-level messages
+        accessible_vessel_ids = await get_user_accessible_vessels(
+            room_id, user_email, session
+        )
+        
+        return {
+            "can_see_room_level": True,
+            "can_see_vessel_level": len(accessible_vessel_ids) > 0,
+            "accessible_vessel_ids": accessible_vessel_ids,
+            "can_see_all_vessels": False
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting user message visibility: {e}")
+        # Default to safe permissions on error
+        return {
+            "can_see_room_level": False,
+            "can_see_vessel_level": False,
+            "accessible_vessel_ids": [],
+            "can_see_all_vessels": False
+        }
+
+
+async def initialize_default_role_permissions(session: AsyncSession) -> None:
+    """
+    Initialize default role-based message permissions if they don't exist.
+    Should be called during application startup.
+    
+    Args:
+        session: Database session
+    """
+    try:
+        from app.models import UserRolePermission
+        
+        default_permissions = {
+            "broker": {
+                "can_see_room_level": True,
+                "can_see_vessel_level": True,
+                "can_see_all_vessels": True,
+            },
+            "owner": {
+                "can_see_room_level": True,
+                "can_see_vessel_level": True,
+                "can_see_all_vessels": False,
+            },
+            "charterer": {
+                "can_see_room_level": True,
+                "can_see_vessel_level": True,
+                "can_see_all_vessels": False,
+            },
+            "seller": {
+                "can_see_room_level": True,
+                "can_see_vessel_level": False,
+                "can_see_all_vessels": False,
+            },
+            "buyer": {
+                "can_see_room_level": True,
+                "can_see_vessel_level": False,
+                "can_see_all_vessels": False,
+            },
+            "viewer": {
+                "can_see_room_level": True,
+                "can_see_vessel_level": False,
+                "can_see_all_vessels": False,
+            },
+        }
+        
+        for role, permissions in default_permissions.items():
+            existing = await session.execute(
+                select(UserRolePermission).where(UserRolePermission.role == role)
+            )
+            if not existing.scalar_one_or_none():
+                role_perm = UserRolePermission(
+                    role=role,
+                    can_see_room_level=permissions["can_see_room_level"],
+                    can_see_vessel_level=permissions["can_see_vessel_level"],
+                    can_see_all_vessels=permissions["can_see_all_vessels"],
+                )
+                session.add(role_perm)
+        
+        await session.commit()
+        logger.info("Initialized default role-based message permissions")
+        
+    except Exception as e:
+        logger.error(f"Error initializing default role permissions: {e}")

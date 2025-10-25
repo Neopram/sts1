@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_async_session
 from app.dependencies import get_current_user, log_activity
 from app.models import (ActivityLog, Approval, Document, DocumentType, Message,
-                        Party, Room, Snapshot, Vessel)
+                        Party, Room, Snapshot, User, Vessel)
 from app.schemas import PartyRole, RoomResponse
 from app.permission_decorators import require_permission
 
@@ -54,7 +54,7 @@ async def get_rooms(
     Get all rooms accessible to the user
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Get all rooms where user is a party
         rooms_result = await session.execute(
@@ -94,7 +94,7 @@ async def get_room(
     Get specific room information
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Get room and verify user access
         room_result = await session.execute(
@@ -141,9 +141,9 @@ async def create_room(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
-        user_name = current_user.get("name", "Unknown User")
+        user_email = current_user.email
+        user_role = current_user.role
+        user_name = current_user.name
 
         # LEVEL 1: AUTHENTICATION - Verify user is authenticated and exists in database
         user_result = await session.execute(
@@ -294,8 +294,8 @@ async def update_room(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -424,8 +424,8 @@ async def delete_room(
         from app.permission_matrix import PermissionMatrix
         from app.models import DocumentVersion
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -614,7 +614,7 @@ async def get_room_parties(
     Get all parties in a room
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         room_result = await session.execute(
@@ -672,8 +672,8 @@ async def add_party_to_room(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -820,8 +820,8 @@ async def remove_party_from_room(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(

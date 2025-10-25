@@ -67,8 +67,8 @@ async def create_multi_vessel_session(
     Create a new multi-vessel STS session with multiple vessel pairs
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # Only brokers and owners can create multi-vessel sessions
         if user_role not in ["broker", "owner"]:
@@ -207,7 +207,7 @@ async def get_room_vessel_pairs(
     Get all vessel pairs for a room
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -264,8 +264,8 @@ async def get_my_vessel_sessions(
     Get vessel sessions where user has vessels involved
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
         user_company = current_user.get("company", "")
 
         # Build query based on user role

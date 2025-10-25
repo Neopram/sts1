@@ -43,7 +43,7 @@ async def get_room_summary(
     """
     try:
         # Verify user has access to room
-        await require_room_access(room_id, current_user["email"], session)
+        await require_room_access(room_id, current_user.email, session)
 
         # Get room information
         room_result = await session.execute(select(Room).where(Room.id == room_id))
@@ -168,7 +168,7 @@ async def upload_document(
     Upload a new document to a room
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
@@ -459,7 +459,7 @@ async def generate_snapshot(
     Generate PDF snapshot of room status
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -644,7 +644,7 @@ async def get_cockpit_summary(
         # For now, return a basic summary
         return {
             "message": "Cockpit summary endpoint",
-            "user": current_user["email"],
+            "user": current_user.email,
             "note": "Full implementation needed for cross-room summary"
         }
     except Exception as e:
@@ -676,7 +676,7 @@ async def get_cockpit_analytics(
             "total_rooms": rooms_count or 0,
             "total_documents": documents_count or 0,
             "document_status_distribution": status_distribution,
-            "user": current_user["email"],
+            "user": current_user.email,
             "generated_at": datetime.utcnow().isoformat()
         }
     except Exception as e:
@@ -735,7 +735,7 @@ async def get_cockpit_alerts(
         return {
             "alerts": alerts,
             "total_alerts": len(alerts),
-            "user": current_user["email"],
+            "user": current_user.email,
             "generated_at": datetime.utcnow().isoformat()
         }
     except Exception as e:

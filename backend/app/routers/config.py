@@ -119,7 +119,7 @@ async def update_feature_flag(
         
         # ===== LEVEL 1: AUTHENTICATION =====
         user_id = current_user.get("user_id")
-        user_email = current_user.get("email", "unknown")
+        user_email = current_user.email
         
         if not user_id:
             logger.warning(f"Missing user_id in token for update_feature_flag")
@@ -135,7 +135,7 @@ async def update_feature_flag(
             raise HTTPException(status_code=401, detail="User not found")
         
         # ===== LEVEL 2: ROLE-BASED PERMISSION =====
-        user_role = user.role or current_user.get("role", "")
+        user_role = user.role or current_user.role
         
         if not PermissionMatrix.has_permission(user_role, "config", "manage_feature_flags"):
             logger.warning(
@@ -256,7 +256,7 @@ async def create_document_type(
         
         # ===== LEVEL 1: AUTHENTICATION =====
         user_id = current_user.get("user_id")
-        user_email = current_user.get("email", "unknown")
+        user_email = current_user.email
         
         if not user_id:
             logger.warning(f"Missing user_id in token for create_document_type")
@@ -272,7 +272,7 @@ async def create_document_type(
             raise HTTPException(status_code=401, detail="User not found")
         
         # ===== LEVEL 2: ROLE-BASED PERMISSION =====
-        user_role = user.role or current_user.get("role", "")
+        user_role = user.role or current_user.role
         
         if not PermissionMatrix.has_permission(user_role, "config", "manage_document_types"):
             logger.warning(
@@ -393,7 +393,7 @@ async def update_document_type(
         
         # ===== LEVEL 1: AUTHENTICATION =====
         user_id = current_user.get("user_id")
-        user_email = current_user.get("email", "unknown")
+        user_email = current_user.email
         
         if not user_id:
             logger.warning(f"Missing user_id in token for update_document_type")
@@ -409,7 +409,7 @@ async def update_document_type(
             raise HTTPException(status_code=401, detail="User not found")
         
         # ===== LEVEL 2: ROLE-BASED PERMISSION =====
-        user_role = user.role or current_user.get("role", "")
+        user_role = user.role or current_user.role
         
         if not PermissionMatrix.has_permission(user_role, "config", "manage_document_types"):
             logger.warning(
@@ -546,7 +546,7 @@ async def delete_document_type(
         
         # ===== LEVEL 1: AUTHENTICATION =====
         user_id = current_user.get("user_id")
-        user_email = current_user.get("email", "unknown")
+        user_email = current_user.email
         
         if not user_id:
             logger.warning(f"Missing user_id in token for delete_document_type")
@@ -562,7 +562,7 @@ async def delete_document_type(
             raise HTTPException(status_code=401, detail="User not found")
         
         # ===== LEVEL 2: ROLE-BASED PERMISSION =====
-        user_role = user.role or current_user.get("role", "")
+        user_role = user.role or current_user.role
         
         if not PermissionMatrix.has_permission(user_role, "config", "manage_document_types"):
             logger.warning(

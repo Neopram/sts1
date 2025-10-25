@@ -33,6 +33,7 @@ const STSClearanceApp: React.FC = () => {
   });
   
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [documentRefreshTrigger, setDocumentRefreshTrigger] = useState(0);
   const [cockpitData, setCockpitData] = useState<any>(null);
   const [vessels, setVessels] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
@@ -294,6 +295,7 @@ const STSClearanceApp: React.FC = () => {
         return (
           <DocumentsPage
             cockpitData={cockpitData}
+            refreshTrigger={documentRefreshTrigger}
             onUploadDocument={() => setShowUploadModal(true)}
             onUpdateDocumentStatus={handleUpdateDocumentStatus}
             onDocumentAction={handleDocumentAction}
@@ -365,8 +367,11 @@ const STSClearanceApp: React.FC = () => {
           isOpen={showUploadModal}
           onClose={() => setShowUploadModal(false)}
           onUploadSuccess={() => {
+            // Refresh all data after document upload
             fetchCockpitData();
             fetchActivities();
+            // Trigger DocumentsPage to refresh its list
+            setDocumentRefreshTrigger(prev => prev + 1);
             setShowUploadModal(false);
           }}
         />

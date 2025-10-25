@@ -21,7 +21,7 @@ class UpdateApprovalRequest(BaseModel):
 from app.database import get_async_session
 from app.dependencies import (get_current_user, log_activity,
                               require_room_access)
-from app.models import Approval, Document, DocumentType, Party, Room
+from app.models import Approval, Document, DocumentType, Party, Room, User
 from app.permission_decorators import require_permission
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ async def get_room_approvals(
         from app.permission_matrix import permission_matrix
         from app.models import User
         
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # 1. VERIFY ROOM ACCESS - Required first checkpoint
         await require_room_access(room_id, user_email, session)
@@ -170,7 +170,7 @@ async def create_approval(
     Permission validation is handled by @require_permission decorator
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room and get their party
         party_result = await session.execute(
@@ -237,7 +237,7 @@ async def get_approval_status(
     Get overall approval status for room
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -324,7 +324,7 @@ async def get_my_approval_status(
     Get current user's approval status for room
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Get user's party in room
         party_result = await session.execute(
@@ -373,7 +373,7 @@ async def revoke_approval(
     Permission validation is handled by @require_permission decorator
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Get user's party in room
         party_result = await session.execute(
@@ -422,7 +422,7 @@ async def get_required_documents_for_approval(
     Get list of required documents that must be approved before room approval
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -484,7 +484,7 @@ async def update_approval(
     Update an approval status
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -508,7 +508,7 @@ async def update_approval(
             raise HTTPException(status_code=404, detail="Approval not found")
 
         # Check if user can update this approval (must be the party or admin/owner)
-        user_role = current_user.get("role", "")
+        user_role = current_user.role
         if approval.party_email != user_email and user_role not in ["admin", "owner"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -527,7 +527,7 @@ async def update_approval(
         await log_activity(
             session=session,
             room_id=room_id,
-            actor=current_user["name"],
+            actor=current_user.name,
             action=f"Updated approval to {update_data.status}",
             meta={"approval_id": approval_id, "status": update_data.status},
         )
@@ -571,7 +571,7 @@ async def update_approval_by_id(
         approval, room, party = approval_row
         
         # Check if user has access to this room
-        await require_room_access(room.id, current_user["email"], session)
+        await require_room_access(room.id, current_user.email, session)
         
         # Update approval
         await session.execute(
@@ -587,7 +587,7 @@ async def update_approval_by_id(
         # Log activity
         await log_activity(
             room_id=room.id,
-            actor=current_user["email"],
+            actor=current_user.email,
             action="approval_updated",
             meta_json={
                 "approval_id": approval_id,

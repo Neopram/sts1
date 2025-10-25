@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_async_session
 from app.dependencies import (get_current_user, log_activity,
                               require_room_access)
-from app.models import Message, Party, Room
+from app.models import Message, Party, Room, User
 from app.websocket_manager import manager
 
 logger = logging.getLogger(__name__)
@@ -225,42 +225,46 @@ async def get_room_messages(
     Get messages for a room, filtered by user's vessel access
     """
     try:
-        user_email = current_user["email"]
+        # current_user is now a User SQLAlchemy object, not a dict
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
 
-        # Get user's accessible vessel IDs
-        from app.dependencies import get_user_accessible_vessels
-        accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
+        # Get user's message visibility permissions (OPTION B - Granular permissions)
+        from app.dependencies import get_user_message_visibility
+        visibility = await get_user_message_visibility(room_id, user_email, session)
 
-        # Build query based on vessel access
-        if accessible_vessel_ids:
-            # User has access to specific vessels - filter messages by vessel
-            messages_result = await session.execute(
-                select(Message)
-                .where(
-                    Message.room_id == room_id,
-                    Message.vessel_id.in_(accessible_vessel_ids)
+        # Build query based on visibility configuration
+        query_filters = [Message.room_id == room_id]
+        
+        if visibility["can_see_all_vessels"]:
+            # User can see all messages (room-level + all vessels)
+            pass  # No additional filter needed
+        elif visibility["can_see_vessel_level"] and visibility["accessible_vessel_ids"]:
+            # User can see room-level + their specific vessels
+            from sqlalchemy import or_
+            query_filters.append(
+                or_(
+                    Message.vessel_id.is_(None),  # Room-level messages
+                    Message.vessel_id.in_(visibility["accessible_vessel_ids"])  # Their vessels
                 )
-                .order_by(desc(Message.created_at))
-                .offset(offset)
-                .limit(limit)
             )
+        elif visibility["can_see_room_level"]:
+            # User can only see room-level messages
+            query_filters.append(Message.vessel_id.is_(None))
         else:
-            # User has no vessel access - return empty list (room-level messages only for brokers)
-            if current_user.get("role") == "broker":
-                # Brokers can see room-level messages
-                messages_result = await session.execute(
-                    select(Message)
-                    .where(Message.room_id == room_id, Message.vessel_id.is_(None))
-                    .order_by(desc(Message.created_at))
-                    .offset(offset)
-                    .limit(limit)
-                )
-            else:
-                # Non-brokers with no vessel access see nothing
-                return []
+            # User has no permission to see any messages
+            return []
+
+        # Execute query with computed filters
+        messages_result = await session.execute(
+            select(Message)
+            .where(*query_filters)
+            .order_by(desc(Message.created_at))
+            .offset(offset)
+            .limit(limit)
+        )
 
         messages = messages_result.scalars().all()
 
@@ -299,8 +303,9 @@ async def send_message(
     Send a message to a room (HTTP endpoint for non-WebSocket clients)
     """
     try:
-        user_email = current_user["email"]
-        user_name = current_user.get("name", "Unknown User")
+        # current_user is now a User SQLAlchemy object, not a dict
+        user_email = current_user.email
+        user_name = current_user.name or "Unknown User"
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -361,7 +366,8 @@ async def mark_message_read(
     Mark a message as read
     """
     try:
-        user_email = current_user["email"]
+        # current_user is now a User SQLAlchemy object, not a dict
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -412,7 +418,7 @@ async def get_unread_message_count(
     Get count of unread messages for current user in a room
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -450,7 +456,7 @@ async def get_online_users(
     Get list of users currently online in a room
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)

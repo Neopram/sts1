@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_async_session
 from app.models import (ActivityLog, Approval, Document, DocumentType,
                         FeatureFlag, Message, Notification, Party, Room,
-                        Snapshot, Vessel)
+                        Snapshot, User, Vessel)
 
 
 async def init_feature_flags(session: AsyncSession):

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_async_session
 from app.dependencies import get_current_user
-from app.models import Document, DocumentType, Message, Party, Room, Vessel
+from app.models import Document, DocumentType, Message, Party, Room, User, Vessel
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ async def global_search(
     Global search across all user-accessible content
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Get user's accessible room IDs
         user_rooms_result = await session.execute(
@@ -215,7 +215,7 @@ async def search_rooms(
     Search specifically in rooms
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Get user's accessible room IDs
         user_rooms_result = await session.execute(
@@ -302,7 +302,7 @@ async def search_documents(
     Search specifically in documents
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Get user's accessible room IDs
         user_rooms_result = await session.execute(
@@ -380,7 +380,7 @@ async def get_search_suggestions(
     Get search suggestions based on partial query
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Get user's accessible room IDs
         user_rooms_result = await session.execute(

@@ -58,7 +58,7 @@ async def get_approval_matrix(
     Get the complete approval matrix for a room showing vessel-specific approval status
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -173,8 +173,8 @@ async def bulk_approve_vessels(
     Bulk approve or reject multiple vessels in a room
     """
     try:
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # Only brokers and owners can do bulk approvals
         if user_role not in ["broker", "owner"]:
@@ -257,7 +257,7 @@ async def get_vessel_approval_details(
     Get detailed approval information for a specific vessel
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)

@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.database import close_db, get_async_session_factory, init_db
 from app.database_optimization import DatabaseOptimizer
+from app.init_data import main as init_data
 from app.middleware.auth import AuthMiddleware
 from app.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
 from app.middleware.caching import get_cache_stats, clear_cache
@@ -192,6 +193,13 @@ async def startup_event():
         # Initialize database
         await init_db()
         logging.info("Database initialized successfully")
+
+        # Initialize sample data
+        try:
+            await init_data()
+            logging.info("Sample data initialized successfully")
+        except Exception as e:
+            logging.warning(f"Could not initialize sample data: {e}")
 
         # Initialize Redis connection
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")

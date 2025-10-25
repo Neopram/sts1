@@ -3,13 +3,20 @@ import { Eye, Check, X, Clock, AlertTriangle, FileText, Upload, Edit3, RefreshCw
 import { Document } from '../../types/api';
 import { useApp } from '../../contexts/AppContext';
 import ApiService from '../../api';
+import { DocumentPreviewViewer } from '../DocumentPreviewViewer';
 
 interface DocumentsPageProps {
   onUploadDocument: () => void;
+  refreshTrigger?: number;
+  cockpitData?: any;
+  onUpdateDocumentStatus?: (documentId: string, status: string) => void;
+  onDocumentAction?: (documentId: string, action: string) => void;
+  onViewDocument?: (documentId: string) => void;
 }
 
 export const DocumentsPage: React.FC<DocumentsPageProps> = ({
-  onUploadDocument
+  onUploadDocument,
+  refreshTrigger = 0
 }) => {
   const { currentRoomId } = useApp();
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -26,6 +33,10 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
   const [filterType, setFilterType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'preview'>('details');
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   // Load documents from API
   const loadDocuments = async () => {
@@ -90,6 +101,23 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
       setError('Failed to process document action. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load document preview
+  const loadDocumentPreview = async (documentId: string) => {
+    if (!currentRoomId) return;
+
+    try {
+      setPreviewLoading(true);
+      setPreviewError(null);
+      const blob = await ApiService.downloadDocument(currentRoomId, documentId);
+      setPreviewBlob(blob);
+    } catch (err) {
+      console.error('Error loading document preview:', err);
+      setPreviewError('Failed to load document preview. Please try again.');
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -162,10 +190,10 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
     };
   }, [filteredDocuments]);
 
-  // Load data on component mount
+  // Load data on component mount and when refreshTrigger changes
   useEffect(() => {
     loadDocuments();
-  }, [currentRoomId]);
+  }, [currentRoomId, refreshTrigger]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -507,8 +535,8 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
           {/* Document Details Modal */}
           {showDocumentModal && (selectedDocument || editingDocument) && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50] p-6">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
-                <div className="card-header">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="card-header border-b border-secondary-200">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-secondary-900">
                       {editingDocument ? 'Edit Document' : 'Document Details'}
@@ -519,92 +547,137 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
                         setSelectedDocument(null);
                         setEditingDocument(null);
                         setEditForm({ notes: '', expiresOn: '' });
+                        setActiveTab('details');
+                        setPreviewBlob(null);
+                        setPreviewError(null);
                       }}
                       className="p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 rounded-xl transition-colors duration-200"
                     >
                       <X className="w-5 h-5" />
                     </button>
                   </div>
+
+                  {!editingDocument && selectedDocument && (
+                    <div className="flex gap-4 mt-4 border-t border-secondary-100 pt-4">
+                      <button
+                        onClick={() => setActiveTab('details')}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                          activeTab === 'details'
+                            ? 'bg-blue-100 text-blue-700 border-b-2 border-blue-500'
+                            : 'text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100'
+                        }`}
+                      >
+                        Details
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveTab('preview');
+                          if (!previewBlob) {
+                            loadDocumentPreview(selectedDocument.id);
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                          activeTab === 'preview'
+                            ? 'bg-blue-100 text-blue-700 border-b-2 border-blue-500'
+                            : 'text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100'
+                        }`}
+                      >
+                        Preview
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <div className="card-body overflow-y-auto">
+                <div className="flex-1 overflow-hidden flex flex-col">
                   {editingDocument ? (
-                    <div className="space-y-6">
-                      <div className="form-group">
-                        <label className="form-label">Notes</label>
-                        <textarea
-                          value={editForm.notes}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
-                          rows={3}
-                          className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Add notes about this document..."
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Expires On (Optional)</label>
-                        <input
-                          type="date"
-                          value={editForm.expiresOn}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, expiresOn: e.target.value }))}
-                          className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-                    </div>
-                  ) : selectedDocument ? (
-                    <div className="space-y-6">
-                      <div className="form-group">
-                        <label className="form-label">Document Type</label>
-                        <p className="text-secondary-900 font-medium">{selectedDocument.type_name}</p>
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Status</label>
-                        <span className={`inline-block ${getStatusColor(selectedDocument.status)}`}>
-                          {getStatusIcon(selectedDocument.status)}
-                          {selectedDocument.status?.replace('_', ' ')}
-                        </span>
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Priority</label>
-                        <span className={`inline-block ${getCriticalityColor(selectedDocument.criticality)}`}>
-                          {selectedDocument.criticality} priority
-                        </span>
-                      </div>
-
-                      {selectedDocument.expires_on && (
-                        <div className="form-group">
-                          <label className="form-label">Expires On</label>
-                          <p className="text-secondary-900 font-medium">{new Date(selectedDocument.expires_on).toLocaleDateString()}</p>
-                        </div>
-                      )}
-
-                      {selectedDocument.notes && (
+                    <div className="card-body overflow-y-auto">
+                      <div className="space-y-6">
                         <div className="form-group">
                           <label className="form-label">Notes</label>
-                          <p className="text-secondary-900 bg-secondary-50 p-4 rounded-xl border border-secondary-200">{selectedDocument.notes}</p>
+                          <textarea
+                            value={editForm.notes}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Add notes about this document..."
+                          />
                         </div>
-                      )}
 
-                      {selectedDocument.uploaded_by && (
                         <div className="form-group">
-                          <label className="form-label">Uploaded By</label>
-                          <p className="text-secondary-900 font-medium">{selectedDocument.uploaded_by}</p>
+                          <label className="form-label">Expires On (Optional)</label>
+                          <input
+                            type="date"
+                            value={editForm.expiresOn}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, expiresOn: e.target.value }))}
+                            className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
                         </div>
-                      )}
+                      </div>
+                    </div>
+                  ) : activeTab === 'preview' ? (
+                    <div className="flex-1 overflow-hidden p-4">
+                      <DocumentPreviewViewer
+                        fileBlob={previewBlob}
+                        loading={previewLoading}
+                        error={previewError}
+                      />
+                    </div>
+                  ) : selectedDocument ? (
+                    <div className="card-body overflow-y-auto">
+                      <div className="space-y-6">
+                        <div className="form-group">
+                          <label className="form-label">Document Type</label>
+                          <p className="text-secondary-900 font-medium">{selectedDocument.type_name}</p>
+                        </div>
 
-                      {selectedDocument.uploaded_at && (
                         <div className="form-group">
-                          <label className="form-label">Uploaded At</label>
-                          <p className="text-secondary-900 font-medium">{new Date(selectedDocument.uploaded_at).toLocaleString()}</p>
+                          <label className="form-label">Status</label>
+                          <span className={`inline-block ${getStatusColor(selectedDocument.status)}`}>
+                            {getStatusIcon(selectedDocument.status)}
+                            {selectedDocument.status?.replace('_', ' ')}
+                          </span>
                         </div>
-                      )}
+
+                        <div className="form-group">
+                          <label className="form-label">Priority</label>
+                          <span className={`inline-block ${getCriticalityColor(selectedDocument.criticality)}`}>
+                            {selectedDocument.criticality} priority
+                          </span>
+                        </div>
+
+                        {selectedDocument.expires_on && (
+                          <div className="form-group">
+                            <label className="form-label">Expires On</label>
+                            <p className="text-secondary-900 font-medium">{new Date(selectedDocument.expires_on).toLocaleDateString()}</p>
+                          </div>
+                        )}
+
+                        {selectedDocument.notes && (
+                          <div className="form-group">
+                            <label className="form-label">Notes</label>
+                            <p className="text-secondary-900 bg-secondary-50 p-4 rounded-xl border border-secondary-200">{selectedDocument.notes}</p>
+                          </div>
+                        )}
+
+                        {selectedDocument.uploaded_by && (
+                          <div className="form-group">
+                            <label className="form-label">Uploaded By</label>
+                            <p className="text-secondary-900 font-medium">{selectedDocument.uploaded_by}</p>
+                          </div>
+                        )}
+
+                        {selectedDocument.uploaded_at && (
+                          <div className="form-group">
+                            <label className="form-label">Uploaded At</label>
+                            <p className="text-secondary-900 font-medium">{new Date(selectedDocument.uploaded_at).toLocaleString()}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : null}
                 </div>
 
-                <div className="card-footer">
+                <div className="card-footer border-t border-secondary-200">
                   <div className="flex gap-6">
                     <button
                       onClick={() => {
@@ -612,6 +685,9 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
                         setSelectedDocument(null);
                         setEditingDocument(null);
                         setEditForm({ notes: '', expiresOn: '' });
+                        setActiveTab('details');
+                        setPreviewBlob(null);
+                        setPreviewError(null);
                       }}
                       className="btn-secondary flex-1"
                     >

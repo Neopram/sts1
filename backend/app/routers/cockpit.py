@@ -12,12 +12,13 @@ from fastapi import (APIRouter, Depends, File, Form, HTTPException, UploadFile,
                      status)
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select, update, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_async_session
 from app.dependencies import (cockpit_enabled, get_current_user, log_activity,
                               require_owner_permission, require_room_access)
-from app.models import Document, DocumentType, DocumentVersion, Room
+from app.models import Document, DocumentType, DocumentVersion, Room, User
 from app.schemas import (DocumentResponse, DocumentTypeResponse,
                          DocumentUpdateRequest, DocumentUploadRequest,
                          RoomSummaryResponse)
@@ -50,7 +51,7 @@ async def get_room_summary(
         from app.models import User, Vessel
         from app.dependencies import get_user_accessible_vessels
         
-        user_email = current_user["email"]
+        user_email = current_user.email
         
         # 1. VERIFY ROOM ACCESS
         await require_room_access(room_id, user_email, session)
@@ -253,8 +254,12 @@ async def upload_document(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        logger.debug(f"[UPLOAD] Starting document upload to room {room_id}")
+        logger.debug(f"[UPLOAD] Form data - file: {file.filename}, document_type: {document_type}, notes: {notes is not None}, expires_on: {expires_on}")
+        
+        user_email = current_user.email
+        user_role = current_user.role
+        logger.debug(f"[UPLOAD] User: {user_email}, Role: {user_role}")
 
         # LEVEL 1: AUTHENTICATION - Verify user is authenticated
         if not user_email:
@@ -263,11 +268,15 @@ async def upload_document(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not authenticated",
             )
+        logger.debug(f"[UPLOAD] Level 1 PASS: User authenticated ({user_email})")
 
         # LEVEL 2: ROOM ACCESS - Verify user has access to room
+        logger.debug(f"[UPLOAD] Level 2: Checking room access for {user_email} in room {room_id}")
         await require_room_access(room_id, user_email, session)
+        logger.debug(f"[UPLOAD] Level 2 PASS: User has room access")
 
         # LEVEL 3: ROLE-BASED PERMISSION - Check against permission_matrix
+        logger.debug(f"[UPLOAD] Level 3: Checking permission - role {user_role} for documents.upload")
         if not PermissionMatrix.has_permission(user_role, "documents", "upload"):
             logger.warning(
                 f"Unauthorized document upload attempt by {user_email} with role {user_role}"
@@ -276,9 +285,12 @@ async def upload_document(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Role '{user_role}' cannot upload documents. Allowed roles: owner, broker, charterer, seller, buyer.",
             )
+        logger.debug(f"[UPLOAD] Level 3 PASS: User has documents.upload permission")
 
         # LEVEL 4: DATA SCOPE - Validate file type and content
+        logger.debug(f"[UPLOAD] Level 4: Validating file - filename: {file.filename}, content_type: {file.content_type}, size: {file.size}")
         if not file.filename or not file.content_type:
+            logger.error(f"[UPLOAD] Level 4 FAIL: Missing filename or content_type")
             raise HTTPException(status_code=400, detail="Invalid file")
         
         # Validate file size (max 100MB)
@@ -298,40 +310,52 @@ async def upload_document(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid filename",
             )
+        logger.debug(f"[UPLOAD] Level 4 PASS: File validation complete")
 
         # Get document type and validate it exists
+        logger.debug(f"[UPLOAD] Level 4b: Validating document_type code: {document_type}")
         doc_type_result = await session.execute(
             select(DocumentType).where(DocumentType.code == document_type)
         )
         doc_type = doc_type_result.scalar_one_or_none()
 
         if not doc_type:
+            logger.error(f"[UPLOAD] Level 4b FAIL: Document type not found - code: {document_type}")
+            logger.error(f"[UPLOAD] Available document types in DB: {[dt.code for dt in await session.execute(select(DocumentType))]}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid document type: {document_type}",
             )
+        logger.debug(f"[UPLOAD] Level 4b PASS: Document type found - id: {doc_type.id}")
 
         # Parse and validate expiry date if provided
         expiry_date = None
         if expires_on:
+            logger.debug(f"[UPLOAD] Level 4c: Validating expiry date: {expires_on}")
             try:
                 expiry_date = datetime.fromisoformat(expires_on.replace("Z", "+00:00"))
                 # Validate date is in the future
                 if expiry_date < datetime.utcnow():
+                    logger.error(f"[UPLOAD] Level 4c FAIL: Expiry date is in the past: {expiry_date}")
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Expiry date must be in the future",
                     )
-            except ValueError:
+                logger.debug(f"[UPLOAD] Level 4c PASS: Valid expiry date: {expiry_date}")
+            except ValueError as ve:
+                logger.error(f"[UPLOAD] Level 4c FAIL: Invalid date format: {expires_on} - Error: {ve}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid expiry date format (use ISO 8601)",
                 )
 
         # Store file
-        file_url = await storage_service.store_file(file, room_id)
+        logger.debug(f"[UPLOAD] Level 5a: Storing file to storage service")
+        file_url, sha256_hash, size_bytes = await storage_service.store_file(file, room_id)
+        logger.debug(f"[UPLOAD] Level 5a PASS: File stored at {file_url} (size: {size_bytes}, sha256: {sha256_hash[:16]}...)")
 
         # Create document record with atomic transaction
+        logger.debug(f"[UPLOAD] Level 5b: Creating document record in database")
         async with session.begin_nested():
             document = Document(
                 room_id=room_id,
@@ -345,18 +369,20 @@ async def upload_document(
 
             session.add(document)
             await session.flush()  # Get the document ID
+            logger.debug(f"[UPLOAD] Document created with ID: {document.id}")
 
             # Create document version
             version = DocumentVersion(
                 document_id=document.id,
                 file_url=file_url,
-                sha256=await storage_service.calculate_sha256(file),
-                size_bytes=file.size,
+                sha256=sha256_hash,
+                size_bytes=size_bytes,
                 mime=file.content_type,
             )
 
             session.add(version)
             await session.commit()
+            logger.debug(f"[UPLOAD] Level 5b PASS: Document and version created successfully")
 
         # LEVEL 5: AUDIT LOGGING - Complete audit trail with context
         await log_activity(
@@ -380,10 +406,14 @@ async def upload_document(
         }
 
     except HTTPException:
+        logger.debug(f"[UPLOAD] HTTPException raised - will be returned to client")
         raise
     except Exception as e:
-        logger.error(f"Error uploading document: {e}")
-        await session.rollback()
+        logger.error(f"[UPLOAD] UNEXPECTED ERROR uploading document: {type(e).__name__}: {e}", exc_info=True)
+        try:
+            await session.rollback()
+        except:
+            pass
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -409,8 +439,8 @@ async def update_document(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION - Verify user is authenticated
         if not user_email:
@@ -537,8 +567,8 @@ async def get_document(
         from app.permission_matrix import PermissionMatrix
         from app.dependencies import get_user_accessible_vessels
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION - Verify user is authenticated
         if not user_email:
@@ -566,30 +596,21 @@ async def get_document(
         accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
 
         # Get document - must be room-level OR belong to an accessible vessel
+        access_condition = (Document.vessel_id.is_(None))
+        if accessible_vessel_ids:
+            access_condition = access_condition | (Document.vessel_id.in_(accessible_vessel_ids))
+        
         doc_result = await session.execute(
-            select(
-                Document.id,
-                Document.vessel_id,
-                Document.status,
-                Document.expires_on,
-                Document.uploaded_by,
-                Document.uploaded_at,
-                Document.notes,
-                DocumentType.code.label("type_code"),
-                DocumentType.name.label("type_name"),
-                DocumentType.required,
-                DocumentType.criticality,
-            )
-            .join(DocumentType)
+            select(Document)
+            .options(selectinload(Document.document_type))
             .where(
                 Document.id == document_id,
                 Document.room_id == room_id,
-                # Allow if: room-level doc (vessel_id is None) OR user has vessel access
-                (Document.vessel_id.is_(None)) | (Document.vessel_id.in_(accessible_vessel_ids)) if accessible_vessel_ids else (Document.vessel_id.is_(None))
+                access_condition
             )
         )
 
-        document = doc_result.scalar_one_or_none()
+        document = doc_result.unique().scalar_one_or_none()
         if not document:
             logger.warning(
                 f"Unauthorized document access attempt by {user_email} (document {document_id} not accessible)"
@@ -602,22 +623,26 @@ async def get_document(
         # Convert to response format
         doc_dict = {
             "id": document.id,
-            "type_code": document.type_code,
-            "type_name": document.type_name,
+            "type_code": document.document_type.code,
+            "type_name": document.document_type.name,
             "status": document.status,
             "expires_on": document.expires_on,
             "uploaded_by": document.uploaded_by,
             "uploaded_at": document.uploaded_at,
             "notes": document.notes,
-            "required": document.required,
-            "criticality": document.criticality,
-            "criticality_score": criticality_scorer.calculate_document_score(
-                DocumentResponse(**doc_dict)
-            ),
+            "required": document.document_type.required,
+            "criticality": document.document_type.criticality,
+            "criticality_score": 0,  # Placeholder, will be calculated
         }
 
+        # Create response object first
+        response = DocumentResponse(**doc_dict)
+        
+        # Calculate criticality score
+        response.criticality_score = criticality_scorer.calculate_document_score(response)
+
         # LEVEL 5: AUDIT LOGGING - Log sensitive document view (if critical)
-        if document.criticality in ["high", "critical"]:
+        if document.document_type.criticality in ["high", "critical"]:
             await log_activity(
                 session=session,
                 room_id=room_id,
@@ -625,13 +650,13 @@ async def get_document(
                 action="document_viewed",
                 meta={
                     "document_id": document_id,
-                    "criticality": document.criticality,
-                    "type": document.type_code,
+                    "criticality": document.document_type.criticality,
+                    "type": document.document_type.code,
                     "viewer_role": user_role,
                 },
             )
 
-        return DocumentResponse(**doc_dict)
+        return response
 
     except HTTPException:
         raise
@@ -644,7 +669,7 @@ async def get_document(
 async def download_document(
     room_id: str,
     document_id: str,
-    user_email: str = "demo@example.com",  # TODO: Get from auth
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
     _: bool = Depends(cockpit_enabled),
 ):
@@ -652,32 +677,93 @@ async def download_document(
     Download a specific document file
     """
     try:
+        user_email = current_user.email
+        
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
+
+        # Import here to avoid circular imports
+        from app.dependencies import get_user_accessible_vessels
+        
+        # Get user's accessible vessel IDs
+        accessible_vessel_ids = await get_user_accessible_vessels(room_id, user_email, session)
+
+        # Verify user can access this specific document
+        access_condition = (Document.vessel_id.is_(None))
+        if accessible_vessel_ids:
+            access_condition = access_condition | (Document.vessel_id.in_(accessible_vessel_ids))
+        
+        doc_result = await session.execute(
+            select(Document)
+            .where(
+                Document.id == document_id,
+                Document.room_id == room_id,
+                access_condition
+            )
+        )
+        
+        document = doc_result.scalar_one_or_none()
+        if not document:
+            logger.warning(
+                f"Unauthorized document download attempt by {user_email} (document {document_id} not accessible)"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Document not accessible to you",
+            )
 
         # Get document version
         version_result = await session.execute(
             select(DocumentVersion)
-            .join(Document)
-            .where(
-                DocumentVersion.document_id == document_id, Document.room_id == room_id
-            )
+            .where(DocumentVersion.document_id == document_id)
+            .order_by(DocumentVersion.created_at.desc())
         )
-        version = version_result.scalar_one_or_none()
+        version = version_result.scalars().first()
 
         if not version:
             raise HTTPException(status_code=404, detail="Document version not found")
 
         # Get file from storage
         file_data = await storage_service.get_file(version.file_url)
+        
+        if not file_data:
+            raise HTTPException(status_code=404, detail="File not found in storage")
+        
+        # Handle both Path (local) and bytes (S3) return types
+        from pathlib import Path
+        
+        # Check if file_data is a path-like object (Path or string path)
+        if isinstance(file_data, (Path, str)) or hasattr(file_data, 'read_bytes'):
+            # It's a local file path - read bytes
+            file_path = file_data if isinstance(file_data, Path) else Path(file_data)
+            try:
+                with open(file_path, "rb") as f:
+                    file_bytes = f.read()
+            except Exception as e:
+                logger.error(f"Failed to read file {file_path}: {e}")
+                raise HTTPException(status_code=500, detail="Failed to read file")
+        elif isinstance(file_data, bytes):
+            # Already bytes from S3 or other storage
+            file_bytes = file_data
+        else:
+            # Try to convert to bytes as last resort
+            try:
+                file_bytes = bytes(file_data)
+            except Exception as e:
+                logger.error(f"Invalid file data type: {type(file_data)}, error: {e}")
+                raise HTTPException(status_code=500, detail="Failed to process file")
 
         # Log download activity
         await log_activity(
-            room_id, user_email, "document_downloaded", {"document_id": document_id}
+            session=session,
+            room_id=room_id,
+            actor=user_email,
+            action="document_downloaded",
+            meta={"document_id": document_id}
         )
 
         return StreamingResponse(
-            io.BytesIO(file_data),
+            io.BytesIO(file_bytes),
             media_type=version.mime,
             headers={
                 "Content-Disposition": f"attachment; filename=document_{document_id}"
@@ -730,7 +816,7 @@ async def generate_snapshot(
     Generate PDF snapshot of room status
     """
     try:
-        user_email = current_user["email"]
+        user_email = current_user.email
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -838,8 +924,8 @@ async def approve_document(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION - Verify user is authenticated
         if not user_email:
@@ -941,8 +1027,8 @@ async def reject_document(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION - Verify user is authenticated
         if not user_email:
@@ -1050,7 +1136,7 @@ async def get_cockpit_summary(
         # For now, return a basic summary
         return {
             "message": "Cockpit summary endpoint",
-            "user": current_user["email"],
+            "user": current_user.email,
             "note": "Full implementation needed for cross-room summary"
         }
     except Exception as e:
@@ -1080,8 +1166,8 @@ async def get_cockpit_analytics(
         from app.permission_matrix import PermissionMatrix
         from app.models import Party
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION - Verify user is authenticated
         if not user_email:
@@ -1201,8 +1287,8 @@ async def get_cockpit_alerts(
     try:
         from app.models import Party
         
-        user_email = current_user["email"]
-        user_role = current_user.get("role", "")
+        user_email = current_user.email
+        user_role = current_user.role
 
         # LEVEL 1: AUTHENTICATION - Verify user is authenticated
         if not user_email:
