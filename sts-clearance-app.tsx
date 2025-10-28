@@ -9,6 +9,7 @@ import { ApprovalPage } from './src/components/Pages/ApprovalPage';
 import { ActivityPage } from './src/components/Pages/ActivityPage';
 import { HistoryPage } from './src/components/Pages/HistoryPage';
 import { MessagesPage } from './src/components/Pages/MessagesPage';
+import { MissingDocumentsPage } from './src/components/Pages/MissingDocumentsPage';
 import { UploadModal } from './src/components/Modals/UploadModal';
 import LoginPage from './src/components/Pages/LoginPage';
 import ApiService from './src/api';
@@ -38,10 +39,12 @@ const STSClearanceApp: React.FC = () => {
   const [vessels, setVessels] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [missingDocuments, setMissingDocuments] = useState<any>(null);
 
   const tabs = [
     { id: 'overview', label: 'Overview', badge: undefined },
     { id: 'documents', label: 'Documents', badge: cockpitData?.missingDocuments?.length || 0 },
+    { id: 'missing', label: 'Missing Docs', badge: missingDocuments?.summary?.criticalCount || 0, highlight: missingDocuments?.summary?.criticalCount > 0 },
     { id: 'approval', label: 'Approval', badge: cockpitData?.pendingApprovals?.length || 0 },
     { id: 'activity', label: 'Activity', badge: undefined },
     { id: 'history', label: 'History', badge: undefined },
@@ -93,6 +96,18 @@ const STSClearanceApp: React.FC = () => {
       setMessages(data);
     } catch (err) {
       console.error('Error fetching messages:', err);
+    }
+  };
+
+  // Fetch missing documents
+  const fetchMissingDocuments = async () => {
+    if (!currentRoomId) return;
+    
+    try {
+      const data = await ApiService.getMissingDocuments([currentRoomId]);
+      setMissingDocuments(data);
+    } catch (err) {
+      console.error('Error fetching missing documents:', err);
     }
   };
 
@@ -167,6 +182,7 @@ const STSClearanceApp: React.FC = () => {
         fetchVessels();
         fetchActivities();
         fetchMessages();
+        fetchMissingDocuments();
       }
     };
 
@@ -176,6 +192,7 @@ const STSClearanceApp: React.FC = () => {
       setVessels([]);
       setActivities([]);
       setMessages([]);
+      setMissingDocuments(null);
       setShowUploadModal(false);
     };
 
@@ -195,6 +212,7 @@ const STSClearanceApp: React.FC = () => {
       fetchVessels();
       fetchActivities();
       fetchMessages();
+      fetchMissingDocuments();
     }
   }, [currentRoomId]);
 
@@ -302,6 +320,12 @@ const STSClearanceApp: React.FC = () => {
             onViewDocument={handleViewDocument}
           />
         );
+      case 'missing':
+        return (
+          <MissingDocumentsPage
+            onUploadDocument={() => setShowUploadModal(true)}
+          />
+        );
       case 'approval':
         return (
           <ApprovalPage />
@@ -335,7 +359,7 @@ const STSClearanceApp: React.FC = () => {
   };
 
   // Check if current path is a tab path
-  const isTabPath = ['overview', 'documents', 'approval', 'activity', 'history', 'messages'].includes(location.pathname.slice(1));
+  const isTabPath = ['overview', 'documents', 'missing', 'approval', 'activity', 'history', 'messages'].includes(location.pathname.slice(1));
 
   return (
     <div className="min-h-screen bg-secondary-50">

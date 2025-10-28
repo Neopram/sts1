@@ -4,8 +4,9 @@ import ApiService from '../api';
 
 interface User {
   email: string;
-  role: 'owner' | 'charterer' | 'broker' | 'viewer';
+  role: 'owner' | 'charterer' | 'broker' | 'viewer' | 'seller' | 'buyer' | 'admin';
   name: string;
+  company?: string;
   vesselImos?: string[]; // IMOs of vessels this user owns/charters
 }
 
@@ -14,7 +15,77 @@ interface Room {
   title: string;
   location: string;
   sts_eta: string;
+  status?: 'active' | 'completed' | 'scheduled';
+  created_by?: string;
+  description?: string;
 }
+
+// Permission matrix for role-based access
+const PERMISSION_MATRIX = {
+  admin: {
+    create_operation: true,
+    view_all_operations: true,
+    edit_operation: true,
+    delete_operation: true,
+    approve_documents: true,
+    manage_users: true,
+    view_analytics: true,
+  },
+  broker: {
+    create_operation: true,
+    view_all_operations: true,
+    edit_operation: true,
+    delete_operation: true,
+    approve_documents: true,
+    manage_users: false,
+    view_analytics: true,
+  },
+  owner: {
+    create_operation: false,
+    view_all_operations: false,
+    edit_operation: false,
+    delete_operation: false,
+    approve_documents: true,
+    manage_users: false,
+    view_analytics: false,
+  },
+  charterer: {
+    create_operation: false,
+    view_all_operations: false,
+    edit_operation: false,
+    delete_operation: false,
+    approve_documents: false,
+    manage_users: false,
+    view_analytics: false,
+  },
+  seller: {
+    create_operation: false,
+    view_all_operations: false,
+    edit_operation: false,
+    delete_operation: false,
+    approve_documents: false,
+    manage_users: false,
+    view_analytics: false,
+  },
+  buyer: {
+    create_operation: false,
+    view_all_operations: false,
+    edit_operation: false,
+    delete_operation: false,
+    approve_documents: false,
+    manage_users: false,
+    view_analytics: false,
+  },
+  viewer: {
+    create_operation: false,
+    view_all_operations: false,
+    edit_operation: false,
+    delete_operation: false,
+    approve_documents: false,
+    manage_users: false,
+    view_analytics: false,
+  },
+};
 
 interface AppContextType {
   user: User | null;
@@ -28,6 +99,8 @@ interface AppContextType {
   refreshData: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  hasPermission: (action: keyof typeof PERMISSION_MATRIX['admin']) => boolean;
+  canAccessRoom: (roomId: string) => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -167,6 +240,21 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     localStorage.setItem('app-language', lang);
   };
 
+  const hasPermission = (action: keyof typeof PERMISSION_MATRIX['admin']): boolean => {
+    if (!user) return false;
+    const userPermissions = PERMISSION_MATRIX[user.role as keyof typeof PERMISSION_MATRIX];
+    return userPermissions ? userPermissions[action] : false;
+  };
+
+  const canAccessRoom = (roomId: string): boolean => {
+    // Admin and Broker can access all rooms
+    if (user?.role === 'admin' || user?.role === 'broker') return true;
+    
+    // Other roles can only access rooms they're invited to
+    const room = rooms.find(r => r.id === roomId);
+    return !!room;
+  };
+
   // Auto-login on app start if token exists
   useEffect(() => {
     const autoLogin = async () => {
@@ -198,7 +286,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setLanguage: setLanguageAndPersist,
     refreshData,
     login,
-    logout
+    logout,
+    hasPermission,
+    canAccessRoom
   };
 
   return (

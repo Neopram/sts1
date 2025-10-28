@@ -718,6 +718,58 @@ class ApiService {
       throw error;
     }
   }
+
+  // Missing Documents methods
+  static async getMissingDocuments(roomIds?: string[], vesselIds?: string[]): Promise<any> {
+    try {
+      const service = new ApiService();
+      const params = new URLSearchParams();
+      
+      if (roomIds && roomIds.length > 0) {
+        roomIds.forEach(id => params.append('room_ids', id));
+      }
+      
+      if (vesselIds && vesselIds.length > 0) {
+        vesselIds.forEach(id => params.append('vessel_ids', id));
+      }
+      
+      const queryString = params.toString();
+      const url = `/api/v1/missing-documents/overview${queryString ? '?' + queryString : ''}`;
+      const response = await service.request(url);
+      console.log('getMissingDocuments response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in getMissingDocuments:', error);
+      throw error;
+    }
+  }
+
+  static async getMissingDocumentsConfig(): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request('/api/v1/missing-documents/config');
+      console.log('getMissingDocumentsConfig response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in getMissingDocumentsConfig:', error);
+      throw error;
+    }
+  }
+
+  static async updateMissingDocumentsConfig(config: any): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request('/api/v1/missing-documents/config', {
+        method: 'PUT',
+        body: JSON.stringify(config)
+      });
+      console.log('updateMissingDocumentsConfig response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in updateMissingDocumentsConfig:', error);
+      throw error;
+    }
+  }
 }
 
 // Export the class

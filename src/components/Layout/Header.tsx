@@ -11,7 +11,9 @@ import {
   CheckCircle,
   AlertTriangle,
   Plus,
-  Ship
+  Ship,
+  Sparkles,
+  Shield
 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -33,6 +35,9 @@ const Header: React.FC = () => {
 
   // Check if user is authenticated
   const isAuthenticated = !!(user && localStorage.getItem('auth-token'));
+  
+  // Animation state
+  const [showAnimation, setShowAnimation] = useState(true);
   
   // Create room modal state
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
@@ -152,26 +157,31 @@ const Header: React.FC = () => {
   }, [logoutError]);
 
   return (
-    <header className="bg-white shadow-card border-b border-secondary-200/50 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-200/50 shadow-sm hover:shadow-md transition-shadow duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo and Brand */}
+          {/* Logo and Brand - Premium */}
           <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-sm">STS</span>
+            <div className="flex-shrink-0 flex items-center space-x-3 group cursor-pointer" onClick={() => navigate('/')}>
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110">
+                <span className="text-white font-bold text-sm flex items-center justify-center">
+                  <Ship className="w-5 h-5" />
+                </span>
               </div>
-              <h1 className="text-xl font-bold text-secondary-900">Clearance Hub</h1>
+              <div className="hidden sm:block">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">STS Clearance</h1>
+                <p className="text-xs text-gray-500">Enterprise Hub</p>
+              </div>
             </div>
           </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-3">
-            {/* Create Room Button */}
+            {/* Create Room Button - Premium */}
             {isAuthenticated && (
               <button
                 onClick={() => setShowCreateRoomModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-colors duration-200 font-medium shadow-sm"
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-semibold shadow-md transform hover:scale-105 active:scale-95"
                 title="Create New Operation"
               >
                 <Plus className="w-4 h-4" />
@@ -182,16 +192,16 @@ const Header: React.FC = () => {
             {/* Global Search */}
             <GlobalSearch />
 
-            {/* Language Selector */}
+            {/* Language Selector - Premium */}
             <div className="relative">
               <button
                 ref={languageButtonRef}
                 onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-secondary-700 hover:text-secondary-900 hover:bg-secondary-100 rounded-xl transition-colors duration-200"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-xl transition-all duration-200 font-medium shadow-sm hover:shadow-md"
               >
                 <span className="text-lg leading-none">{getCurrentLanguage().flag}</span>
-                <span className="font-medium">{getCurrentLanguage().code.toUpperCase()}</span>
-                <ChevronDown className="w-4 h-4" />
+                <span>{getCurrentLanguage().code.toUpperCase()}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
               </button>
 
               <LanguageDropdown 
@@ -203,17 +213,17 @@ const Header: React.FC = () => {
               />
             </div>
 
-            {/* Notifications */}
+            {/* Notifications - Premium */}
             <div className="relative">
               <button
                 ref={notificationButtonRef}
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2.5 text-secondary-500 hover:text-secondary-700 hover:bg-secondary-100 rounded-xl transition-colors duration-200"
+                className="relative p-2.5 text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                 title="Notifications"
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-danger-500 text-xs font-medium text-white ring-2 ring-white">
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white ring-2 ring-white animate-pulse">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -226,31 +236,29 @@ const Header: React.FC = () => {
               />
             </div>
 
-            {/* Help & Support */}
+            {/* Help & Support - Premium */}
             <div className="relative">
               <button
                 onClick={() => navigate('/help')}
-                className="p-2.5 text-secondary-500 hover:text-secondary-700 hover:bg-secondary-100 rounded-xl transition-colors duration-200"
+                className="p-2.5 text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                 title="Help & Support"
               >
                 <HelpCircle className="w-5 h-5" />
               </button>
             </div>
 
-            {/* User Menu */}
+            {/* User Menu - Premium */}
             <div className="relative">
               <button
                 ref={userMenuButtonRef}
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 p-2 text-secondary-700 hover:text-secondary-900 hover:bg-secondary-100 rounded-xl transition-colors duration-200"
+                className="flex items-center gap-2.5 px-2 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
               >
-                <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center ring-2 ring-primary-100">
-                  <span className="text-white text-sm font-semibold">
-                    {user?.name?.charAt(0) || 'U'}
-                  </span>
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center ring-2 ring-blue-100 font-semibold text-white text-xs">
+                  {user?.name?.charAt(0) || 'U'}
                 </div>
-                <span className="text-sm font-medium hidden lg:block">{user?.name}</span>
-                <ChevronDown className="w-4 h-4" />
+                <span className="text-sm font-medium text-gray-700 hidden lg:block">{user?.name}</span>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
               </button>
 
               <UserMenuDropdown

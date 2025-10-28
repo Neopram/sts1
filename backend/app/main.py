@@ -1,6 +1,7 @@
 """
 Main FastAPI application for STS Clearance system
 Enhanced with enterprise-grade security and monitoring
+Production-ready with centralized configuration
 """
 
 import asyncio
@@ -21,22 +22,29 @@ from app.init_data import main as init_data
 from app.middleware.auth import AuthMiddleware
 from app.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
 from app.middleware.caching import get_cache_stats, clear_cache
-# from app.middleware.security_suite import SecurityMiddleware
+from app.config.settings import Settings, Environment
+from app.security_initialization import initialize_security_middleware, initialize_security_headers, get_security_configuration
 from app.monitoring.performance import HealthChecker, PerformanceMonitor
 from app.routers import (activities, approval_matrix, approvals, auth, cache_management, cockpit, config,
                          documents, files, historical_access, messages, notifications, profile, regional_operations, rooms,
-                         search, settings, snapshots, stats, users, vessels, weather, vessel_sessions, websocket)
+                         search, settings, snapshots, stats, users, vessels, weather, vessel_sessions, websocket,
+                         sanctions, vessel_integrations, missing_documents)
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+logger = logging.getLogger(__name__)
+
+# Initialize Settings
+app_settings = Settings()
 
 # Create FastAPI app
 app = FastAPI(
     title="STS Clearance API",
     description="Missing & Expiring Documents Cockpit for STS operations - Production Ready",
-    version="2.0.0",
+    version="3.0.0",
+    debug=app_settings.debug,
 )
 
 # Global variables for monitoring and security
@@ -45,47 +53,13 @@ performance_monitor = None
 health_checker = None
 db_optimizer = None
 
-import json
-# Add CORS middleware
-import os
+# ============ SECURITY INITIALIZATION ============
+# Initialize all security middleware using centralized configuration
+initialize_security_middleware(app, app_settings)
+initialize_security_headers(app, app_settings)
 
-# Get CORS origins from environment variables
-cors_origins_str = os.getenv(
-    "CORS_ORIGINS", '["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001", "http://localhost:3006", "http://127.0.0.1:3006"]'
-)
-try:
-    cors_origins = json.loads(cors_origins_str)
-except json.JSONDecodeError:
-    cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001", "http://localhost:3006", "http://127.0.0.1:3006"]
-
-# Add security middleware
-if os.getenv("ENVIRONMENT", "development") == "production":
-    # Production security middleware
-    rate_limiter = RateLimiter()
-    app.add_middleware(RateLimitMiddleware, rate_limiter=rate_limiter)
-
-    # Production CORS with strict origins
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-        allow_headers=["*"],
-        expose_headers=[
-            "X-RateLimit-Limit",
-            "X-RateLimit-Window",
-            "X-RateLimit-Remaining",
-        ],
-    )
-else:
-    # Development CORS (more permissive)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+logger.info(f"🚀 STS Clearance API v3.0.0 starting in {app_settings.environment.value} mode")
+logger.info(f"🔒 Security Configuration: {get_security_configuration(app_settings)}")
 
 
 # Caching middleware removed - using endpoint-level caching instead
@@ -132,6 +106,9 @@ app.include_router(websocket.router)
 app.include_router(users.router)
 app.include_router(settings.router)
 app.include_router(profile.router)
+app.include_router(sanctions.router)
+app.include_router(vessel_integrations.router)
+app.include_router(missing_documents.router)
 
 
 # Root endpoint

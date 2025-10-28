@@ -23,6 +23,10 @@ export const router = createBrowserRouter([
         element: <STSClearanceApp />
       },
       {
+        path: 'missing',
+        element: <STSClearanceApp />
+      },
+      {
         path: 'approval',
         element: <STSClearanceApp />
       },

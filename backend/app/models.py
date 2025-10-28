@@ -348,3 +348,80 @@ class UserSettings(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", backref="settings")
+
+
+class SanctionsList(Base):
+    """
+    International sanctions lists for vessel screening
+    """
+    __tablename__ = "sanctions_lists"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    name = Column(String(255), nullable=False)
+    source = Column(String(255), nullable=False)  # OFAC, UN, EU, etc.
+    last_updated = Column(DateTime(timezone=True), server_default=func.now())
+    active = Column(Boolean, default=True)
+    description = Column(Text, nullable=True)
+    api_url = Column(String(500), nullable=True)  # URL to fetch updates
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    sanctioned_vessels = relationship("SanctionedVessel", back_populates="sanctions_list")
+
+
+class SanctionedVessel(Base):
+    """
+    Vessels on international sanctions lists
+    """
+    __tablename__ = "sanctioned_vessels"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    list_id = Column(UUIDType, ForeignKey("sanctions_lists.id"), nullable=False)
+    imo = Column(String(20), nullable=False)
+    vessel_name = Column(String(255), nullable=False)
+    flag = Column(String(100), nullable=True)
+    owner = Column(String(255), nullable=True)
+    reason = Column(Text, nullable=True)
+    date_added = Column(DateTime(timezone=True), server_default=func.now())
+    last_verified = Column(DateTime(timezone=True), server_default=func.now())
+    active = Column(Boolean, default=True)
+
+    sanctions_list = relationship("SanctionsList", back_populates="sanctioned_vessels")
+
+
+class ExternalIntegration(Base):
+    """
+    Configuration for external API integrations (Q88, Equasis, etc.)
+    """
+    __tablename__ = "external_integrations"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    name = Column(String(255), nullable=False)
+    provider = Column(String(255), nullable=False)  # q88, equasis, etc.
+    api_key = Column(String(500), nullable=True)
+    api_secret = Column(String(500), nullable=True)
+    base_url = Column(String(500), nullable=True)
+    enabled = Column(Boolean, default=False)
+    last_sync = Column(DateTime(timezone=True), nullable=True)
+    config = Column(JSON, default=dict)  # Additional configuration
+    rate_limit = Column(Integer, default=100)  # Requests per minute
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class MissingDocumentsConfig(Base):
+    """
+    User preferences for Missing Documents Overview
+    """
+    __tablename__ = "missing_documents_config"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    user_id = Column(UUIDType, ForeignKey("users.id"), nullable=False, unique=True)
+    auto_refresh = Column(Boolean, default=True)
+    refresh_interval = Column(Integer, default=60)  # seconds
+    default_sort = Column(String(50), default='priority')  # priority, expiry_date, status, type
+    default_filter = Column(String(50), default='all')  # all, missing, expiring, under_review
+    show_notifications = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", backref="missing_documents_config")
