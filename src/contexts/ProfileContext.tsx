@@ -100,90 +100,106 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize with sample data
+  // Initialize profile data from backend
   useEffect(() => {
-    const initializeProfile = () => {
-      // Sample profile data
-      const sampleProfile: UserProfile = {
-        id: '1',
-        name: 'John Doe',
-        email: 'john.doe@stsclearance.com',
-        role: 'Port Manager',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-        phone: '+971 50 123 4567',
-        department: 'Port Operations',
-        position: 'Senior Port Manager',
-        location: 'Dubai, UAE',
-        timezone: 'Asia/Dubai',
-        bio: 'Experienced maritime professional with 15+ years in port operations and vessel management.',
-        lastLogin: new Date(),
-        createdAt: new Date('2023-01-15'),
-        updatedAt: new Date()
-      };
-
-      const sampleSecurity: SecuritySettings = {
-        twoFactorEnabled: false,
-        lastPasswordChange: new Date('2024-01-01'),
-        passwordExpiryDate: new Date('2024-07-01'),
-        loginAttempts: 0
-      };
-
-      const samplePreferences: UserPreferences = {
-        language: 'en',
-        theme: 'light',
-        notifications: {
-          email: true,
-          push: true,
-          sms: false,
-          frequency: 'immediate'
-        },
-        privacy: {
-          profileVisibility: 'team',
-          showEmail: true,
-          showPhone: false
+    const initializeProfile = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Get auth token from localStorage
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          setError('No authentication token found');
+          setIsLoading(false);
+          return;
         }
-      };
 
-      const sampleActivities: UserActivity[] = [
-        {
-          id: '1',
-          type: 'login',
-          description: 'Successfully logged in from Dubai, UAE',
-          timestamp: new Date(),
-          ipAddress: '192.168.1.100',
-          userAgent: 'Chrome/120.0.0.0',
-          location: 'Dubai, UAE'
-        },
-        {
-          id: '2',
-          type: 'document_view',
-          description: 'Viewed vessel clearance document VCL-2024-001',
-          timestamp: new Date(Date.now() - 3600000),
-          ipAddress: '192.168.1.100',
-          userAgent: 'Chrome/120.0.0.0'
-        },
-        {
-          id: '3',
-          type: 'vessel_access',
-          description: 'Accessed vessel tracking for MSC OSCAR',
-          timestamp: new Date(Date.now() - 7200000),
-          ipAddress: '192.168.1.100',
-          userAgent: 'Chrome/120.0.0.0'
-        },
-        {
-          id: '4',
-          type: 'settings_change',
-          description: 'Updated notification preferences',
-          timestamp: new Date(Date.now() - 86400000),
-          ipAddress: '192.168.1.100',
-          userAgent: 'Chrome/120.0.0.0'
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+
+        // Fetch profile data
+        const profileResponse = await fetch('/api/v1/profile/me', { headers });
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          const profile: UserProfile = {
+            id: profileData.id,
+            name: profileData.name,
+            email: profileData.email,
+            role: profileData.role,
+            avatar: profileData.avatar_url,
+            phone: profileData.phone,
+            department: profileData.department,
+            position: profileData.position,
+            location: profileData.location,
+            timezone: profileData.timezone,
+            bio: profileData.bio,
+            lastLogin: new Date(profileData.last_login || new Date()),
+            createdAt: new Date(profileData.created_at),
+            updatedAt: new Date()
+          };
+          setProfile(profile);
         }
-      ];
 
-      setProfile(sampleProfile);
-      setSecuritySettings(sampleSecurity);
-      setPreferences(samplePreferences);
-      setActivities(sampleActivities);
+        // Fetch security settings
+        const securityResponse = await fetch('/api/v1/profile/security-settings', { headers });
+        if (securityResponse.ok) {
+          const securityData = await securityResponse.json();
+          const security: SecuritySettings = {
+            twoFactorEnabled: securityData.two_factor_enabled,
+            lastPasswordChange: securityData.last_password_change ? new Date(securityData.last_password_change) : new Date(),
+            passwordExpiryDate: securityData.password_expiry_date ? new Date(securityData.password_expiry_date) : new Date(),
+            loginAttempts: securityData.login_attempts,
+            lockedUntil: securityData.locked_until ? new Date(securityData.locked_until) : undefined
+          };
+          setSecuritySettings(security);
+        }
+
+        // Fetch preferences
+        const preferencesResponse = await fetch('/api/v1/profile/preferences', { headers });
+        if (preferencesResponse.ok) {
+          const preferencesData = await preferencesResponse.json();
+          const preferences: UserPreferences = {
+            language: preferencesData.language || 'en',
+            theme: preferencesData.theme || 'light',
+            notifications: preferencesData.notifications || {
+              email: true,
+              push: true,
+              sms: false,
+              frequency: 'immediate'
+            },
+            privacy: preferencesData.privacy || {
+              profileVisibility: 'team',
+              showEmail: true,
+              showPhone: false
+            }
+          };
+          setPreferences(preferences);
+        }
+
+        // Fetch activities
+        const activitiesResponse = await fetch('/api/v1/profile/activities?limit=50', { headers });
+        if (activitiesResponse.ok) {
+          const activitiesData = await activitiesResponse.json();
+          const activities: UserActivity[] = activitiesData.map((activity: any) => ({
+            id: activity.id,
+            type: activity.action as any,
+            description: activity.description || activity.action,
+            timestamp: new Date(activity.timestamp),
+            ipAddress: activity.ip_address,
+            userAgent: activity.user_agent,
+            location: activity.location
+          }));
+          setActivities(activities);
+        }
+
+        setIsLoading(false);
+      } catch (err) {
+        setError('Failed to initialize profile');
+        console.error('Profile initialization error:', err);
+        setIsLoading(false);
+      }
     };
 
     initializeProfile();
@@ -195,18 +211,45 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch('/api/v1/profile/me', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: updates.name,
+          email: updates.email,
+          phone: updates.phone,
+          department: updates.department,
+          position: updates.position,
+          location: updates.location,
+          timezone: updates.timezone,
+          bio: updates.bio
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update profile: ${response.statusText}`);
+      }
+
+      const profileData = await response.json();
       if (profile) {
-        const updatedProfile = { ...profile, ...updates, updatedAt: new Date() };
+        const updatedProfile: UserProfile = {
+          ...profile,
+          ...updates,
+          updatedAt: new Date()
+        };
         setProfile(updatedProfile);
         
         // Dispatch profile update event
         window.dispatchEvent(new CustomEvent('profile:updated', { detail: updatedProfile }));
       }
     } catch (err) {
-      setError('Failed to update profile');
+      setError(err instanceof Error ? err.message : 'Failed to update profile');
       console.error('Profile update error:', err);
     } finally {
       setIsLoading(false);
@@ -241,35 +284,65 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch('/api/v1/profile/preferences', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updates)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update preferences');
+      }
+
       if (preferences) {
-        const updatedPreferences = { ...preferences, ...updates };
+        const updatedPreferences: UserPreferences = { ...preferences, ...updates };
         setPreferences(updatedPreferences);
         
         // Dispatch preferences update event
         window.dispatchEvent(new CustomEvent('preferences:updated', { detail: updatedPreferences }));
       }
     } catch (err) {
-      setError('Failed to update preferences');
+      setError(err instanceof Error ? err.message : 'Failed to update preferences');
       console.error('Preferences update error:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const changePassword = async (_currentPassword: string, _newPassword: string): Promise<void> => {
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
       
-      // Simulate API call with password validation
-      console.log('Changing password for user...', { currentPassword: '***', newPassword: '***' });
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch('/api/v1/profile/change-password', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+          confirm_password: newPassword
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to change password');
+      }
+
       if (securitySettings) {
-        const updatedSecurity = {
+        const updatedSecurity: SecuritySettings = {
           ...securitySettings,
           lastPasswordChange: new Date()
         };
@@ -279,7 +352,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
         window.dispatchEvent(new CustomEvent('password:changed'));
       }
     } catch (err) {
-      setError('Failed to change password');
+      setError(err instanceof Error ? err.message : 'Failed to change password');
       console.error('Password change error:', err);
     } finally {
       setIsLoading(false);
@@ -291,18 +364,30 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch('/api/v1/profile/enable-2fa', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to enable two-factor authentication');
+      }
+
       if (securitySettings) {
-        const updatedSecurity = { ...securitySettings, twoFactorEnabled: true };
+        const updatedSecurity: SecuritySettings = { ...securitySettings, twoFactorEnabled: true };
         setSecuritySettings(updatedSecurity);
         
         // Dispatch 2FA enable event
         window.dispatchEvent(new CustomEvent('2fa:enabled'));
       }
     } catch (err) {
-      setError('Failed to enable two-factor authentication');
+      setError(err instanceof Error ? err.message : 'Failed to enable two-factor authentication');
       console.error('2FA enable error:', err);
     } finally {
       setIsLoading(false);
@@ -314,18 +399,30 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch('/api/v1/profile/disable-2fa', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to disable two-factor authentication');
+      }
+
       if (securitySettings) {
-        const updatedSecurity = { ...securitySettings, twoFactorEnabled: false };
+        const updatedSecurity: SecuritySettings = { ...securitySettings, twoFactorEnabled: false };
         setSecuritySettings(updatedSecurity);
         
         // Dispatch 2FA disable event
         window.dispatchEvent(new CustomEvent('2fa:disabled'));
       }
     } catch (err) {
-      setError('Failed to disable two-factor authentication');
+      setError(err instanceof Error ? err.message : 'Failed to disable two-factor authentication');
       console.error('2FA disable error:', err);
     } finally {
       setIsLoading(false);
@@ -337,21 +434,35 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      // Simulate file upload
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Create preview URL
-      const avatarUrl = URL.createObjectURL(file);
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No authentication token');
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/v1/profile/avatar', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload avatar');
+      }
+
+      const data = await response.json();
       
       if (profile) {
-        const updatedProfile = { ...profile, avatar: avatarUrl, updatedAt: new Date() };
+        const updatedProfile: UserProfile = { ...profile, avatar: data.avatar_url, updatedAt: new Date() };
         setProfile(updatedProfile);
         
         // Dispatch avatar update event
-        window.dispatchEvent(new CustomEvent('avatar:updated', { detail: avatarUrl }));
+        window.dispatchEvent(new CustomEvent('avatar:updated', { detail: data.avatar_url }));
       }
     } catch (err) {
-      setError('Failed to upload avatar');
+      setError(err instanceof Error ? err.message : 'Failed to upload avatar');
       console.error('Avatar upload error:', err);
     } finally {
       setIsLoading(false);
@@ -363,14 +474,30 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      // Simulate API call with limit parameter
-      console.log('Loading activities with limit:', limit);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Activities are already loaded in useEffect
-      // In a real app, this would fetch from API with pagination
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('No authentication token');
+
+      const response = await fetch(`/api/v1/profile/activities?limit=${limit}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const activitiesData = await response.json();
+        const activities: UserActivity[] = activitiesData.map((activity: any) => ({
+          id: activity.id,
+          type: activity.action as any,
+          description: activity.description || activity.action,
+          timestamp: new Date(activity.timestamp),
+          ipAddress: activity.ip_address,
+          userAgent: activity.user_agent,
+          location: activity.location
+        }));
+        setActivities(activities);
+      }
     } catch (err) {
-      setError('Failed to load activities');
+      setError(err instanceof Error ? err.message : 'Failed to load activities');
       console.error('Activities load error:', err);
     } finally {
       setIsLoading(false);

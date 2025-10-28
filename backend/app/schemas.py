@@ -148,6 +148,8 @@ class UserProfileUpdate(BaseModel):
     location: Optional[str] = None
     timezone: Optional[str] = None
     bio: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
     preferences: Optional[Dict[str, Any]] = None
 
 
@@ -162,9 +164,52 @@ class UserProfileResponse(BaseModel):
     timezone: str
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
     preferences: Dict[str, Any]
     created_at: datetime
     last_login: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SecuritySettingsResponse(BaseModel):
+    two_factor_enabled: bool
+    last_password_change: Optional[datetime] = None
+    password_expiry_date: Optional[datetime] = None
+    login_attempts: int
+    locked_until: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UserPreferencesResponse(BaseModel):
+    language: str = "en"
+    theme: str = "light"
+    notifications: Dict[str, Any]
+    privacy: Dict[str, Any]
+
+    class Config:
+        from_attributes = True
+
+
+class UserPreferencesUpdate(BaseModel):
+    language: Optional[str] = None
+    theme: Optional[str] = None
+    notifications: Optional[Dict[str, Any]] = None
+    privacy: Optional[Dict[str, Any]] = None
+
+
+class ActivityResponse(BaseModel):
+    id: str
+    action: str
+    description: Optional[str] = None
+    timestamp: datetime
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    location: Optional[str] = None
 
     class Config:
         from_attributes = True

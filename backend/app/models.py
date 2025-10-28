@@ -42,7 +42,14 @@ class User(Base):
     timezone = Column(String(100), default="UTC")
     bio = Column(Text, nullable=True)
     avatar_url = Column(String(500), nullable=True)
+    department = Column(String(255), nullable=True)  # User department
+    position = Column(String(255), nullable=True)  # User position/title
     preferences = Column(JSON, default=dict)  # User preferences like theme, notifications, etc.
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)  # 2FA status
+    last_password_change = Column(DateTime(timezone=True), nullable=True)  # Password change tracking
+    password_expiry_date = Column(DateTime(timezone=True), nullable=True)  # Password expiry
+    login_attempts = Column(Integer, default=0, nullable=False)  # Failed login attempts
+    locked_until = Column(DateTime(timezone=True), nullable=True)  # Account lock timestamp
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
     updated_at = Column(DateTime(timezone=True), nullable=True)

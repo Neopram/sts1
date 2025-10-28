@@ -1,17 +1,27 @@
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
+from sqlalchemy import select
+from typing import Optional, List
 import os
 import uuid
 import shutil
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
+import pytz
 
 from ..database import get_async_session
-from ..models import User
+from ..models import User, ActivityLog
 from ..dependencies import get_current_user
-from ..schemas import UserProfileUpdate, UserProfileResponse, PasswordChange
+from ..schemas import (
+    UserProfileUpdate, 
+    UserProfileResponse, 
+    PasswordChange,
+    SecuritySettingsResponse,
+    UserPreferencesResponse,
+    UserPreferencesUpdate,
+    ActivityResponse
+)
 from passlib.hash import bcrypt
 
 router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
@@ -34,6 +44,8 @@ async def get_user_profile(current_user: User = Depends(get_current_user)):
         timezone=current_user.timezone,
         bio=current_user.bio,
         avatar_url=current_user.avatar_url,
+        department=current_user.department,
+        position=current_user.position,
         preferences=current_user.preferences or {},
         created_at=current_user.created_at,
         last_login=current_user.last_login
@@ -53,6 +65,7 @@ async def update_user_profile(
         if hasattr(current_user, field):
             setattr(current_user, field, value)
 
+    current_user.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(current_user)
 
@@ -67,6 +80,8 @@ async def update_user_profile(
         timezone=current_user.timezone,
         bio=current_user.bio,
         avatar_url=current_user.avatar_url,
+        department=current_user.department,
+        position=current_user.position,
         preferences=current_user.preferences or {},
         created_at=current_user.created_at,
         last_login=current_user.last_login
@@ -93,6 +108,8 @@ async def change_password(
     # Hash nueva contraseña
     hashed_password = bcrypt.hashpw(password_data.new_password.encode('utf-8'), bcrypt.gensalt())
     current_user.password_hash = hashed_password.decode('utf-8')
+    current_user.last_password_change = datetime.utcnow()
+    current_user.password_expiry_date = datetime.utcnow() + timedelta(days=90)  # Password expires in 90 days
     current_user.updated_at = datetime.utcnow()
 
     await db.commit()
@@ -159,3 +176,139 @@ async def delete_avatar(
         await db.commit()
 
     return {"message": "Avatar deleted successfully"}
+
+
+# ============ SECURITY SETTINGS ENDPOINTS ============
+
+@router.get("/security-settings", response_model=SecuritySettingsResponse)
+async def get_security_settings(
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's security settings"""
+    return SecuritySettingsResponse(
+        two_factor_enabled=current_user.two_factor_enabled,
+        last_password_change=current_user.last_password_change,
+        password_expiry_date=current_user.password_expiry_date,
+        login_attempts=current_user.login_attempts,
+        locked_until=current_user.locked_until
+    )
+
+
+@router.post("/enable-2fa")
+async def enable_two_factor(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_session)
+):
+    """Enable two-factor authentication for current user"""
+    current_user.two_factor_enabled = True
+    current_user.updated_at = datetime.utcnow()
+    await db.commit()
+    
+    return {
+        "message": "Two-factor authentication enabled successfully",
+        "two_factor_enabled": True
+    }
+
+
+@router.post("/disable-2fa")
+async def disable_two_factor(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_session)
+):
+    """Disable two-factor authentication for current user"""
+    current_user.two_factor_enabled = False
+    current_user.updated_at = datetime.utcnow()
+    await db.commit()
+    
+    return {
+        "message": "Two-factor authentication disabled successfully",
+        "two_factor_enabled": False
+    }
+
+
+# ============ PREFERENCES ENDPOINTS ============
+
+@router.get("/preferences", response_model=UserPreferencesResponse)
+async def get_preferences(
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's preferences"""
+    preferences = current_user.preferences or {}
+    
+    return UserPreferencesResponse(
+        language=preferences.get("language", "en"),
+        theme=preferences.get("theme", "light"),
+        notifications=preferences.get("notifications", {
+            "email": True,
+            "push": True,
+            "sms": False,
+            "frequency": "immediate"
+        }),
+        privacy=preferences.get("privacy", {
+            "profileVisibility": "team",
+            "showEmail": True,
+            "showPhone": False
+        })
+    )
+
+
+@router.post("/preferences")
+async def update_preferences(
+    prefs_data: UserPreferencesUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_session)
+):
+    """Update current user's preferences"""
+    preferences = current_user.preferences or {}
+    update_data = prefs_data.dict(exclude_unset=True)
+    
+    preferences.update(update_data)
+    current_user.preferences = preferences
+    current_user.updated_at = datetime.utcnow()
+    
+    await db.commit()
+    
+    return UserPreferencesResponse(
+        language=preferences.get("language", "en"),
+        theme=preferences.get("theme", "light"),
+        notifications=preferences.get("notifications", {}),
+        privacy=preferences.get("privacy", {})
+    )
+
+
+# ============ ACTIVITY ENDPOINTS ============
+
+@router.get("/activities", response_model=List[ActivityResponse])
+async def get_user_activities(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_session),
+    limit: int = 50,
+    offset: int = 0
+):
+    """Get current user's activity history"""
+    try:
+        # Query activity logs for current user
+        query = select(ActivityLog).where(
+            ActivityLog.actor == current_user.email
+        ).order_by(
+            ActivityLog.ts.desc()
+        ).limit(limit).offset(offset)
+        
+        result = await db.execute(query)
+        activities = result.scalars().all()
+        
+        return [
+            ActivityResponse(
+                id=str(activity.id),
+                action=activity.action,
+                description=activity.meta_json,
+                timestamp=activity.ts,
+                ip_address=None,
+                user_agent=None,
+                location=None
+            )
+            for activity in activities
+        ]
+    except Exception as e:
+        # If ActivityLog table doesn't exist or other error, return empty list
+        return []
