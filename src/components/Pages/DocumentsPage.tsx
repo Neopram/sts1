@@ -296,104 +296,115 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
           </div>
 
           {/* Filters and Search */}
-          <div className="bg-white rounded-xl shadow-card border border-secondary-200 p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search documents..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 p-6 shadow-md">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wide">🔍 Filter Documents</h3>
+                <span className="text-xs font-semibold px-3 py-1.5 bg-white text-blue-700 rounded-full border border-blue-200">
+                  {filteredDocuments.length} of {documents.length}
+                </span>
               </div>
 
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Status</option>
-                <option value="missing">Missing</option>
-                <option value="under_review">Under Review</option>
-                <option value="approved">Approved</option>
-                <option value="expired">Expired</option>
-              </select>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-400 w-4 h-4 flex-shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Search documents..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 border border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-secondary-900 font-medium"
+                  />
+                </div>
 
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="px-4 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Types</option>
-                {/* Add document types dynamically */}
-              </select>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-4 py-2.5 border border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-secondary-900 font-medium"
+                >
+                  <option value="all">All Status</option>
+                  <option value="missing">Missing</option>
+                  <option value="under_review">Under Review</option>
+                  <option value="approved">Approved</option>
+                  <option value="expired">Expired</option>
+                </select>
 
-              <div className="text-sm text-secondary-600 flex items-center">
-                {filteredDocuments.length} of {documents.length} documents
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="px-4 py-2.5 border border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-secondary-900 font-medium"
+                >
+                  <option value="all">All Types</option>
+                  {/* Add document types dynamically */}
+                </select>
               </div>
             </div>
           </div>
 
           {/* Missing Documents (Blockers) */}
           {groupedDocuments.missing.length > 0 && (
-            <div className="bg-white rounded-xl shadow-card border border-secondary-200">
-              <div className="px-6 py-4 border-b border-secondary-200">
-                <h3 className="text-lg font-medium text-secondary-900 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-danger-500" />
-                  <span>Missing Documents ({groupedDocuments.missing.length})</span>
-                </h3>
-                <p className="text-sm text-secondary-600 mt-1">
-                  These documents are required to proceed with the operation
-                </p>
+            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-300 shadow-lg overflow-hidden">
+              <div className="px-6 py-5 border-b border-red-300 bg-gradient-to-r from-red-600 to-red-700">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 bg-white rounded-full">
+                    <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Missing Documents ({groupedDocuments.missing.length})</h3>
+                    <p className="text-sm text-red-100 mt-0.5">
+                      These documents are required to proceed with the operation
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-3">
                 {groupedDocuments.missing.map((doc: Document) => (
-                  <div key={doc.id} className="border border-secondary-200 rounded-xl p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-6 mb-2">
-                          <h4 className="font-medium text-secondary-900">{doc.type_name}</h4>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(doc.status)}`}>
-                            {getStatusIcon(doc.status)}
-                            {doc.status.replace('_', ' ')}
-                          </span>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getCriticalityColor(doc.criticality)}`}>
-                            {doc.criticality} priority
-                          </span>
+                  <div key={doc.id} className="bg-white border border-red-200 rounded-xl p-5 hover:border-red-300 hover:shadow-md transition-all duration-200">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-secondary-900 text-base mb-2">{doc.type_name}</h4>
+                          {doc.notes && (
+                            <p className="text-sm text-secondary-600">{doc.notes}</p>
+                          )}
                         </div>
-
-                        {doc.notes && (
-                          <p className="text-sm text-secondary-600 mb-3">{doc.notes}</p>
-                        )}
                       </div>
 
-                      <div className="flex items-center gap-2 ml-4">
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full border inline-flex items-center gap-1 flex-shrink-0 ${getStatusColor(doc.status)}`}>
+                          {getStatusIcon(doc.status)}
+                          <span>{doc.status.replace('_', ' ')}</span>
+                        </span>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full border flex-shrink-0 ${getCriticalityColor(doc.criticality)}`}>
+                          {doc.criticality} priority
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0 justify-end">
                         <button
                           onClick={() => handleDocumentAction(doc.id, 'view')}
-                          className="p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors duration-200"
+                          className="inline-flex items-center justify-center p-2 text-secondary-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                           title="View Details"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-4 h-4 flex-shrink-0" />
                         </button>
 
                         <button
                           onClick={() => handleEditDocument(doc)}
-                          className="p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors duration-200"
+                          className="inline-flex items-center justify-center p-2 text-secondary-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all duration-200"
                           title="Edit Document"
                         >
-                          <Edit3 className="w-4 h-4" />
+                          <Edit3 className="w-4 h-4 flex-shrink-0" />
                         </button>
 
                         <button
                           onClick={() => handleDocumentAction(doc.id, 'update_status', { status: 'under_review' })}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors duration-200"
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 shadow-md hover:shadow-lg flex-shrink-0"
                           title="Mark for Review"
                         >
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>Mark Review</span>
+                          <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>Review</span>
                         </button>
                       </div>
                     </div>
@@ -405,62 +416,68 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
 
           {/* Documents Under Review */}
           {groupedDocuments.under_review.length > 0 && (
-            <div className="bg-white rounded-xl shadow-card border border-secondary-200">
-              <div className="px-6 py-4 border-b border-secondary-200">
-                <h3 className="text-lg font-medium text-secondary-900 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-warning-500" />
-                  <span>Under Review ({groupedDocuments.under_review.length})</span>
-                </h3>
-                <p className="text-sm text-secondary-600 mt-1">
-                  These documents are currently being reviewed
-                </p>
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl border border-amber-300 shadow-lg overflow-hidden">
+              <div className="px-6 py-5 border-b border-amber-300 bg-gradient-to-r from-amber-500 to-amber-600">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 bg-white rounded-full">
+                    <Clock className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Under Review ({groupedDocuments.under_review.length})</h3>
+                    <p className="text-sm text-amber-100 mt-0.5">
+                      These documents are currently being reviewed
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-3">
                 {groupedDocuments.under_review.map((doc: Document) => (
-                  <div key={doc.id} className="border border-secondary-200 rounded-xl p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-6 mb-2">
-                          <h4 className="font-medium text-secondary-900">{doc.type_name}</h4>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(doc.status)}`}>
-                            {getStatusIcon(doc.status)}
-                            {doc.status.replace('_', ' ')}
-                          </span>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getCriticalityColor(doc.criticality)}`}>
-                            {doc.criticality} priority
-                          </span>
+                  <div key={doc.id} className="bg-white border border-amber-200 rounded-xl p-5 hover:border-amber-300 hover:shadow-md transition-all duration-200">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-secondary-900 text-base mb-2">{doc.type_name}</h4>
+                          {doc.notes && (
+                            <p className="text-sm text-secondary-600">{doc.notes}</p>
+                          )}
                         </div>
-
-                        {doc.notes && (
-                          <p className="text-sm text-secondary-600 mb-3">{doc.notes}</p>
-                        )}
                       </div>
 
-                      <div className="flex items-center gap-2 ml-4">
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full border inline-flex items-center gap-1 flex-shrink-0 ${getStatusColor(doc.status)}`}>
+                          {getStatusIcon(doc.status)}
+                          <span>{doc.status.replace('_', ' ')}</span>
+                        </span>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full border flex-shrink-0 ${getCriticalityColor(doc.criticality)}`}>
+                          {doc.criticality} priority
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0 justify-end">
                         <button
                           onClick={() => handleDocumentAction(doc.id, 'view')}
-                          className="p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors duration-200"
+                          className="inline-flex items-center justify-center p-2 text-secondary-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all duration-200"
                           title="View Details"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-4 h-4 flex-shrink-0" />
                         </button>
 
                         <button
                           onClick={() => handleDocumentAction(doc.id, 'approve')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-success-600 text-white text-sm rounded-lg hover:bg-success-700 transition-colors duration-200"
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 active:bg-emerald-800 transition-all duration-200 shadow-md hover:shadow-lg flex-shrink-0"
                           title="Approve Document"
                         >
-                          <Check className="w-3.5 h-3.5" />
+                          <Check className="w-3.5 h-3.5 flex-shrink-0" />
                           <span>Approve</span>
                         </button>
 
                         <button
                           onClick={() => handleDocumentAction(doc.id, 'reject')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-danger-600 text-white text-sm rounded-lg hover:bg-danger-700 transition-colors duration-200"
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-danger-600 text-white text-xs font-semibold rounded-lg hover:bg-danger-700 active:bg-danger-800 transition-all duration-200 shadow-md hover:shadow-lg flex-shrink-0"
                           title="Reject Document"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-3.5 h-3.5 flex-shrink-0" />
                           <span>Reject</span>
                         </button>
                       </div>
@@ -473,55 +490,62 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
 
           {/* Approved Documents */}
           {groupedDocuments.approved.length > 0 && (
-            <div className="bg-white rounded-xl shadow-card border border-secondary-200">
-              <div className="px-6 py-4 border-b border-secondary-200">
-                <h3 className="text-lg font-medium text-secondary-900 flex items-center gap-2">
-                  <Check className="w-5 h-5 text-success-500" />
-                  <span>Approved Documents ({groupedDocuments.approved.length})</span>
-                </h3>
-                <p className="text-sm text-secondary-600 mt-1">
-                  These documents have been approved and are valid
-                </p>
+            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl border border-emerald-300 shadow-lg overflow-hidden">
+              <div className="px-6 py-5 border-b border-emerald-300 bg-gradient-to-r from-emerald-600 to-emerald-700">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 bg-white rounded-full">
+                    <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Approved Documents ({groupedDocuments.approved.length})</h3>
+                    <p className="text-sm text-emerald-100 mt-0.5">
+                      These documents have been approved and are valid
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-3">
                 {groupedDocuments.approved.map((doc: Document) => (
-                  <div key={doc.id} className="border border-secondary-200 rounded-xl p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-6 mb-2">
-                          <h4 className="font-medium text-secondary-900">{doc.type_name}</h4>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(doc.status)}`}>
-                            {getStatusIcon(doc.status)}
-                            {doc.status.replace('_', ' ')}
-                          </span>
-                          {doc.expires_on && (
-                            <span className="text-sm text-orange-600">
-                              Expires: {new Date(doc.expires_on).toLocaleDateString()}
-                            </span>
+                  <div key={doc.id} className="bg-white border border-emerald-200 rounded-xl p-5 hover:border-emerald-300 hover:shadow-md transition-all duration-200">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-secondary-900 text-base mb-2">{doc.type_name}</h4>
+                          {doc.notes && (
+                            <p className="text-sm text-secondary-600">{doc.notes}</p>
                           )}
                         </div>
+                      </div>
 
-                        {doc.notes && (
-                          <p className="text-sm text-secondary-600 mb-3">{doc.notes}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full border inline-flex items-center gap-1 flex-shrink-0 ${getStatusColor(doc.status)}`}>
+                          {getStatusIcon(doc.status)}
+                          <span>{doc.status.replace('_', ' ')}</span>
+                        </span>
+                        {doc.expires_on && (
+                          <span className="text-xs font-semibold px-2.5 py-1 text-orange-700 bg-orange-100 border border-orange-300 rounded-full flex-shrink-0">
+                            Expires: {new Date(doc.expires_on).toLocaleDateString()}
+                          </span>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 ml-4">
+                      <div className="flex items-center gap-2 flex-shrink-0 justify-end">
                         <button
                           onClick={() => handleDocumentAction(doc.id, 'view')}
-                          className="p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors duration-200"
+                          className="inline-flex items-center justify-center p-2 text-secondary-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all duration-200"
                           title="View Details"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-4 h-4 flex-shrink-0" />
                         </button>
 
                         <button
                           onClick={() => handleDocumentAction(doc.id, 'download')}
-                          className="p-2 text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 rounded-lg transition-colors duration-200"
+                          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 shadow-md hover:shadow-lg flex-shrink-0"
                           title="Download"
                         >
-                          <Download className="w-4 h-4" />
+                          <Download className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>Download</span>
                         </button>
                       </div>
                     </div>

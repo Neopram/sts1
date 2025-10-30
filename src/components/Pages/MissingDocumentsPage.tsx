@@ -200,50 +200,62 @@ export const MissingDocumentsPage: React.FC<MissingDocumentsPageProps> = ({
   const renderDocumentItem = (doc: MissingDocumentStatus) => (
     <div 
       key={doc.id}
-      className="border border-secondary-200 rounded-lg p-4 hover:border-primary-300 hover:shadow-md transition-all duration-200"
+      className="bg-white border border-blue-200 rounded-xl p-5 hover:border-blue-400 hover:shadow-lg transition-all duration-200"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3 flex-1 min-w-0">
-          {getStatusIcon(doc.reason)}
+      <div className="flex flex-col gap-3">
+        {/* Title and Description Row */}
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 mt-0.5">
+            {getStatusIcon(doc.reason)}
+          </div>
           
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <h4 className="font-semibold text-secondary-900 truncate">{doc.type.name}</h4>
-              <span className="text-xs font-mono bg-secondary-100 text-secondary-700 px-2 py-1 rounded">
-                {doc.type.code}
-              </span>
-            </div>
-            
-            <p className="text-sm text-secondary-600 mb-2">{doc.type.description}</p>
-            
-            <div className="flex items-center gap-2 text-xs text-secondary-500">
-              {doc.daysUntilExpiry !== undefined && (
-                <>
-                  <Clock className="w-3 h-3" />
-                  {doc.daysUntilExpiry < 0 
-                    ? `Expired ${Math.abs(doc.daysUntilExpiry)} days ago`
-                    : `Expires in ${doc.daysUntilExpiry} days`
-                  }
-                </>
-              )}
-              {doc.uploadedBy && (
-                <>
-                  <span>•</span>
-                  <span>Uploaded by {doc.uploadedBy}</span>
-                </>
-              )}
-            </div>
+            <h4 className="font-bold text-secondary-900 text-base mb-1">{doc.type.name}</h4>
+            <p className="text-sm text-secondary-600">{doc.type.description}</p>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2 flex-shrink-0">
+
+        {/* Badges Row */}
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full border border-blue-200 flex-shrink-0">
+            {doc.type.code}
+          </span>
+          
+          {doc.daysUntilExpiry !== undefined && (
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border flex-shrink-0 inline-flex items-center gap-1 ${
+              doc.daysUntilExpiry < 0 
+                ? 'bg-orange-100 text-orange-700 border-orange-300'
+                : doc.daysUntilExpiry <= 7
+                ? 'bg-amber-100 text-amber-700 border-amber-300'
+                : 'bg-emerald-100 text-emerald-700 border-emerald-300'
+            }`}>
+              <Clock className="w-3 h-3 flex-shrink-0" />
+              <span>
+                {doc.daysUntilExpiry < 0 
+                  ? `Expired ${Math.abs(doc.daysUntilExpiry)}d ago`
+                  : `Expires in ${doc.daysUntilExpiry}d`
+                }
+              </span>
+            </span>
+          )}
+          
+          {doc.uploadedBy && (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-secondary-100 text-secondary-700 border border-secondary-200 flex-shrink-0">
+              {doc.uploadedBy}
+            </span>
+          )}
+        </div>
+
+        {/* Actions Row */}
+        <div className="flex items-center gap-2 flex-shrink-0 justify-end">
           {getPriorityBadge(doc.priority)}
           <button
             onClick={onUploadDocument}
-            className="p-2 hover:bg-primary-50 rounded-lg transition-colors duration-200"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-all duration-200 shadow-md hover:shadow-lg flex-shrink-0"
             title="Upload document"
           >
-            <UploadIcon className="w-4 h-4 text-primary-600" />
+            <UploadIcon className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Upload</span>
           </button>
         </div>
       </div>
@@ -261,42 +273,53 @@ export const MissingDocumentsPage: React.FC<MissingDocumentsPageProps> = ({
     const isExpanded = expandedCategory === categoryId;
     const isEmpty = docs.length === 0;
     
+    const categoryColors = {
+      missing: { bg: 'from-red-50 to-red-100', header: 'from-red-600 to-red-700', border: 'border-red-300' },
+      expiring: { bg: 'from-amber-50 to-amber-100', header: 'from-amber-500 to-amber-600', border: 'border-amber-300' },
+      expired: { bg: 'from-orange-50 to-orange-100', header: 'from-orange-600 to-orange-700', border: 'border-orange-300' },
+      under_review: { bg: 'from-blue-50 to-blue-100', header: 'from-blue-600 to-blue-700', border: 'border-blue-300' }
+    };
+    
+    const colors = categoryColors[categoryId as keyof typeof categoryColors] || categoryColors.missing;
+    
     return (
-      <div key={categoryId} className="card">
+      <div key={categoryId} className={`bg-gradient-to-br ${colors.bg} rounded-xl border ${colors.border} shadow-lg overflow-hidden`}>
         <button
           onClick={() => setExpandedCategory(isExpanded ? null : categoryId)}
-          className="w-full px-6 py-4 flex items-center justify-between hover:bg-secondary-50 transition-colors duration-200"
+          className={`w-full px-6 py-5 flex items-center justify-between hover:opacity-95 transition-all duration-200 bg-gradient-to-r ${colors.header}`}
         >
           <div className="flex items-center gap-3">
-            {icon}
+            <div className="flex items-center justify-center w-8 h-8 bg-white bg-opacity-90 rounded-full">
+              {icon}
+            </div>
             <div className="text-left">
-              <h3 className="font-semibold text-secondary-900">{title}</h3>
-              <p className="text-sm text-secondary-500">{count} document{count !== 1 ? 's' : ''}</p>
+              <h3 className="font-bold text-white text-lg">{title}</h3>
+              <p className="text-sm text-white text-opacity-80">{count} document{count !== 1 ? 's' : ''}</p>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
             {!isEmpty && count > 0 && (
-              <span className="px-2 py-1 bg-danger-100 text-danger-700 rounded-full text-xs font-semibold">
+              <span className="px-3 py-1 bg-white bg-opacity-90 text-secondary-900 rounded-full text-xs font-bold">
                 {count}
               </span>
             )}
             <ArrowRight 
-              className={`w-5 h-5 text-secondary-600 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+              className={`w-5 h-5 text-white transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
             />
           </div>
         </button>
         
         {isExpanded && !isEmpty && (
-          <div className="border-t border-secondary-200 px-6 py-4 space-y-3">
+          <div className="px-6 py-5 space-y-3 bg-white bg-opacity-50">
             {docs.map(renderDocumentItem)}
           </div>
         )}
         
         {isEmpty && isExpanded && (
-          <div className="border-t border-secondary-200 px-6 py-8 text-center">
-            <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-2" />
-            <p className="text-secondary-600">No documents in this category</p>
+          <div className="px-6 py-12 text-center bg-white bg-opacity-50">
+            <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+            <p className="text-secondary-700 font-medium">No documents in this category</p>
           </div>
         )}
       </div>
@@ -355,57 +378,57 @@ export const MissingDocumentsPage: React.FC<MissingDocumentsPageProps> = ({
       </div>
 
       {/* Statistics */}
-      {overview && (
+      {overview && overview.summary && overview.statistics && (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="card p-6">
-            <div className="text-sm text-secondary-600 mb-2">Completion Rate</div>
-            <div className="text-3xl font-bold text-primary-600">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-300 p-6 shadow-md">
+            <div className="text-xs font-bold text-blue-900 mb-2 uppercase tracking-wide">Completion Rate</div>
+            <div className="text-4xl font-bold text-blue-600 mb-3">
               {Math.round(overview.statistics.completionPercentage)}%
             </div>
-            <div className="mt-2 bg-secondary-200 h-2 rounded-full overflow-hidden">
+            <div className="mt-3 bg-blue-200 h-2.5 rounded-full overflow-hidden">
               <div 
-                className="bg-primary-600 h-full transition-all duration-300"
+                className="bg-gradient-to-r from-blue-600 to-blue-500 h-full transition-all duration-300"
                 style={{ width: `${overview.statistics.completionPercentage}%` }}
               />
             </div>
           </div>
           
-          <div className="card p-6">
-            <div className="text-sm text-secondary-600 mb-2 flex items-center gap-1">
-              <AlertTriangle className="w-4 h-4" />
+          <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-300 p-6 shadow-md">
+            <div className="text-xs font-bold text-red-900 mb-2 uppercase tracking-wide flex items-center gap-1">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               Missing
             </div>
-            <div className="text-3xl font-bold text-red-600">
+            <div className="text-4xl font-bold text-red-600">
               {overview.summary.missingCount}
             </div>
           </div>
           
-          <div className="card p-6">
-            <div className="text-sm text-secondary-600 mb-2 flex items-center gap-1">
-              <Clock className="w-4 h-4" />
+          <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl border border-amber-300 p-6 shadow-md">
+            <div className="text-xs font-bold text-amber-900 mb-2 uppercase tracking-wide flex items-center gap-1">
+              <Clock className="w-4 h-4 flex-shrink-0" />
               Expiring
             </div>
-            <div className="text-3xl font-bold text-amber-600">
+            <div className="text-4xl font-bold text-amber-600">
               {overview.summary.expiringCount}
             </div>
           </div>
           
-          <div className="card p-6">
-            <div className="text-sm text-secondary-600 mb-2 flex items-center gap-1">
-              <AlertTriangle className="w-4 h-4" />
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl border border-orange-300 p-6 shadow-md">
+            <div className="text-xs font-bold text-orange-900 mb-2 uppercase tracking-wide flex items-center gap-1">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               Expired
             </div>
-            <div className="text-3xl font-bold text-danger-600">
+            <div className="text-4xl font-bold text-orange-600">
               {overview.summary.expiredCount}
             </div>
           </div>
           
-          <div className="card p-6">
-            <div className="text-sm text-secondary-600 mb-2 flex items-center gap-1">
-              <TrendingUp className="w-4 h-4" />
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-300 p-6 shadow-md">
+            <div className="text-xs font-bold text-purple-900 mb-2 uppercase tracking-wide flex items-center gap-1">
+              <TrendingUp className="w-4 h-4 flex-shrink-0" />
               Risk Score
             </div>
-            <div className="text-3xl font-bold text-secondary-900">
+            <div className="text-4xl font-bold text-purple-600">
               {overview.statistics.expirationRiskScore}/100
             </div>
           </div>
@@ -413,10 +436,10 @@ export const MissingDocumentsPage: React.FC<MissingDocumentsPageProps> = ({
       )}
 
       {/* Filters */}
-      <div className="card">
-        <div className="px-6 py-4 border-b border-secondary-200">
-          <h3 className="font-semibold text-secondary-900 flex items-center gap-2">
-            <Filter className="w-4 h-4" />
+      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-md overflow-hidden">
+        <div className="px-6 py-5 border-b border-blue-200 bg-gradient-to-r from-blue-600 to-blue-700">
+          <h3 className="font-bold text-white flex items-center gap-2 text-lg">
+            <Filter className="w-5 h-5 flex-shrink-0" />
             Filters & Search
           </h3>
         </div>
@@ -425,30 +448,30 @@ export const MissingDocumentsPage: React.FC<MissingDocumentsPageProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
+              <label className="block text-xs font-bold text-blue-900 mb-2 uppercase tracking-wide">
                 Search
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-secondary-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-400 flex-shrink-0" />
                 <input
                   type="text"
                   placeholder="Document name, code..."
                   value={filters.searchTerm}
                   onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2.5 border border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-secondary-900 font-medium"
                 />
               </div>
             </div>
             
             {/* Status Filter */}
             <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
+              <label className="block text-xs font-bold text-blue-900 mb-2 uppercase tracking-wide">
                 Status
               </label>
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
-                className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-secondary-900 font-medium"
               >
                 <option value="all">All Status</option>
                 <option value="missing">Missing</option>
@@ -460,13 +483,13 @@ export const MissingDocumentsPage: React.FC<MissingDocumentsPageProps> = ({
             
             {/* Priority Filter */}
             <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
+              <label className="block text-xs font-bold text-blue-900 mb-2 uppercase tracking-wide">
                 Priority
               </label>
               <select
                 value={filters.priority}
                 onChange={(e) => setFilters({ ...filters, priority: e.target.value as any })}
-                className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-secondary-900 font-medium"
               >
                 <option value="all">All Priorities</option>
                 <option value="high">Critical</option>
@@ -477,13 +500,13 @@ export const MissingDocumentsPage: React.FC<MissingDocumentsPageProps> = ({
             
             {/* Sort */}
             <div>
-              <label className="block text-sm font-medium text-secondary-700 mb-2">
+              <label className="block text-xs font-bold text-blue-900 mb-2 uppercase tracking-wide">
                 Sort By
               </label>
               <select
                 value={filters.sortBy}
                 onChange={(e) => setFilters({ ...filters, sortBy: e.target.value as any })}
-                className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-secondary-900 font-medium"
               >
                 <option value="priority">Priority</option>
                 <option value="expiry">Expiry Date</option>
@@ -535,10 +558,10 @@ export const MissingDocumentsPage: React.FC<MissingDocumentsPageProps> = ({
         filteredExpiring.length === 0 &&
         filteredExpired.length === 0 &&
         filteredUnderReview.length === 0 && (
-        <div className="card text-center py-12">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-secondary-900 mb-2">All Documents Complete!</h3>
-          <p className="text-secondary-600">No missing or expiring documents found.</p>
+        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl border border-emerald-300 shadow-lg text-center py-16 px-8">
+          <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
+          <h3 className="text-2xl font-bold text-emerald-900 mb-2">All Documents Complete!</h3>
+          <p className="text-emerald-700 font-medium">No missing or expiring documents found.</p>
         </div>
       )}
     </div>

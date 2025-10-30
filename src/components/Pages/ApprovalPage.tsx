@@ -254,44 +254,48 @@ export const ApprovalPage: React.FC = () => {
       </div>
 
       {/* Approval Summary */}
-      <div className="card">
+      <div>
         <h3 className="text-lg font-medium text-secondary-900 mb-6">Approval Summary</h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="text-center p-6 bg-blue-50 rounded-xl border border-blue-200">
-            <div className="text-2xl font-bold text-blue-600">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          {/* Total Documents */}
+          <div className="flex flex-col items-center justify-center p-6 sm:p-8 bg-blue-50 rounded-xl border border-blue-200 hover:shadow-md transition-shadow duration-200">
+            <div className="text-3xl sm:text-4xl font-bold text-blue-600 mb-2">
               {approvalData.reduce((total, vessel) => 
                 total + vessel.approvals.length, 0
               )}
             </div>
-            <div className="text-sm text-blue-800">Total Documents</div>
+            <div className="text-sm font-medium text-blue-800 text-center">Total Documents</div>
           </div>
           
-          <div className="text-center p-6 bg-warning-50 rounded-xl border border-warning-200">
-            <div className="text-2xl font-bold text-warning-600">
+          {/* Pending Approval */}
+          <div className="flex flex-col items-center justify-center p-6 sm:p-8 bg-warning-50 rounded-xl border border-warning-200 hover:shadow-md transition-shadow duration-200">
+            <div className="text-3xl sm:text-4xl font-bold text-warning-600 mb-2">
               {approvalData.reduce((total, vessel) => 
                 total + vessel.approvals.filter(a => a.status === 'pending').length, 0
               )}
             </div>
-            <div className="text-sm text-warning-800">Pending Approval</div>
+            <div className="text-sm font-medium text-warning-800 text-center">Pending Approval</div>
           </div>
           
-          <div className="text-center p-6 bg-success-50 rounded-xl border border-success-200">
-            <div className="text-2xl font-bold text-success-600">
+          {/* Approved */}
+          <div className="flex flex-col items-center justify-center p-6 sm:p-8 bg-success-50 rounded-xl border border-success-200 hover:shadow-md transition-shadow duration-200">
+            <div className="text-3xl sm:text-4xl font-bold text-success-600 mb-2">
               {approvalData.reduce((total, vessel) => 
                 total + vessel.approvals.filter(a => a.status === 'approved').length, 0
               )}
             </div>
-            <div className="text-sm text-success-800">Approved</div>
+            <div className="text-sm font-medium text-success-800 text-center">Approved</div>
           </div>
           
-          <div className="text-center p-6 bg-danger-50 rounded-xl border border-danger-200">
-            <div className="text-2xl font-bold text-danger-600">
+          {/* Rejected */}
+          <div className="flex flex-col items-center justify-center p-6 sm:p-8 bg-danger-50 rounded-xl border border-danger-200 hover:shadow-md transition-shadow duration-200">
+            <div className="text-3xl sm:text-4xl font-bold text-danger-600 mb-2">
               {approvalData.reduce((total, vessel) => 
                 total + vessel.approvals.filter(a => a.status === 'rejected').length, 0
               )}
             </div>
-            <div className="text-sm text-danger-800">Rejected</div>
+            <div className="text-sm font-medium text-danger-800 text-center">Rejected</div>
           </div>
         </div>
       </div>
@@ -329,65 +333,74 @@ export const ApprovalPage: React.FC = () => {
               
               <div className="p-6 space-y-8">
                 {vessel.approvals.map((approval, approvalIndex) => (
-                  <div key={approval.id || approvalIndex} className="border border-secondary-200 rounded-xl p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-6 mb-2">
-                          <h4 className="font-medium text-secondary-900">{approval.type}</h4>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(approval.status)}`}>
-                            {getStatusIcon(approval.status)}
-                            {approval.status.replace('_', ' ')}
-                          </span>
-                          <span className="text-sm text-secondary-500">{approval.time}</span>
-                        </div>
-                        
+                  <div key={approval.id || approvalIndex} className="border border-secondary-200 rounded-xl p-6 flex flex-col gap-3">
+                    {/* Row 1: Title & Description */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        {getStatusIcon(approval.status)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-secondary-900">{approval.type}</h4>
                         {approval.notes && (
-                          <p className="text-sm text-secondary-600 mb-3">{approval.notes}</p>
+                          <p className="text-sm text-secondary-600 mt-1">{approval.notes}</p>
                         )}
                       </div>
+                    </div>
+
+                    {/* Row 2: Status & Time Badges */}
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border flex-shrink-0 ${getStatusColor(approval.status)}`}>
+                        {getStatusIcon(approval.status)}
+                        {approval.status.replace('_', ' ')}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border border-secondary-200 bg-secondary-50 text-secondary-700 flex-shrink-0">
+                        <Clock className="w-3 h-3" />
+                        {approval.time}
+                      </span>
+                    </div>
+
+                    {/* Row 3: Actions */}
+                    <div className="flex items-center gap-2 justify-end pt-1">
+                      {approval.document_id && (
+                        <>
+                          <button
+                            onClick={() => handleViewApproval(approval)}
+                            className="p-2 text-secondary-400 hover:text-blue-600 transition-colors duration-200"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          
+                          <button
+                            onClick={() => handleDownloadDocument(approval.document_id!)}
+                            className="p-2 text-secondary-400 hover:text-blue-600 transition-colors duration-200"
+                            title="Download Document"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                       
-                      <div className="flex items-center gap-2 ml-4">
-                        {approval.document_id && (
-                          <>
-                            <button
-                              onClick={() => handleViewApproval(approval)}
-                              className="p-2 text-secondary-400 hover:text-secondary-600 transition-colors duration-200"
-                              title="View Details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            
-                            <button
-                              onClick={() => handleDownloadDocument(approval.document_id!)}
-                              className="p-2 text-secondary-400 hover:text-secondary-600 transition-colors duration-200"
-                              title="Download Document"
-                            >
-                              <Download className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                        
-                        {approval.status === 'pending' && (
-                          <div className="flex gap-2">
-                            <button 
-                              onClick={() => handleApprovalAction(approval.id || '', 'approve')}
-                              disabled={loading}
-                              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
-                            >
-                              <Check className="w-3 h-3 inline mr-1" />
-                              Approve
-                            </button>
-                            <button 
-                              onClick={() => handleApprovalAction(approval.id || '', 'reject')}
-                              disabled={loading}
-                              className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors duration-200 disabled:opacity-50"
-                            >
-                              <X className="w-3 h-3 inline mr-1" />
-                              Reject
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      {approval.status === 'pending' && (
+                        <div className="flex gap-2 ml-2 pl-2 border-l border-secondary-200">
+                          <button 
+                            onClick={() => handleApprovalAction(approval.id || '', 'approve')}
+                            disabled={loading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            Approve
+                          </button>
+                          <button 
+                            onClick={() => handleApprovalAction(approval.id || '', 'reject')}
+                            disabled={loading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Reject
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

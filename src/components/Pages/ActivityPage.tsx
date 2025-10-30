@@ -266,8 +266,8 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
       </div>
 
       {/* Filters and Search */}
-      <div className="card">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
             <input
@@ -319,62 +319,70 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
       </div>
 
       {/* Activities List */}
-      <div className="card">
-        <div className="px-6 py-4 border-b border-secondary-200">
-          <h3 className="text-lg font-medium text-secondary-900">Recent Activities</h3>
-        </div>
+      <div>
+        <h3 className="text-lg font-medium text-secondary-900 mb-6">Recent Activities</h3>
         
-        <div className="divide-y divide-secondary-200">
+        <div className="space-y-4">
           {filteredActivities.length === 0 ? (
-            <div className="p-6 text-center">
+            <div className="p-12 text-center rounded-xl border-2 border-dashed border-secondary-200 bg-secondary-50">
               <Activity className="w-12 h-12 text-secondary-400 mx-auto mb-6" />
               <h3 className="text-lg font-medium text-secondary-900 mb-2">No activities found</h3>
               <p className="text-secondary-600">No activities match your current filters.</p>
             </div>
           ) : (
             filteredActivities.map((activity) => (
-              <div key={activity.id} className="p-6 hover:bg-secondary-50 transition-colors duration-200">
-                <div className="flex items-start gap-6">
-                  <div className="flex-shrink-0">
+              <div key={activity.id} className="border border-secondary-200 rounded-xl p-6 hover:shadow-md transition-shadow duration-200 flex flex-col gap-3">
+                {/* Row 1: Title & Description */}
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-0.5">
                     {getActivityIcon(activity.type)}
                   </div>
-                  
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-6 mb-2">
-                      <h4 className="font-medium text-secondary-900">{activity.title}</h4>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(activity.status)}`}>
-                        {getStatusIcon(activity.status)}
-                        {activity.status || 'info'}
-                      </span>
-                      <span className="text-sm text-secondary-500">{formatTimestamp(activity.timestamp)}</span>
-                    </div>
-                    
-                    <p className="text-secondary-600 mb-2">{activity.description}</p>
-                    
+                    <h4 className="font-bold text-secondary-900">{activity.title}</h4>
+                    {activity.description && (
+                      <p className="text-sm text-secondary-600 mt-1">{activity.description}</p>
+                    )}
                     {activity.user && (
-                      <p className="text-sm text-secondary-500">
+                      <p className="text-xs text-secondary-500 mt-2">
                         By: <span className="font-medium">{activity.user}</span>
                       </p>
                     )}
                   </div>
+                </div>
+
+                {/* Row 2: Status & Type & Time Badges */}
+                <div className="flex flex-wrap gap-2">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border flex-shrink-0 ${getStatusColor(activity.status)}`}>
+                    {getStatusIcon(activity.status)}
+                    {activity.status || 'info'}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border border-secondary-200 bg-secondary-50 text-secondary-700 flex-shrink-0">
+                    <Activity className="w-3 h-3" />
+                    {activity.type}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border border-secondary-200 bg-secondary-50 text-secondary-700 flex-shrink-0">
+                    <Clock className="w-3 h-3" />
+                    {formatTimestamp(activity.timestamp)}
+                  </span>
+                </div>
+
+                {/* Row 3: Actions */}
+                <div className="flex items-center gap-2 justify-end pt-1">
+                  <button
+                    onClick={() => handleActivityAction(activity, 'view')}
+                    className="p-2 text-secondary-400 hover:text-blue-600 transition-colors duration-200"
+                    title="View Details"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
                   
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleActivityAction(activity, 'view')}
-                      className="p-2 text-secondary-400 hover:text-secondary-600 transition-colors duration-200"
-                      title="View Details"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    
-                    <button
-                      onClick={() => handleActivityAction(activity, 'download')}
-                      className="p-2 text-secondary-400 hover:text-secondary-600 transition-colors duration-200"
-                      title="Download"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleActivityAction(activity, 'download')}
+                    className="p-2 text-secondary-400 hover:text-blue-600 transition-colors duration-200"
+                    title="Download"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             ))

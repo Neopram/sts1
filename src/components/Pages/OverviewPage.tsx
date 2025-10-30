@@ -16,6 +16,10 @@ import {
 import { useApp } from '../../contexts/AppContext';
 import { Document } from '../../types/api';
 import ApiService from '../../api';
+import { WeatherConditions } from '../OperationStatus/WeatherConditions';
+import { CountdownTimer } from '../OperationStatus/CountdownTimer';
+import { VesselCard } from '../OperationStatus/VesselCard';
+import { ProximityIndicator } from '../OperationStatus/ProximityIndicator';
 
 interface OverviewPageProps {
   cockpitData?: any;
@@ -34,6 +38,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [operationalOptimality, setOperationalOptimality] = useState(0);
 
   // Load data from API with vessel filtering
   const loadData = async () => {
@@ -305,6 +310,133 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
         </div>
       </div>
 
+      {/* Real-Time Operational Monitoring */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Weather Conditions */}
+        {cockpitData?.location && (
+          <div className="card">
+            <div className="card-header">
+              <h3 className="text-lg font-semibold text-secondary-900 flex items-center">
+                <div className="w-8 h-8 bg-warning-100 rounded-xl flex items-center justify-center mr-3">
+                  <AlertCircle className="w-4 h-4 text-warning-600" />
+                </div>
+                Weather Conditions
+              </h3>
+            </div>
+            <div className="card-body">
+              <WeatherConditions 
+                coordinates={{ 
+                  latitude: cockpitData?.latitude || 36.1408, 
+                  longitude: cockpitData?.longitude || -5.3536 
+                }}
+                locationName={cockpitData.location}
+                onOptimalityChange={setOperationalOptimality}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Countdown Timer */}
+        {cockpitData?.sts_eta && (
+          <div className="card">
+            <div className="card-header">
+              <h3 className="text-lg font-semibold text-secondary-900 flex items-center">
+                <div className="w-8 h-8 bg-danger-100 rounded-xl flex items-center justify-center mr-3">
+                  <Clock className="w-4 h-4 text-danger-600" />
+                </div>
+                Operation Countdown
+              </h3>
+            </div>
+            <div className="card-body">
+              <CountdownTimer 
+                operationDateTime={cockpitData.sts_eta}
+                onCountdownEnd={() => {
+                  setError(null);
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Proximity Monitoring */}
+      {vessels.length >= 2 && (
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-lg font-semibold text-secondary-900 flex items-center">
+              <div className="w-8 h-8 bg-primary-100 rounded-xl flex items-center justify-center mr-3">
+                <Ship className="w-4 h-4 text-primary-600" />
+              </div>
+              Proximity Monitoring
+            </h3>
+          </div>
+          <div className="card-body">
+            <ProximityIndicator 
+              motherVessel={{
+                id: vessels[0].id || '1',
+                name: vessels[0].name || 'Mother Vessel',
+                imo: vessels[0].imo || '0000000',
+                type: vessels[0].type || 'Tanker',
+                status: vessels[0].status === 'active' ? 'at_anchor' : 'unknown',
+                latitude: vessels[0].latitude || 36.1408,
+                longitude: vessels[0].longitude || -5.3536,
+                speed: vessels[0].speed || 0,
+                heading: vessels[0].heading || 0,
+                lastUpdated: new Date()
+              }}
+              receivingVessel={{
+                id: vessels[1].id || '2',
+                name: vessels[1].name || 'Receiving Vessel',
+                imo: vessels[1].imo || '0000001',
+                type: vessels[1].type || 'Tanker',
+                status: vessels[1].status === 'active' ? 'approaching' : 'unknown',
+                latitude: vessels[1].latitude || 36.1500,
+                longitude: vessels[1].longitude || -5.3400,
+                speed: vessels[1].speed || 5,
+                heading: vessels[1].heading || 180,
+                lastUpdated: new Date()
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Vessel AIS Tracking Cards */}
+      {vessels.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h3 className="text-lg font-semibold text-secondary-900 flex items-center">
+              <div className="w-8 h-8 bg-primary-100 rounded-xl flex items-center justify-center mr-3">
+                <Ship className="w-4 h-4 text-primary-600" />
+              </div>
+              Real-Time AIS Tracking
+            </h3>
+          </div>
+          <div className="card-body">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {vessels.map((vessel, index) => (
+                <VesselCard 
+                  key={vessel.id || index}
+                  vessel={{
+                    id: vessel.id || String(index),
+                    name: vessel.name || 'Unknown Vessel',
+                    imo: vessel.imo || '0000000',
+                    type: vessel.type || 'General Cargo',
+                    status: vessel.status === 'active' ? (index === 0 ? 'at_anchor' : 'approaching') : 'unknown',
+                    latitude: vessel.latitude || 36.1408,
+                    longitude: vessel.longitude || -5.3536,
+                    speed: vessel.speed || 0,
+                    heading: vessel.heading || 0,
+                    lastUpdated: new Date()
+                  }}
+                  index={index}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Operation Details */}
       <div className="card">
         <div className="card-header">
@@ -390,7 +522,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                   </p>
                 </div>
               </div>
-              <span className="badge-danger">{cockpitData.blockers.length}</span>
+              <span className="badge badge-danger badge-md">{cockpitData.blockers.length}</span>
               <button
                 onClick={navigateToDocuments}
                 className="btn-secondary btn-sm"
@@ -402,30 +534,30 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
           </div>
           
           <div className="card-body">
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {cockpitData.blockers.map((doc: Document) => (
-                <div key={doc.id} className="border border-danger-200 rounded-xl p-6 bg-danger-50">
-                  <div className="flex items-start justify-between">
+                <div key={doc.id} className="group border border-danger-200 rounded-xl p-5 bg-gradient-to-br from-danger-50 to-danger-25 hover:border-danger-300 hover:shadow-lg transition-all duration-200">
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-6 mb-2">
-                        <h4 className="font-semibold text-danger-900">{doc.type_name}</h4>
-                        <span className="badge-danger">
+                      <h4 className="font-semibold text-danger-900 group-hover:text-danger-950 transition-colors">{doc.type_name}</h4>
+                      <div className="mt-2">
+                        <span className={`badge badge-sm ${
+                          doc.criticality === 'high' ? 'badge-danger' :
+                          doc.criticality === 'med' ? 'badge-warning' :
+                          'badge-success'
+                        }`}>
                           {doc.criticality} priority
                         </span>
                       </div>
-                      
-                      {doc.notes && (
-                        <p className="text-sm text-danger-700 mb-3">{doc.notes}</p>
-                      )}
                     </div>
                     
-                    <div className="flex items-center gap-2 ml-4">
+                    <div className="flex items-center gap-1 ml-3">
                       <button
                         onClick={() => {
                           handleDocumentAction(doc.id, 'view');
                           navigateToDocuments();
                         }}
-                        className="p-2 text-danger-500 hover:text-danger-700 hover:bg-danger-100 rounded-xl transition-colors duration-200"
+                        className="p-2 text-danger-500 hover:text-danger-700 hover:bg-danger-100 rounded-lg transition-colors duration-200"
                         title="View Details"
                       >
                         <Eye className="w-4 h-4" />
@@ -433,13 +565,17 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                       
                       <button
                         onClick={() => handleDocumentAction(doc.id, 'download')}
-                        className="p-2 text-danger-500 hover:text-danger-700 hover:bg-danger-100 rounded-xl transition-colors duration-200"
+                        className="p-2 text-danger-500 hover:text-danger-700 hover:bg-danger-100 rounded-lg transition-colors duration-200"
                         title="Download"
                       >
                         <Download className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
+                  
+                  {doc.notes && (
+                    <p className="text-xs text-danger-700 leading-relaxed">{doc.notes}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -465,7 +601,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                   </p>
                 </div>
               </div>
-              <span className="badge-warning">{cockpitData.expiring_soon.length}</span>
+              <span className="badge badge-warning badge-md">{cockpitData.expiring_soon.length}</span>
               <button
                 onClick={navigateToDocuments}
                 className="btn-secondary btn-sm"
@@ -477,30 +613,26 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
           </div>
           
           <div className="card-body">
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {cockpitData.expiring_soon.map((doc: Document) => (
-                <div key={doc.id} className="border border-warning-200 rounded-xl p-6 bg-warning-50">
-                  <div className="flex items-start justify-between">
+                <div key={doc.id} className="group border border-warning-200 rounded-xl p-5 bg-gradient-to-br from-warning-50 to-warning-25 hover:border-warning-300 hover:shadow-lg transition-all duration-200">
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-6 mb-2">
-                        <h4 className="font-semibold text-warning-900">{doc.type_name}</h4>
-                        <span className="badge-warning">
+                      <h4 className="font-semibold text-warning-900 group-hover:text-warning-950 transition-colors">{doc.type_name}</h4>
+                      <div className="mt-2">
+                        <span className="badge badge-sm badge-warning">
                           Expires: {doc.expires_on ? new Date(doc.expires_on).toLocaleDateString() : 'Unknown'}
                         </span>
                       </div>
-                      
-                      {doc.notes && (
-                        <p className="text-sm text-warning-700 mb-3">{doc.notes}</p>
-                      )}
                     </div>
                     
-                    <div className="flex items-center gap-2 ml-4">
+                    <div className="flex items-center gap-1 ml-3">
                       <button
                         onClick={() => {
                           handleDocumentAction(doc.id, 'view');
                           navigateToDocuments();
                         }}
-                        className="p-2 text-warning-500 hover:text-warning-700 hover:bg-warning-100 rounded-xl transition-colors duration-200"
+                        className="p-2 text-warning-500 hover:text-warning-700 hover:bg-warning-100 rounded-lg transition-colors duration-200"
                         title="View Details"
                       >
                         <Eye className="w-4 h-4" />
@@ -508,13 +640,17 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                       
                       <button
                         onClick={() => handleDocumentAction(doc.id, 'download')}
-                        className="p-2 text-warning-500 hover:text-warning-700 hover:bg-warning-100 rounded-xl transition-colors duration-200"
+                        className="p-2 text-warning-500 hover:text-warning-700 hover:bg-warning-100 rounded-lg transition-colors duration-200"
                         title="Download"
                       >
                         <Download className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
+                  
+                  {doc.notes && (
+                    <p className="text-xs text-warning-700 leading-relaxed">{doc.notes}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -540,7 +676,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                   </p>
                 </div>
               </div>
-              <span className="badge-primary">{vessels.length}</span>
+              <span className="badge badge-primary badge-md">{vessels.length}</span>
               <button
                 onClick={navigateToActivity}
                 className="btn-secondary btn-sm"

@@ -303,8 +303,7 @@ export const HistoryPage: React.FC = () => {
       </div>
 
       {/* Filters and Search */}
-      <div className="bg-white rounded-xl shadow-card border border-secondary-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 px-4 py-6 bg-secondary-50 rounded-xl border border-secondary-200">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-4 h-4" />
             <input
@@ -356,7 +355,6 @@ export const HistoryPage: React.FC = () => {
             className="px-4 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="End Date"
           />
-        </div>
       </div>
 
       {/* Snapshots Section */}
@@ -381,39 +379,43 @@ export const HistoryPage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredSnapshots.map((snapshot) => (
-                <div key={snapshot.id} className="border border-secondary-200 rounded-xl p-6 hover:shadow-md transition-shadow duration-200">
-                  <div className="flex items-start justify-between mb-3">
-                    <h4 className="font-medium text-secondary-900">{snapshot.title || 'Untitled Snapshot'}</h4>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(snapshot.status)}`}>
+                <div key={snapshot.id} className="border border-secondary-200 rounded-xl p-4 hover:shadow-md transition-shadow duration-200">
+                  {/* Row 1: Title & File Size */}
+                  <div className="mb-3">
+                    <h4 className="font-bold text-secondary-900">{snapshot.title || 'Untitled Snapshot'}</h4>
+                    <p className="text-sm text-secondary-600 mt-1 flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5" />
+                      {formatFileSize(snapshot.file_size)}
+                    </p>
+                  </div>
+
+                  {/* Row 2: Status & Time Badges */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 ${getStatusColor(snapshot.status)}`}>
                       {getStatusIcon(snapshot.status)}
                       {snapshot.status}
                     </span>
-                  </div>
 
-                  <div className="space-y-2 text-sm text-secondary-600 mb-6">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
+                    <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full border border-secondary-200 bg-secondary-50 text-secondary-700 flex-shrink-0">
+                      <Calendar className="w-3.5 h-3.5" />
                       {formatTimestamp(snapshot.timestamp)}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      {formatFileSize(snapshot.file_size)}
-                    </div>
+                    </span>
                   </div>
 
-                  <div className="flex gap-6">
+                  {/* Row 3: Actions */}
+                  <div className="flex gap-2">
                     <button
                       onClick={() => handleViewSnapshot(snapshot)}
-                      className="flex-1 px-3 py-2 text-sm border border-secondary-300 rounded-xl hover:bg-secondary-50 transition-colors duration-200 flex items-center justify-center"
+                      className="flex-1 px-3 py-2 text-sm border border-secondary-300 rounded-lg hover:bg-secondary-50 transition-colors duration-200 flex items-center justify-center gap-1"
                     >
-                      <Eye className="w-4 h-4 mr-1" />
+                      <Eye className="w-4 h-4" />
                       View
                     </button>
                     <button
                       onClick={() => downloadSnapshot(snapshot)}
-                      className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center"
+                      className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center gap-1"
                     >
-                      <Download className="w-4 h-4 mr-1" />
+                      <Download className="w-4 h-4" />
                       Download
                     </button>
                   </div>
@@ -436,41 +438,66 @@ export const HistoryPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="divide-y divide-secondary-200">
+        <div className="p-6">
           {filteredHistory.length === 0 ? (
-            <div className="p-6 text-center">
-              <History className="w-12 h-12 text-secondary-400 mx-auto mb-6" />
+            <div className="text-center py-12 border-2 border-dashed border-secondary-300 rounded-xl bg-secondary-50">
+              <History className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-secondary-900 mb-2">No history found</h3>
               <p className="text-secondary-600">No activities match your current filters.</p>
             </div>
           ) : (
-            filteredHistory.map((entry) => (
-              <div key={entry.id} className="p-6 hover:bg-secondary-50 transition-colors duration-200">
-                <div className="flex items-start gap-6">
-                  <div className="flex-shrink-0">
-                    {getStatusIcon(entry.status)}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-6 mb-2">
-                      <h4 className="font-medium text-secondary-900">{entry.title || 'Untitled Activity'}</h4>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(entry.status)}`}>
-                        {entry.status}
-                      </span>
-                      <span className="text-sm text-secondary-500">{formatTimestamp(entry.timestamp)}</span>
+            <div className="space-y-4">
+              {filteredHistory.map((entry) => (
+                <div key={entry.id} className="border border-secondary-200 rounded-xl p-4 hover:shadow-md transition-shadow duration-200">
+                  {/* Row 1: Title & Description */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      {getStatusIcon(entry.status)}
                     </div>
-
-                    <p className="text-secondary-600 mb-2">{entry.description || 'No description available'}</p>
-
-                    {entry.user && (
-                      <p className="text-sm text-secondary-500">
-                        By: <span className="font-medium">{entry.user}</span>
-                      </p>
-                    )}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-secondary-900">{entry.title || 'Untitled Activity'}</h4>
+                      <p className="text-sm text-secondary-600 mt-1">{entry.description || 'No description available'}</p>
+                      {entry.user && (
+                        <p className="text-xs text-secondary-500 mt-1">By: {entry.user}</p>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Row 2: Status & Type & Time Badges */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {/* Status Badge */}
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 ${getStatusColor(entry.status)}`}>
+                      {getStatusIcon(entry.status)}
+                      {entry.status}
+                    </span>
+
+                    {/* Type Badge */}
+                    <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full border border-secondary-200 bg-secondary-50 text-secondary-700 flex-shrink-0">
+                      <FileText className="w-3.5 h-3.5" />
+                      {entry.type || 'Activity'}
+                    </span>
+
+                    {/* Time Badge */}
+                    <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full border border-secondary-200 bg-secondary-50 text-secondary-700 flex-shrink-0">
+                      <Clock className="w-3.5 h-3.5" />
+                      {formatTimestamp(entry.timestamp)}
+                    </span>
+                  </div>
+
+                  {/* Row 3: Actions */}
+                  {entry.details && (
+                    <div className="flex items-center gap-2 justify-end">
+                      <button className="p-1.5 text-secondary-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button className="p-1.5 text-secondary-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200">
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       </div>

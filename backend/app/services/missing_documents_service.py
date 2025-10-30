@@ -250,7 +250,7 @@ class MissingDocumentsService:
             # Sort by expiry date (soonest first)
             return sorted(
                 documents,
-                key=lambda d: d.get('expires_on') or '9999-12-31'
+                key=lambda d: d.get('expiresOn') or '9999-12-31'
             )
         elif sort_key == "status":
             # Sort by status priority

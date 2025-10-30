@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Eye, Download, Trash2, Star, MoreVertical, AlertTriangle, X } from 'lucide-react';
+import { Send, Paperclip, Eye, Download, Trash2, Star, MoreVertical, AlertTriangle, X, MessageCircle, Clock } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { Message } from '../../types/api';
 import ApiService from '../../api';
@@ -186,6 +186,34 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({
     }
   };
 
+  const formatTimeOnly = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Group messages by sender
+  const groupMessagesBySender = (msgs: Message[]) => {
+    const groups: { sender: string; sender_name: string; avatar: string; messages: Message[] }[] = [];
+    
+    msgs.forEach(msg => {
+      const lastGroup = groups[groups.length - 1];
+      if (lastGroup && lastGroup.sender === msg.sender) {
+        lastGroup.messages.push(msg);
+      } else {
+        groups.push({
+          sender: msg.sender,
+          sender_name: msg.sender_name,
+          avatar: msg.sender_name.charAt(0).toUpperCase(),
+          messages: [msg]
+        });
+      }
+    });
+    
+    return groups;
+  };
+
+  const isOwnMessage = (sender: string) => sender === user?.email;
+
   const getMessageIcon = (type: string) => {
     switch (type) {
       case 'system':
@@ -207,6 +235,9 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({
     return matchesSearch && matchesFilter;
   });
 
+  // Create message groups AFTER filteredMessages is defined
+  const messageGroups = groupMessagesBySender(filteredMessages);
+
   if (loading && localMessages.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -220,17 +251,17 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({
 
   return (
     <div className="min-h-screen bg-secondary-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col h-full space-y-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col h-screen space-y-4">
       {/* Error Display */}
       {error && (
-        <div className="bg-danger-50 border border-danger-200 rounded-xl p-6">
+        <div className="bg-danger-50 border border-danger-200 rounded-xl p-4 mb-2">
           <div className="flex items-center">
-            <AlertTriangle className="w-5 h-5 text-danger-500 mr-2" />
-            <span className="text-danger-800 font-medium">{error}</span>
+            <AlertTriangle className="w-5 h-5 text-danger-500 mr-2 flex-shrink-0" />
+            <span className="text-danger-800 font-medium text-sm">{error}</span>
             <button
               onClick={() => setError(null)}
-              className="ml-auto text-danger-400 hover:text-danger-600 transition-colors duration-200"
+              className="ml-auto text-danger-400 hover:text-danger-600 transition-colors duration-200 flex-shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -239,22 +270,26 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-secondary-900">Messages</h1>
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h1 className="text-3xl font-bold text-secondary-900">Messages</h1>
+          <p className="text-sm text-secondary-600 mt-1">Manage your conversations</p>
+        </div>
         
-        <div className="flex gap-6">
+        <div className="flex gap-2">
           <button
             onClick={onUploadDocument}
-            className="btn-primary flex items-center"
+            className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium text-sm flex items-center gap-2"
           >
-            <Paperclip className="w-4 h-4 mr-2" />
+            <Paperclip className="w-4 h-4" />
             Upload Document
           </button>
           
           <button
             onClick={loadMessages}
             disabled={loading}
-            className="btn-secondary disabled:opacity-50"
+            className="px-4 py-2.5 border border-secondary-200 text-secondary-600 rounded-lg hover:bg-secondary-50 transition-colors duration-200 disabled:opacity-50"
+            title="Refresh"
           >
             <MoreVertical className="w-4 h-4" />
           </button>
@@ -262,21 +297,21 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({
       </div>
 
       {/* Filters and Search */}
-      <div className="flex flex-col md:flex-row gap-6 mb-6">
+      <div className="flex flex-col md:flex-row gap-3 p-4 bg-white rounded-xl border border-secondary-200 mb-1">
         <div className="relative flex-1">
           <input
             type="text"
-            placeholder="Search messages..."
+            placeholder="🔍 Search messages..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-4 pr-4 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-4 pr-4 py-2.5 border border-secondary-200 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-secondary-50 focus:bg-white transition-colors text-sm"
           />
         </div>
         
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="px-4 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="px-4 py-2.5 border border-secondary-200 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-secondary-50 focus:bg-white transition-colors text-sm"
         >
           <option value="all">All Types</option>
           <option value="text">Text</option>
@@ -286,81 +321,101 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({
         </select>
       </div>
 
-      {/* Messages List */}
-      <div className="flex-1 overflow-y-auto space-y-4 mb-6">
-        {filteredMessages.length === 0 ? (
-          <div className="text-center py-8">
-            <Paperclip className="w-12 h-12 text-secondary-400 mx-auto mb-6" />
+      {/* Messages List - WhatsApp Style */}
+      <div className="flex-1 overflow-y-auto space-y-6 bg-white rounded-xl border border-secondary-200 p-6 shadow-sm">
+        {messageGroups.length === 0 ? (
+          <div className="text-center py-12">
+            <MessageCircle className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-secondary-900 mb-2">No messages found</h3>
             <p className="text-secondary-600">Start a conversation by sending a message.</p>
           </div>
         ) : (
-          filteredMessages.map((message) => (
-            <div key={message.id} className="bg-white rounded-xl shadow-card border border-secondary-200 p-6">
-              <div className="flex items-start gap-6">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-sm font-medium">
-                    {message.sender_name.charAt(0).toUpperCase()}
-                  </span>
+          messageGroups.map((group, groupIdx) => (
+            <div key={`group-${groupIdx}`} className={`flex gap-3 ${isOwnMessage(group.sender) ? 'justify-end' : 'justify-start'}`}>
+              {/* Avatar - Only for other users' messages */}
+              {!isOwnMessage(group.sender) && (
+                <div className="w-8 h-8 bg-secondary-300 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xs font-medium">{group.avatar}</span>
                 </div>
+              )}
+              
+              {/* Messages Group */}
+              <div className={`flex flex-col gap-2 max-w-md ${isOwnMessage(group.sender) ? 'items-end' : 'items-start'}`}>
+                {/* Sender Name - Only for other users' first message */}
+                {!isOwnMessage(group.sender) && (
+                  <span className="text-xs font-medium text-secondary-600 px-3 pt-1">{group.sender_name}</span>
+                )}
                 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-secondary-900">{message.sender_name}</span>
-                    {getMessageIcon(message.type)}
-                    <span className="text-sm text-secondary-500">{formatTimestamp(message.timestamp)}</span>
-                    {message.status && (
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        message.status === 'read' ? 'bg-green-100 text-success-800' : 'bg-secondary-100 text-secondary-800'
-                      }`}>
-                        {message.status}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <p className="text-secondary-700 mb-2">{message.content}</p>
-                  
-                  {message.attachments && message.attachments.length > 0 && (
-                    <div className="space-y-2">
-                      {message.attachments.map((attachment, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 bg-secondary-50 rounded border">
-                          <Paperclip className="w-4 h-4 text-secondary-500" />
-                          <span className="text-sm text-secondary-700">{attachment.name}</span>
-                          <span className="text-xs text-secondary-500">
-                            ({(attachment.size / 1024).toFixed(1)} KB)
-                          </span>
-                          <button
-                            onClick={() => handleDownloadAttachment(attachment)}
-                            className="ml-auto p-1 text-secondary-400 hover:text-secondary-600 transition-colors duration-200"
-                            title="Download"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleViewMessage(message)}
-                    className="p-1 text-secondary-400 hover:text-secondary-600 transition-colors duration-200"
-                    title="View Details"
+                {/* Message Bubbles */}
+                {group.messages.map((message) => (
+                  <div 
+                    key={message.id}
+                    className={`group relative flex items-end gap-2 ${isOwnMessage(group.sender) ? 'flex-row-reverse' : 'flex-row'}`}
                   >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  
-                  {message.sender === user?.email && (
-                    <button
-                      onClick={() => handleDeleteMessage(message.id)}
-                      className="p-1 text-secondary-400 hover:text-danger-600 transition-colors duration-200"
-                      title="Delete"
+                    {/* Message Bubble */}
+                    <div
+                      className={`px-4 py-2 rounded-2xl max-w-xs break-words transition-all duration-200 ${
+                        isOwnMessage(group.sender)
+                          ? 'bg-blue-600 text-white rounded-br-none'
+                          : 'bg-secondary-100 text-secondary-900 rounded-bl-none'
+                      }`}
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
+                      <p className="text-sm">{message.content}</p>
+                      
+                      {/* Attachments inline in bubble */}
+                      {message.attachments && message.attachments.length > 0 && (
+                        <div className={`mt-2 pt-2 border-t ${isOwnMessage(group.sender) ? 'border-blue-400' : 'border-secondary-200'}`}>
+                          {message.attachments.map((attachment, idx) => (
+                            <div key={idx} className="flex items-center gap-1.5 mt-1">
+                              <Paperclip className={`w-3 h-3 flex-shrink-0 ${isOwnMessage(group.sender) ? 'text-blue-200' : 'text-secondary-500'}`} />
+                              <span className={`text-xs truncate max-w-[120px] ${isOwnMessage(group.sender) ? 'text-blue-100' : 'text-secondary-600'}`}>
+                                {attachment.name}
+                              </span>
+                              <button
+                                onClick={() => handleDownloadAttachment(attachment)}
+                                className={`flex-shrink-0 transition-colors ${isOwnMessage(group.sender) ? 'hover:text-blue-200' : 'hover:text-secondary-700'}`}
+                                title="Download"
+                              >
+                                <Download className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Time & Status on hover */}
+                      <div className={`flex items-center gap-1 mt-1 text-xs opacity-70 group-hover:opacity-100 transition-opacity ${isOwnMessage(group.sender) ? 'text-blue-100' : 'text-secondary-600'}`}>
+                        <span>{formatTimeOnly(message.timestamp)}</span>
+                        {message.status === 'read' && <span>✓</span>}
+                      </div>
+                    </div>
+
+                    {/* Action buttons on hover */}
+                    <div className="hidden group-hover:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                      <button
+                        onClick={() => handleViewMessage(message)}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          isOwnMessage(group.sender)
+                            ? 'text-blue-600 hover:bg-blue-50'
+                            : 'text-secondary-600 hover:bg-secondary-50'
+                        }`}
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      
+                      {message.sender === user?.email && (
+                        <button
+                          onClick={() => handleDeleteMessage(message.id)}
+                          className="p-1.5 text-secondary-600 hover:text-danger-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))
@@ -368,22 +423,23 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input */}
-      <div className="bg-white rounded-xl shadow-card border border-secondary-200 p-6">
+      {/* Message Input - WhatsApp Style */}
+      <div className="rounded-xl border border-secondary-200 bg-white overflow-hidden">
         {/* Attachments Preview */}
         {attachments.length > 0 && (
-          <div className="mb-3 p-3 bg-secondary-50 rounded-xl border">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="border-b border-secondary-200 p-4 bg-secondary-50">
+            <div className="flex items-center gap-2 mb-3">
               <Paperclip className="w-4 h-4 text-secondary-500" />
-              <span className="text-sm font-medium text-secondary-700">Attachments ({attachments.length})</span>
+              <span className="text-xs font-medium text-secondary-700">Attachments ({attachments.length})</span>
             </div>
             <div className="flex flex-wrap gap-2">
               {attachments.map((file, index) => (
-                <div key={index} className="flex items-center gap-2 px-2 py-1 bg-white rounded border text-sm">
-                  <span className="text-secondary-700">{file.name}</span>
+                <div key={index} className="flex items-center gap-2 px-2 py-1 bg-white rounded-lg border border-secondary-200 text-xs hover:bg-secondary-50 transition-colors">
+                  <Paperclip className="w-3 h-3 text-secondary-400 flex-shrink-0" />
+                  <span className="text-secondary-700 truncate max-w-[150px]">{file.name}</span>
                   <button
                     onClick={() => removeAttachment(index)}
-                    className="text-danger-500 hover:text-danger-700"
+                    className="text-secondary-400 hover:text-danger-600 transition-colors flex-shrink-0"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -393,34 +449,36 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({
           </div>
         )}
         
-        <div className="flex gap-2">
+        <div className="flex items-end gap-2 p-4">
+          {/* Attach button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors duration-200 flex-shrink-0"
+            title="Attach file"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+          
+          {/* Message input */}
           <textarea
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Type your message..."
-            rows={3}
-            className="flex-1 px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            placeholder="Type a message..."
+            rows={1}
+            className="flex-1 px-3 py-2 border-0 focus:ring-0 bg-secondary-50 rounded-2xl resize-none focus:bg-secondary-100 transition-colors text-sm"
+            style={{ maxHeight: '100px', minHeight: '40px' }}
           />
           
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="p-2 text-secondary-500 hover:text-secondary-700 transition-colors duration-200"
-              title="Attach file"
-            >
-              <Paperclip className="w-5 h-5" />
-            </button>
-            
-            <button
-              onClick={handleSendMessage}
-              disabled={(!newMessage.trim() && attachments.length === 0) || sending}
-              className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
-              title="Send message"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </div>
+          {/* Send button */}
+          <button
+            onClick={handleSendMessage}
+            disabled={(!newMessage.trim() && attachments.length === 0) || sending}
+            className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors duration-200 disabled:bg-secondary-300 disabled:cursor-not-allowed flex-shrink-0"
+            title="Send message"
+          >
+            <Send className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Hidden file input */}

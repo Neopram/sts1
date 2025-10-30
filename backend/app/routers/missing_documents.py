@@ -198,7 +198,7 @@ async def get_documents_by_criticality(
         )
     
     # Group missing documents by criticality
-    missing_docs = overview.get("documents", {}).get("missing", [])
+    missing_docs = overview.get("categories", {}).get("missing", [])
     
     high_criticality = [d for d in missing_docs if d['type']['criticality'] == 'high']
     med_criticality = [d for d in missing_docs if d['type']['criticality'] == 'med']
@@ -280,24 +280,34 @@ async def get_expiring_soon_documents(
     # Process documents
     expiring_documents = []
     for doc, doc_type, room, vessel in rows:
+        days_until = (doc.expires_on - datetime.now()).days
         expiring_documents.append({
             "id": str(doc.id),
             "type": {
                 "id": str(doc_type.id),
                 "code": doc_type.code,
                 "name": doc_type.name,
-                "criticality": doc_type.criticality
+                "criticality": doc_type.criticality,
+                "description": doc_type.description or "",
+                "category": doc_type.category or "general"
             },
-            "expires_on": doc.expires_on.isoformat(),
-            "days_until_expiry": (doc.expires_on - datetime.now()).days,
+            "status": doc.status,
+            "reason": "expiring_soon",
+            "expiresOn": doc.expires_on.isoformat(),
+            "daysUntilExpiry": days_until,
+            "uploadedBy": doc.uploaded_by,
+            "uploadedAt": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+            "notes": doc.notes,
             "room": {
                 "id": str(room.id),
-                "title": room.title
+                "title": room.title,
+                "location": room.location if hasattr(room, 'location') else None
             },
             "vessel": {
                 "id": str(vessel.id),
                 "name": vessel.name,
-                "imo": vessel.imo
+                "imo": vessel.imo,
+                "vesselType": vessel.vessel_type
             } if vessel else None
         })
     

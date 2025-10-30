@@ -191,7 +191,7 @@ const SettingsPage: React.FC = () => {
   ];
 
   const colors = [
-    { value: 'blue', name: 'Blue', class: 'bg-blue-500' },
+    { value: 'blue', name: 'Blue', class: 'bg-primary-500' },
     { value: 'green', name: 'Green', class: 'bg-success-500' },
     { value: 'purple', name: 'Purple', class: 'bg-purple-500' },
     { value: 'red', name: 'Red', class: 'bg-danger-500' },
@@ -296,7 +296,7 @@ const SettingsPage: React.FC = () => {
 
   const renderProfileSection = () => (
     <div className="space-y-8">
-      <div className="card">
+      <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-medium text-secondary-900">Personal Information</h3>
           <button
@@ -317,7 +317,7 @@ const SettingsPage: React.FC = () => {
               type="text"
               value={profileSettings.displayName}
               onChange={(e) => handleProfileChange('displayName', e.target.value)}
-              className="form-input"
+              className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 placeholder-secondary-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
             />
           </div>
           
@@ -329,7 +329,7 @@ const SettingsPage: React.FC = () => {
               type="email"
               value={profileSettings.email}
               disabled
-              className="w-full px-3 py-2 border border-secondary-300 rounded-xl bg-secondary-50 text-secondary-500"
+              className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-secondary-50 text-secondary-500 transition-colors duration-200"
             />
           </div>
           
@@ -340,7 +340,7 @@ const SettingsPage: React.FC = () => {
             <select
               value={profileSettings.language}
               onChange={(e) => handleProfileChange('language', e.target.value)}
-              className="form-input"
+              className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
             >
               {languages.map((lang) => (
                 <option key={lang.code} value={lang.code}>
@@ -357,7 +357,7 @@ const SettingsPage: React.FC = () => {
             <select
               value={profileSettings.timezone}
               onChange={(e) => handleProfileChange('timezone', e.target.value)}
-              className="form-input"
+              className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
             >
               {timezones.map((tz) => (
                 <option key={tz} value={tz}>
@@ -374,7 +374,7 @@ const SettingsPage: React.FC = () => {
             <select
               value={profileSettings.dateFormat}
               onChange={(e) => handleProfileChange('dateFormat', e.target.value)}
-              className="form-input"
+              className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
             >
               <option value="MM/DD/YYYY">MM/DD/YYYY</option>
               <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -389,7 +389,7 @@ const SettingsPage: React.FC = () => {
             <select
               value={profileSettings.timeFormat}
               onChange={(e) => handleProfileChange('timeFormat', e.target.value)}
-              className="form-input"
+              className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
             >
               <option value="12h">12-hour (AM/PM)</option>
               <option value="24h">24-hour</option>
@@ -402,7 +402,7 @@ const SettingsPage: React.FC = () => {
 
   const renderNotificationsSection = () => (
     <div className="space-y-8">
-      <div className="card">
+      <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-medium text-secondary-900">Notification Preferences</h3>
           <button
@@ -430,7 +430,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => handleNotificationChange('emailNotifications', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
               
@@ -446,7 +446,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => handleNotificationChange('pushNotifications', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
               
@@ -462,7 +462,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => handleNotificationChange('smsNotifications', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
             </div>
@@ -483,7 +483,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => handleNotificationChange('documentUpdates', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
               
@@ -499,7 +499,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => handleNotificationChange('approvalRequests', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
               
@@ -515,7 +515,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => handleNotificationChange('systemAlerts', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
               
@@ -531,7 +531,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => handleNotificationChange('weeklyDigest', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
             </div>
@@ -543,7 +543,7 @@ const SettingsPage: React.FC = () => {
 
   const renderAppearanceSection = () => (
     <div className="space-y-8">
-      <div className="card">
+      <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-medium text-secondary-900">Appearance Settings</h3>
           <button
@@ -571,7 +571,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => handleAppearanceChange('theme', e.target.value)}
                     className="sr-only peer"
                   />
-                  <div className="p-3 border-2 border-secondary-200 rounded-xl peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:border-secondary-300 transition-colors duration-200">
+                  <div className="p-3 border-2 border-secondary-200 rounded-xl peer-checked:border-primary-500 peer-checked:bg-primary-50 hover:border-secondary-300 transition-colors duration-200">
                     <div className="text-center">
                       <div className={`w-8 h-8 mx-auto mb-2 rounded ${
                         theme.value === 'light' ? 'bg-secondary-100' :
@@ -620,7 +620,7 @@ const SettingsPage: React.FC = () => {
               <select
                 value={appearanceSettings.fontSize}
                 onChange={(e) => handleAppearanceChange('fontSize', e.target.value)}
-                className="form-input"
+                className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
               >
                 <option value="small">Small</option>
                 <option value="medium">Medium</option>
@@ -642,7 +642,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => handleAppearanceChange('compactMode', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
               
@@ -658,7 +658,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => handleAppearanceChange('showAnimations', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
             </div>
@@ -670,7 +670,7 @@ const SettingsPage: React.FC = () => {
 
   const renderSecuritySection = () => (
     <div className="space-y-8">
-      <div className="card">
+      <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-medium text-secondary-900">Security Settings</h3>
           <button
@@ -696,7 +696,7 @@ const SettingsPage: React.FC = () => {
                   onChange={(e) => handleSecurityChange('twoFactorAuth', e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
               </label>
             </div>
             
@@ -712,7 +712,7 @@ const SettingsPage: React.FC = () => {
                   onChange={(e) => handleSecurityChange('loginNotifications', e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
               </label>
             </div>
             
@@ -728,7 +728,7 @@ const SettingsPage: React.FC = () => {
                   onChange={(e) => handleSecurityChange('suspiciousActivityAlerts', e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
               </label>
             </div>
             
@@ -744,7 +744,7 @@ const SettingsPage: React.FC = () => {
                   onChange={(e) => handleSecurityChange('requirePasswordForChanges', e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
               </label>
             </div>
           </div>
@@ -756,7 +756,7 @@ const SettingsPage: React.FC = () => {
             <select
               value={securitySettings.sessionTimeout}
               onChange={(e) => handleSecurityChange('sessionTimeout', parseInt(e.target.value))}
-              className="form-input"
+              className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
             >
               <option value={15}>15 minutes</option>
               <option value={30}>30 minutes</option>
@@ -772,7 +772,7 @@ const SettingsPage: React.FC = () => {
 
   const renderDataSection = () => (
     <div className="space-y-8">
-      <div className="card">
+      <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-medium text-secondary-900">Data & Export Settings</h3>
           <button
@@ -798,7 +798,7 @@ const SettingsPage: React.FC = () => {
                   onChange={(e) => handleDataChange('autoBackup', e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-secondary-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-secondary-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all duration-200 peer-checked:bg-primary-600"></div>
               </label>
             </div>
           </div>
@@ -811,7 +811,7 @@ const SettingsPage: React.FC = () => {
               <select
                 value={dataSettings.backupFrequency}
                 onChange={(e) => handleDataChange('backupFrequency', e.target.value)}
-                className="form-input"
+                className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -826,7 +826,7 @@ const SettingsPage: React.FC = () => {
               <select
                 value={dataSettings.retainBackups}
                 onChange={(e) => handleDataChange('retainBackups', parseInt(e.target.value))}
-                className="form-input"
+                className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
               >
                 <option value={7}>7 days</option>
                 <option value={30}>30 days</option>
@@ -842,7 +842,7 @@ const SettingsPage: React.FC = () => {
               <select
                 value={dataSettings.exportFormat}
                 onChange={(e) => handleDataChange('exportFormat', e.target.value)}
-                className="form-input"
+                className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
               >
                 <option value="json">JSON</option>
                 <option value="csv">CSV</option>
@@ -858,7 +858,7 @@ const SettingsPage: React.FC = () => {
               <select
                 value={dataSettings.dataRetention}
                 onChange={(e) => handleDataChange('dataRetention', e.target.value)}
-                className="form-input"
+                className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl bg-white text-secondary-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 hover:border-secondary-300"
               >
                 <option value="1year">1 year</option>
                 <option value="3years">3 years</option>
@@ -909,27 +909,27 @@ const SettingsPage: React.FC = () => {
     <div className="min-h-screen bg-secondary-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-secondary-900">Settings</h1>
-          <p className="mt-2 text-secondary-600">
+        <div className="mb-8 bg-gradient-to-r from-secondary-50 via-white to-secondary-50 rounded-2xl p-8 border border-secondary-100 shadow-sm">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-secondary-900 to-primary-600 bg-clip-text text-transparent mb-2">Settings</h1>
+          <p className="text-lg font-medium text-secondary-700">
             Manage your account settings, preferences, and application configuration.
           </p>
         </div>
 
         {/* Message Display */}
         {message && (
-          <div className={`mb-6 p-6 rounded-xl ${
+          <div className={`mb-6 p-6 rounded-xl border-l-4 shadow-md transition-all duration-300 ${
             message.type === 'success' 
-              ? 'bg-success-50 border border-success-200 text-success-800' 
-              : 'bg-danger-50 border border-danger-200 text-danger-800'
+              ? 'bg-success-50 border-l-success-600 border border-success-200 text-success-800' 
+              : 'bg-danger-50 border-l-danger-600 border border-danger-200 text-danger-800'
           }`}>
-            <div className="flex items-center">
+            <div className="flex items-center gap-3">
               {message.type === 'success' ? (
-                <CheckCircle className="w-5 h-5 mr-2" />
+                <CheckCircle className="w-6 h-6 flex-shrink-0" />
               ) : (
-                <AlertCircle className="w-5 h-5 mr-2" />
+                <AlertCircle className="w-6 h-6 flex-shrink-0" />
               )}
-              <span>{message.text}</span>
+              <span className="font-medium">{message.text}</span>
             </div>
           </div>
         )}
@@ -937,22 +937,26 @@ const SettingsPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar Navigation */}
           <div className="lg:col-span-1">
-            <nav className="space-y-2">
+            <nav className="bg-white rounded-2xl border border-secondary-100 shadow-sm p-4 space-y-2 sticky top-4">
               {sections.map((section) => (
                 <button
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
-                  className={`w-full text-left px-4 py-3 rounded-xl transition-colors duration-200 ${
+                  className={`w-full text-left px-6 py-4 rounded-xl transition-all duration-300 ${
                     activeSection === section.id
-                      ? 'bg-blue-50 border border-blue-200 text-blue-700'
-                      : 'text-secondary-600 hover:bg-secondary-50 hover:text-secondary-900'
+                      ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-lg'
+                      : 'text-secondary-600 hover:bg-secondary-50 hover:text-secondary-900 hover:shadow-md'
                   }`}
                 >
-                  <div className="flex items-center">
-                    <span className="mr-3">{section.icon}</span>
+                  <div className="flex items-center gap-3">
+                    <span className={activeSection === section.id ? 'text-white' : 'text-secondary-400'}>
+                      {section.icon}
+                    </span>
                     <div>
-                      <div className="font-medium">{section.title}</div>
-                      <div className="text-sm opacity-75">{section.description}</div>
+                      <div className="font-semibold text-sm">{section.title}</div>
+                      <div className={`text-xs opacity-75 ${activeSection === section.id ? 'text-white' : 'text-secondary-600'}`}>
+                        {section.description}
+                      </div>
                     </div>
                   </div>
                 </button>

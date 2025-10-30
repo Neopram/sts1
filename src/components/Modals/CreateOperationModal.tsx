@@ -191,15 +191,15 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
-          <h2 className="text-xl font-bold text-gray-900">Create New STS Operation</h2>
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        {/* Header with Gradient */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700">
+          <h2 className="text-2xl font-bold text-white">Create New STS Operation</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition"
+            className="text-white hover:text-blue-100 transition inline-flex items-center justify-center"
           >
-            <X size={24} />
+            <X className="w-6 h-6 flex-shrink-0" />
           </button>
         </div>
 
@@ -213,14 +213,17 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
           )}
 
           {/* Operation Details Section */}
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Operation Details</h3>
+          <div className="bg-gradient-to-br from-blue-50 to-blue-50 p-5 rounded-lg border border-blue-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2.5">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-600 text-white text-sm font-bold">📋</span>
+              Operation Details
+            </h3>
             
             <div className="space-y-4">
               {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Operation Title
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Operation Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -228,19 +231,19 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
                   placeholder="e.g., STS Operation: MT GLOBAL → MT HORIZON"
                   value={formData.title}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.title ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
+                    errors.title ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
                   }`}
                 />
                 {errors.title && (
-                  <p className="text-red-600 text-sm mt-1">{errors.title}</p>
+                  <p className="text-red-600 text-xs font-medium mt-1.5">{errors.title}</p>
                 )}
               </div>
 
               {/* Location */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Location
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Location <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -248,61 +251,64 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
                   placeholder="e.g., Gulf of Mexico, 25°N 90°W"
                   value={formData.location}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.location ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
+                    errors.location ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
                   }`}
                 />
                 {errors.location && (
-                  <p className="text-red-600 text-sm mt-1">{errors.location}</p>
+                  <p className="text-red-600 text-xs font-medium mt-1.5">{errors.location}</p>
                 )}
               </div>
 
               {/* ETA */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  STS ETA (Estimated Time of Arrival)
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  STS ETA (Estimated Time of Arrival) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
                   name="sts_eta"
                   value={formData.sts_eta}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.sts_eta ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
+                    errors.sts_eta ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
                   }`}
                 />
                 {errors.sts_eta && (
-                  <p className="text-red-600 text-sm mt-1">{errors.sts_eta}</p>
+                  <p className="text-red-600 text-xs font-medium mt-1.5">{errors.sts_eta}</p>
                 )}
               </div>
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Description (Optional)
                 </label>
                 <textarea
                   name="description"
-                  placeholder="Describe the operation, cargo type, etc."
+                  placeholder="Describe the operation, cargo type, special conditions, etc."
                   rows={4}
                   value={formData.description}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white"
                 />
               </div>
             </div>
           </div>
 
           {/* Parties Section */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Parties Involved</h3>
+          <div className="bg-gradient-to-br from-emerald-50 to-emerald-50 p-5 rounded-lg border border-emerald-200">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2.5">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-600 text-white text-sm font-bold">👥</span>
+                Parties & Stakeholders
+              </h3>
               <button
                 type="button"
                 onClick={addParty}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition text-sm font-medium"
+                className="inline-flex items-center justify-center gap-2.5 px-3.5 py-2 bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition text-sm font-bold shadow-md hover:shadow-lg"
               >
-                <Plus size={16} />
+                <Plus className="w-4 h-4 flex-shrink-0" />
                 Add Party
               </button>
             </div>
@@ -311,14 +317,14 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
               <p className="text-red-600 text-sm mb-4">{errors.parties}</p>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               {formData.parties.map((party, index) => (
-                <div key={index} className="p-4 border border-gray-200 rounded-lg">
-                  <div className="flex items-start justify-between mb-3">
+                <div key={index} className="p-4 border border-emerald-300 rounded-lg bg-white hover:border-emerald-400 hover:bg-emerald-50 transition">
+                  <div className="flex items-start justify-between mb-3.5">
                     <div className="grid grid-cols-3 gap-3 flex-1">
                       {/* Role */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">
                           Role
                         </label>
                         <select
@@ -326,7 +332,7 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
                           onChange={(e) =>
                             handlePartyChange(index, 'role', e.target.value as Party['role'])
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium bg-white"
                         >
                           {roleOptions.map(role => (
                             <option key={role} value={role}>
@@ -338,8 +344,8 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
 
                       {/* Name */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Name
+                        <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                          Name <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -348,19 +354,19 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
                           onChange={(e) =>
                             handlePartyChange(index, 'name', e.target.value)
                           }
-                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
-                            errors[`party_name_${index}`] ? 'border-red-500' : 'border-gray-300'
+                          className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium transition ${
+                            errors[`party_name_${index}`] ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
                           }`}
                         />
                         {errors[`party_name_${index}`] && (
-                          <p className="text-red-600 text-xs mt-1">{errors[`party_name_${index}`]}</p>
+                          <p className="text-red-600 text-xs font-medium mt-1.5">{errors[`party_name_${index}`]}</p>
                         )}
                       </div>
 
                       {/* Email */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Email
+                        <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                          Email <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="email"
@@ -369,12 +375,12 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
                           onChange={(e) =>
                             handlePartyChange(index, 'email', e.target.value)
                           }
-                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${
-                            errors[`party_email_${index}`] ? 'border-red-500' : 'border-gray-300'
+                          className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium transition ${
+                            errors[`party_email_${index}`] ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-white'
                           }`}
                         />
                         {errors[`party_email_${index}`] && (
-                          <p className="text-red-600 text-xs mt-1">{errors[`party_email_${index}`]}</p>
+                          <p className="text-red-600 text-xs font-medium mt-1.5">{errors[`party_email_${index}`]}</p>
                         )}
                       </div>
                     </div>
@@ -384,9 +390,10 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
                       <button
                         type="button"
                         onClick={() => removeParty(index)}
-                        className="text-red-600 hover:text-red-700 transition mt-7"
+                        className="inline-flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg p-2 transition mt-7 flex-shrink-0"
+                        title="Remove party"
                       >
-                        <Trash2 size={18} />
+                        <Trash2 className="w-4 h-4 flex-shrink-0" />
                       </button>
                     )}
                   </div>
@@ -396,18 +403,18 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 sticky bottom-0 bg-white">
+          <div className="flex gap-2.5 justify-end pt-6 border-t border-gray-200 sticky bottom-0 bg-gradient-to-r from-white via-white to-gray-50">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-medium"
+              className="inline-flex items-center justify-center gap-2.5 px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition font-bold text-sm"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:bg-blue-400"
+              className="inline-flex items-center justify-center gap-2.5 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition font-bold text-sm shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Creating...' : 'Create Operation'}
             </button>

@@ -331,10 +331,10 @@ const ProfilePage: React.FC = () => {
         return (
           <div className="space-y-8">
             {/* Avatar Section */}
-            <div className="card">
+            <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
               <div className="flex items-center space-x-6">
                 <div className="relative">
-                  <div className="w-24 h-24 rounded-full bg-secondary-200 flex items-center justify-center overflow-hidden">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-secondary-100 to-secondary-200 flex items-center justify-center overflow-hidden border-2 border-secondary-200">
                     {avatarPreview || profileData.avatar ? (
                       <img
                         src={avatarPreview || profileData.avatar || ''}
@@ -347,7 +347,7 @@ const ProfilePage: React.FC = () => {
                   </div>
                   <button
                     onClick={() => setShowAvatarModal(true)}
-                    className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors duration-200"
+                    className="absolute bottom-0 right-0 bg-gradient-to-r from-primary-600 to-primary-500 text-white p-2.5 rounded-full hover:from-primary-700 hover:to-primary-600 transition-all duration-200 shadow-lg hover:shadow-xl"
                   >
                     <Camera className="w-4 h-4" />
                   </button>
@@ -380,7 +380,7 @@ const ProfilePage: React.FC = () => {
             </div>
 
             {/* Profile Form */}
-            <div className="card">
+            <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-medium text-secondary-900">Personal Information</h3>
                 <div className="flex space-x-3">
@@ -424,7 +424,7 @@ const ProfilePage: React.FC = () => {
                     value={profileData.name}
                     onChange={(e) => handleProfileChange('name', e.target.value)}
                     disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-secondary-50 disabled:text-secondary-500"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 disabled:bg-secondary-50 disabled:text-secondary-500 hover:border-secondary-300"
                     required
                   />
                 </div>
@@ -438,7 +438,7 @@ const ProfilePage: React.FC = () => {
                     value={profileData.email}
                     onChange={(e) => handleProfileChange('email', e.target.value)}
                     disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-secondary-50 disabled:text-secondary-500"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 disabled:bg-secondary-50 disabled:text-secondary-500 hover:border-secondary-300"
                     required
                   />
                 </div>
@@ -464,7 +464,7 @@ const ProfilePage: React.FC = () => {
                     value={profileData.company}
                     onChange={(e) => handleProfileChange('company', e.target.value)}
                     disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-secondary-50 disabled:text-secondary-500"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 disabled:bg-secondary-50 disabled:text-secondary-500 hover:border-secondary-300"
                   />
                 </div>
 
@@ -477,7 +477,7 @@ const ProfilePage: React.FC = () => {
                     value={profileData.phone}
                     onChange={(e) => handleProfileChange('phone', e.target.value)}
                     disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-secondary-50 disabled:text-secondary-500"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 disabled:bg-secondary-50 disabled:text-secondary-500 hover:border-secondary-300"
                   />
                 </div>
 
@@ -490,7 +490,7 @@ const ProfilePage: React.FC = () => {
                     value={profileData.location}
                     onChange={(e) => handleProfileChange('location', e.target.value)}
                     disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-secondary-50 disabled:text-secondary-500"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 disabled:bg-secondary-50 disabled:text-secondary-500 hover:border-secondary-300"
                   />
                 </div>
 
@@ -502,7 +502,7 @@ const ProfilePage: React.FC = () => {
                     value={profileData.timezone}
                     onChange={(e) => handleProfileChange('timezone', e.target.value)}
                     disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-secondary-50 disabled:text-secondary-500"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 disabled:bg-secondary-50 disabled:text-secondary-500 hover:border-secondary-300"
                   >
                     {timezones.map((tz) => (
                       <option key={tz} value={tz}>
@@ -522,7 +522,7 @@ const ProfilePage: React.FC = () => {
                   onChange={(e) => handleProfileChange('bio', e.target.value)}
                   disabled={!isEditing}
                   rows={4}
-                  className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-secondary-50 disabled:text-secondary-500"
+                  className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 disabled:bg-secondary-50 disabled:text-secondary-500 hover:border-secondary-300"
                   placeholder="Tell us a bit about yourself..."
                 />
               </div>
@@ -534,7 +534,7 @@ const ProfilePage: React.FC = () => {
         return (
           <div className="space-y-8">
             {/* Password Change Section */}
-            <div className="card">
+            <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-lg font-medium text-secondary-900">Change Password</h3>
@@ -562,7 +562,7 @@ const ProfilePage: React.FC = () => {
                       type="password"
                       value={passwordData.currentPassword}
                       onChange={(e) => handlePasswordChange('currentPassword', e.target.value)}
-                      className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 hover:border-secondary-300"
                       required
                     />
                   </div>
@@ -575,7 +575,7 @@ const ProfilePage: React.FC = () => {
                       type="password"
                       value={passwordData.newPassword}
                       onChange={(e) => handlePasswordChange('newPassword', e.target.value)}
-                      className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 hover:border-secondary-300"
                       required
                     />
                     <p className="text-xs text-secondary-500 mt-1">
@@ -591,7 +591,7 @@ const ProfilePage: React.FC = () => {
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={(e) => handlePasswordChange('confirmPassword', e.target.value)}
-                      className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 hover:border-secondary-300"
                       required
                     />
                   </div>
@@ -623,7 +623,7 @@ const ProfilePage: React.FC = () => {
             </div>
 
             {/* Security Settings */}
-            <div className="card">
+            <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
               <h3 className="text-lg font-medium text-secondary-900 mb-6">Security Settings</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -655,7 +655,7 @@ const ProfilePage: React.FC = () => {
         return (
           <div className="space-y-8">
             {/* Preferences Form */}
-            <div className="card">
+            <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-medium text-secondary-900">User Preferences</h3>
                 <button
@@ -675,7 +675,7 @@ const ProfilePage: React.FC = () => {
                   <select
                     value={preferencesData.theme}
                     onChange={(e) => handlePreferencesChange('theme', e.target.value)}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 hover:border-secondary-300"
                   >
                     <option value="light">Light</option>
                     <option value="dark">Dark</option>
@@ -690,7 +690,7 @@ const ProfilePage: React.FC = () => {
                   <select
                     value={preferencesData.language}
                     onChange={(e) => handlePreferencesChange('language', e.target.value)}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 hover:border-secondary-300"
                   >
                     <option value="en">English</option>
                     <option value="es">Spanish</option>
@@ -706,7 +706,7 @@ const ProfilePage: React.FC = () => {
                   <select
                     value={preferencesData.dateFormat}
                     onChange={(e) => handlePreferencesChange('dateFormat', e.target.value)}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 hover:border-secondary-300"
                   >
                     <option value="MM/DD/YYYY">MM/DD/YYYY</option>
                     <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -721,7 +721,7 @@ const ProfilePage: React.FC = () => {
                   <select
                     value={preferencesData.timeFormat}
                     onChange={(e) => handlePreferencesChange('timeFormat', e.target.value)}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 hover:border-secondary-300"
                   >
                     <option value="12h">12 Hour</option>
                     <option value="24h">24 Hour</option>
@@ -783,7 +783,7 @@ const ProfilePage: React.FC = () => {
             </div>
 
             {/* Data Export Section */}
-            <div className="card">
+            <div className="card bg-white rounded-2xl border border-secondary-100 p-8 shadow-sm hover:shadow-md transition-shadow duration-300">
               <h3 className="text-lg font-medium text-secondary-900 mb-6">Data Export</h3>
               <div className="flex items-center justify-between">
                 <div>
@@ -807,50 +807,48 @@ const ProfilePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-secondary-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-secondary-900">Profile Settings</h1>
-          <p className="mt-2 text-secondary-600">
+        {/* Header with Gradient */}
+        <div className="mb-8 bg-gradient-to-r from-secondary-50 via-white to-secondary-50 p-8 rounded-2xl border border-secondary-100 shadow-sm">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-secondary-900 to-primary-700 bg-clip-text text-transparent">Profile Settings</h1>
+          <p className="mt-3 text-lg text-secondary-600 font-medium">
             Manage your personal information, security settings, and preferences.
           </p>
         </div>
 
-        {/* Message Display */}
+        {/* Message Display - Enhanced */}
         {message && (
-          <div className={`mb-6 p-6 rounded-xl ${
+          <div className={`mb-6 p-6 rounded-xl border-l-4 shadow-md transition-all duration-300 ${
             message.type === 'success'
-              ? 'bg-success-50 border border-success-200 text-success-800'
-              : 'bg-danger-50 border border-danger-200 text-danger-800'
+              ? 'bg-success-50 border-l-success-600 border border-success-200 text-success-800'
+              : 'bg-danger-50 border-l-danger-600 border border-danger-200 text-danger-800'
           }`}>
-            <div className="flex items-center">
+            <div className="flex items-center gap-3">
               {message.type === 'success' ? (
-                <CheckCircle className="w-5 h-5 mr-2" />
+                <CheckCircle className="w-6 h-6 flex-shrink-0 text-success-600" />
               ) : (
-                <AlertCircle className="w-5 h-5 mr-2" />
+                <AlertCircle className="w-6 h-6 flex-shrink-0 text-danger-600" />
               )}
-              <span>{message.text}</span>
+              <span className="font-medium">{message.text}</span>
             </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar Navigation */}
+          {/* Sidebar Navigation - Enhanced */}
           <div className="lg:col-span-1">
-            <nav className="space-y-2">
+            <nav className="sticky top-4 space-y-2 bg-white rounded-2xl p-4 border border-secondary-100 shadow-sm">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full text-left px-4 py-3 rounded-xl transition-colors duration-200 ${
+                  className={`w-full text-left px-5 py-4 rounded-xl transition-all duration-300 font-semibold flex items-center gap-3 ${
                     activeTab === tab.id
-                      ? 'bg-blue-50 border border-blue-200 text-blue-700'
-                      : 'text-secondary-600 hover:bg-secondary-50 hover:text-secondary-900'
+                      ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-lg'
+                      : 'text-secondary-600 hover:bg-secondary-50 hover:text-primary-600 hover:shadow-md'
                   }`}
                 >
-                  <div className="flex items-center">
-                    <span className="mr-3">{tab.icon}</span>
-                    <div className="font-medium">{tab.title}</div>
-                  </div>
+                  <span className={`${activeTab === tab.id ? 'text-white' : 'text-secondary-400'}`}>{tab.icon}</span>
+                  <div className="font-semibold">{tab.title}</div>
                 </button>
               ))}
             </nav>
@@ -865,8 +863,8 @@ const ProfilePage: React.FC = () => {
 
       {/* Avatar Upload Modal */}
       {showAvatarModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50] p-6">
-          <div className="bg-white rounded-xl w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[50] p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-secondary-100">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-secondary-900">
@@ -889,7 +887,7 @@ const ProfilePage: React.FC = () => {
                     type="file"
                     accept="image/*"
                     onChange={handleAvatarChange}
-                    className="w-full px-3 py-2 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200 hover:border-secondary-300"
                   />
                   <p className="text-xs text-secondary-500 mt-1">
                     JPG, PNG, GIF up to 5MB

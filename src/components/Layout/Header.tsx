@@ -152,34 +152,32 @@ const Header: React.FC = () => {
   }, [logoutError]);
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-200/50 shadow-sm hover:shadow-md transition-shadow duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="sticky top-0 z-50 bg-gradient-html-header shadow-lg transition-shadow duration-300">
+      <div className="mx-auto px-6 sm:px-8 lg:px-10">
+        <div className="flex items-center justify-between py-5">
           {/* Logo and Brand - Premium */}
-          <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center space-x-3 group cursor-pointer" onClick={() => navigate('/')}>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110">
-                <span className="text-white font-bold text-sm flex items-center justify-center">
-                  <Ship className="w-5 h-5" />
-                </span>
-              </div>
-              <div className="hidden sm:block">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">STS Clearance</h1>
-                <p className="text-xs text-gray-500">Enterprise Hub</p>
-              </div>
+          <div className="flex items-center gap-4 group cursor-pointer" onClick={() => navigate('/')}>
+            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-110 hover:bg-white/30 flex-shrink-0">
+              <span className="text-white font-bold text-lg flex items-center justify-center">
+                <Ship className="w-6 h-6" />
+              </span>
+            </div>
+            <div className="hidden sm:block">
+              <h1 className="text-2xl font-bold text-white leading-none">🚢 STS Clearance Hub</h1>
+              <p className="text-sm text-white/80 mt-1 font-medium">Enterprise Operations</p>
             </div>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-3">
+          <div className="hidden md:flex items-center gap-3">
             {/* Create Room Button - Premium */}
             {isAuthenticated && (
               <button
                 onClick={() => setShowCreateRoomModal(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:shadow-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-semibold shadow-md transform hover:scale-105 active:scale-95"
+                className="inline-flex items-center justify-center gap-2.5 px-5 py-2.5 bg-white text-html-header rounded-lg hover:bg-gray-100 transition-all duration-300 font-semibold shadow-md transform hover:scale-105 active:scale-95 text-sm"
                 title="Create New Operation"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-5 h-5 flex-shrink-0" />
                 <span>New Operation</span>
               </button>
             )}
@@ -192,11 +190,11 @@ const Header: React.FC = () => {
               <button
                 ref={languageButtonRef}
                 onClick={() => setShowLanguageMenu(!showLanguageMenu)}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-xl transition-all duration-200 font-medium shadow-sm hover:shadow-md"
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-sm text-white bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 rounded-lg transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
               >
-                <span className="text-lg leading-none">{getCurrentLanguage().flag}</span>
-                <span>{getCurrentLanguage().code.toUpperCase()}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                <span className="text-lg leading-none flex-shrink-0">{getCurrentLanguage().flag}</span>
+                <span className="hidden sm:inline">{getCurrentLanguage().code.toUpperCase()}</span>
+                <ChevronDown className="w-4 h-4 text-white/70 flex-shrink-0" />
               </button>
 
               <LanguageDropdown 
@@ -213,12 +211,12 @@ const Header: React.FC = () => {
               <button
                 ref={notificationButtonRef}
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2.5 text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                className="relative inline-flex items-center justify-center p-2.5 text-white bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                 title="Notifications"
               >
-                <Bell className="w-5 h-5" />
+                <Bell className="w-5 h-5 flex-shrink-0" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white ring-2 ring-white animate-pulse">
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-html-location text-xs font-bold text-white ring-2 ring-html-header animate-pulse-custom">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -235,10 +233,10 @@ const Header: React.FC = () => {
             <div className="relative">
               <button
                 onClick={() => navigate('/help')}
-                className="p-2.5 text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                className="inline-flex items-center justify-center p-2.5 text-white bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                 title="Help & Support"
               >
-                <HelpCircle className="w-5 h-5" />
+                <HelpCircle className="w-5 h-5 flex-shrink-0" />
               </button>
             </div>
 
@@ -247,13 +245,13 @@ const Header: React.FC = () => {
               <button
                 ref={userMenuButtonRef}
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2.5 px-2 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                className="inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
               >
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center ring-2 ring-blue-100 font-semibold text-white text-xs">
-                  {user?.name?.charAt(0) || 'U'}
+                <div className="w-8 h-8 bg-white/30 rounded-full flex items-center justify-center ring-2 ring-white/20 font-semibold text-white text-sm flex-shrink-0">
+                  {user?.name?.charAt(0) || 'A'}
                 </div>
-                <span className="text-sm font-medium text-gray-700 hidden lg:block">{user?.name}</span>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
+                <span className="text-sm font-semibold text-white hidden lg:inline">{user?.name}</span>
+                <ChevronDown className="w-4 h-4 text-white/70 flex-shrink-0" />
               </button>
 
               <UserMenuDropdown
@@ -272,12 +270,12 @@ const Header: React.FC = () => {
           <div className="md:hidden">
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="p-2.5 text-secondary-500 hover:text-secondary-700 hover:bg-secondary-100 rounded-xl transition-colors duration-200"
+              className="inline-flex items-center justify-center p-2.5 text-white bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
             >
               {showMobileMenu ? (
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 flex-shrink-0" />
               ) : (
-                <Menu className="w-5 h-5" />
+                <Menu className="w-5 h-5 flex-shrink-0" />
               )}
             </button>
           </div>
@@ -285,79 +283,79 @@ const Header: React.FC = () => {
 
         {/* Mobile Navigation */}
         {showMobileMenu && (
-          <div className="md:hidden border-t border-secondary-200 py-4">
-            <div className="space-y-4">
+          <div className="md:hidden border-t border-white/20 py-4">
+            <div className="space-y-2">
               {/* Global Search Mobile */}
               <div className="w-full">
                 <GlobalSearch />
               </div>
 
               {/* Mobile Menu Items */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <button
                   onClick={() => {
                     setShowNotifications(!showNotifications);
                     setShowMobileMenu(false);
                   }}
-                  className="w-full text-left px-3 py-2.5 text-sm text-secondary-700 hover:bg-secondary-100 rounded-xl flex items-center gap-3"
+                  className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-white/10 rounded-lg flex items-center gap-3 transition-colors duration-200"
                 >
-                  <Bell className="w-4 h-4" />
+                  <Bell className="w-4 h-4 flex-shrink-0" />
                   <span>{t('notifications')}</span>
                   {unreadCount > 0 && (
-                    <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-danger-800">
-                      {unreadCount}
+                    <span className="ml-auto inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-html-location text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
                 </button>
                 
                 <button
                   onClick={() => handleNavigation('/help')}
-                  className="w-full text-left px-3 py-2.5 text-sm text-secondary-700 hover:bg-secondary-100 rounded-xl flex items-center gap-3"
+                  className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-white/10 rounded-lg flex items-center gap-3 transition-colors duration-200"
                 >
-                  <HelpCircle className="w-4 h-4" />
+                  <HelpCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{t('help')}</span>
                 </button>
                 
                 <button
                   onClick={() => handleNavigation('/profile')}
-                  className="w-full text-left px-3 py-2.5 text-sm text-secondary-700 hover:bg-secondary-100 rounded-xl flex items-center gap-3"
+                  className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-white/10 rounded-lg flex items-center gap-3 transition-colors duration-200"
                 >
-                  <User className="w-4 h-4" />
+                  <User className="w-4 h-4 flex-shrink-0" />
                   <span>{t('profile')}</span>
                 </button>
                 
                 <button
                   onClick={() => handleNavigation('/settings')}
-                  className="w-full text-left px-3 py-2.5 text-sm text-secondary-700 hover:bg-secondary-100 rounded-xl flex items-center gap-3"
+                  className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-white/10 rounded-lg flex items-center gap-3 transition-colors duration-200"
                 >
-                  <Settings className="w-4 h-4" />
+                  <Settings className="w-4 h-4 flex-shrink-0" />
                   <span>{t('settings')}</span>
                 </button>
                 
-                <div className="border-t border-secondary-200 my-2"></div>
+                <div className="border-t border-white/20 my-2"></div>
                 
                 {isAuthenticated && (
                   <button
                     onClick={handleLogout}
                     data-logout-button
-                    className="w-full text-left px-3 py-2.5 text-sm text-secondary-700 hover:bg-secondary-100 rounded-xl flex items-center gap-3"
+                    className="w-full text-left px-3 py-2.5 text-sm text-danger-100 hover:bg-danger-500/20 rounded-lg flex items-center gap-3 transition-colors duration-200"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="w-4 h-4 flex-shrink-0" />
                     <span>Logout</span>
                   </button>
                 )}
               </div>
 
               {/* Language Selector Mobile */}
-              <div className="pt-4 border-t border-secondary-200">
-                <label className="block text-sm font-medium text-secondary-700 mb-2">{t('language')}</label>
+              <div className="pt-3 border-t border-white/20">
+                <label className="block text-xs font-semibold text-white/80 mb-2.5 uppercase tracking-wider">{t('language')}</label>
                 <select
                   value={currentLanguage.code}
                   onChange={(e) => handleLanguageChange(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  className="w-full px-3 py-2.5 border border-white/20 bg-white/10 text-white rounded-lg focus:ring-2 focus:ring-white/30 focus:border-white/30 text-sm font-medium transition-all duration-200"
                 >
                   {languages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
+                    <option key={lang.code} value={lang.code} className="bg-html-header text-white">
                       {lang.flag} {lang.name}
                     </option>
                   ))}

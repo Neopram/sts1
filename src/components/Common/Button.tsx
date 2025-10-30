@@ -25,15 +25,15 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const sizeClasses: Record<'xs' | 'sm' | 'md' | 'lg' | 'xl', string> = {
-  xs: 'px-2.5 py-1.5 text-xs font-semibold',
-  sm: 'px-3 py-1.5 text-sm font-semibold',
-  md: 'px-4 py-2.5 text-base font-semibold',
-  lg: 'px-6 py-3 text-lg font-bold',
-  xl: 'px-8 py-4 text-xl font-bold',
+  xs: 'px-2.5 py-1.5 text-xs font-bold',
+  sm: 'px-3.5 py-2 text-sm font-semibold',
+  md: 'px-4.5 py-2.5 text-sm font-semibold',
+  lg: 'px-6 py-3 text-base font-semibold',
+  xl: 'px-8 py-4 text-lg font-bold',
 };
 
 const iconSizes: Record<'xs' | 'sm' | 'md' | 'lg' | 'xl', string> = {
-  xs: 'w-3 h-3',
+  xs: 'w-3.5 h-3.5',
   sm: 'w-4 h-4',
   md: 'w-4.5 h-4.5',
   lg: 'w-5 h-5',
@@ -69,7 +69,7 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={isDisabled}
       aria-label={ariaLabel}
       className={`
-        inline-flex items-center justify-center gap-2 font-semibold rounded-lg 
+        inline-flex items-center justify-center gap-2.5 font-semibold rounded-lg 
         transition-all duration-200 ease-smooth
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
         active:scale-95

@@ -7,9 +7,11 @@ interface CardProps {
   border?: boolean;
   hover?: boolean;
   elevation?: 'sm' | 'md' | 'lg';
-  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger';
+  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'html-gradient';
   role?: string;
   'aria-label'?: string;
+  gradient?: 'primary' | 'header' | 'vessel' | 'weather' | 'light';
+  animated?: boolean;
 }
 
 const paddingClasses: Record<'none' | 'sm' | 'md' | 'lg', string> = {
@@ -25,12 +27,21 @@ const elevationClasses: Record<'sm' | 'md' | 'lg', string> = {
   lg: 'shadow-card-hover',
 };
 
-const variantClasses: Record<'default' | 'primary' | 'success' | 'warning' | 'danger', string> = {
+const variantClasses: Record<'default' | 'primary' | 'success' | 'warning' | 'danger' | 'html-gradient', string> = {
   default: 'bg-white border-secondary-200/60',
   primary: 'bg-primary-50/30 border-primary-200/50',
   success: 'bg-success-50/30 border-success-200/50',
   warning: 'bg-warning-50/30 border-warning-200/50',
   danger: 'bg-danger-50/30 border-danger-200/50',
+  'html-gradient': 'bg-white border-0 shadow-lg',
+};
+
+const gradientClasses: Record<'primary' | 'header' | 'vessel' | 'weather' | 'light', string> = {
+  primary: 'bg-gradient-html-primary text-white',
+  header: 'bg-gradient-html-header text-white',
+  vessel: 'bg-gradient-html-vessel text-white',
+  weather: 'bg-gradient-html-weather text-white',
+  light: 'bg-gradient-html-light text-secondary-900',
 };
 
 /**
@@ -51,18 +62,23 @@ export const Card: React.FC<CardProps> = ({
   variant = 'default',
   role,
   'aria-label': ariaLabel,
+  gradient,
+  animated = false,
 }) => {
+  const useGradient = gradient && gradientClasses[gradient];
+  
   return (
     <div
       role={role}
       aria-label={ariaLabel}
       className={`
-        rounded-xl transition-all duration-300 ease-smooth
-        ${variantClasses[variant]}
-        ${border ? 'border' : ''}
+        rounded-2xl transition-all duration-300 ease-smooth
+        ${useGradient ? gradientClasses[gradient] : variantClasses[variant]}
+        ${border && !useGradient ? 'border' : ''}
         ${paddingClasses[padding]}
         ${elevationClasses[elevation]}
-        ${hover ? 'hover:shadow-card-hover hover:border-secondary-300/80 cursor-pointer' : ''}
+        ${hover ? 'hover:shadow-card-hover hover:border-secondary-300/80 cursor-pointer group hover:-translate-y-1' : ''}
+        ${animated ? 'animate-fade-in' : ''}
         ${className || ''}
       `}
     >

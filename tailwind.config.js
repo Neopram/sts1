@@ -91,6 +91,19 @@ export default {
           gold: '#d4af37',    // Dorado profesional
           slate: '#64748b',   // Pizarra
           navy: '#001a4d',    // Azul marino oscuro
+        },
+        // COLORES ESPECÍFICOS DEL HTML
+        html: {
+          location: '#ff6b6b',      // Rojo ubicación
+          date: '#4ecdc4',          // Turquesa fecha
+          payment: '#95e1d3',       // Aqua pago
+          active: '#6ab04c',        // Verde activo
+          approved: '#27ae60',      // Verde aprobado
+          review: '#f39c12',        // Naranja revisión
+          missing: '#e74c3c',       // Rojo faltante
+          badge: '#3498db',         // Azul badge
+          header: '#2c3e50',        // Gris oscuro header
+          lighter: '#c3cfe2',       // Gris claro
         }
       },
       fontFamily: {
@@ -179,7 +192,7 @@ export default {
         'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
         'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
-      // KEYFRAMES ADICIONALES
+      // KEYFRAMES ADICIONALES + HTML STYLE
       keyframes: {
         'fade-in': {
           'from': { opacity: '0' },
@@ -193,11 +206,35 @@ export default {
           'from': { transform: 'translateY(-10px)', opacity: '0' },
           'to': { transform: 'translateY(0)', opacity: '1' },
         },
+        // HTML STYLE ANIMATIONS
+        'slide-in': {
+          'from': { opacity: '0', transform: 'translateX(-20px)' },
+          'to': { opacity: '1', transform: 'translateX(0)' },
+        },
+        'pulse-custom': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.8' },
+        },
+        'scale-in': {
+          'from': { transform: 'scale(0.95)', opacity: '0' },
+          'to': { transform: 'scale(1)', opacity: '1' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out',
         'slide-up': 'slide-up 0.3s ease-out',
         'slide-down': 'slide-down 0.3s ease-out',
+        'slide-in': 'slide-in 0.5s ease',
+        'pulse-custom': 'pulse-custom 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'scale-in': 'scale-in 0.3s ease-out',
+      },
+      // NUEVOS GRADIENTES DEL HTML
+      backgroundImage: {
+        'gradient-html-primary': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'gradient-html-header': 'linear-gradient(135deg, #2c3e50 0%, #3498db 100%)',
+        'gradient-html-vessel': 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        'gradient-html-weather': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'gradient-html-light': 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
       },
     },
   },
