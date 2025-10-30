@@ -78,42 +78,28 @@ const HelpPage: React.FC = () => {
   // State for dynamic data
   const [faqData, setFaqData] = useState<FAQItem[]>([]);
   const [helpArticles, setHelpArticles] = useState<HelpArticle[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Load FAQ data from API
   const loadFaqData = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
       // Call the actual API endpoint
       const apiFaq = await ApiService.getFAQ();
       setFaqData(apiFaq);
     } catch (err) {
       console.error('Error loading FAQ data:', err);
-      setError('Failed to load FAQ data. Please try again.');
       setFaqData([]);
-    } finally {
-      setLoading(false);
     }
   };
 
   // Load help articles from API
   const loadHelpArticles = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
       // Call the actual API endpoint
       const apiArticles = await ApiService.getHelpArticles();
       setHelpArticles(apiArticles);
     } catch (err) {
       console.error('Error loading help articles:', err);
-      setError('Failed to load help articles. Please try again.');
       setHelpArticles([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -149,9 +135,6 @@ const HelpPage: React.FC = () => {
     e.preventDefault();
     
     try {
-      setLoading(true);
-      setError(null);
-      
       // Send the contact form to the backend
       await ApiService.submitContactForm(contactForm);
       
@@ -173,9 +156,6 @@ const HelpPage: React.FC = () => {
       }));
     } catch (err) {
       console.error('Error submitting contact form:', err);
-      setError('Failed to submit contact form. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 

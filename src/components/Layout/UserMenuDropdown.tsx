@@ -6,7 +6,6 @@ interface UserMenuDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   buttonRef?: React.RefObject<HTMLButtonElement>;
-  user: any;
   isAuthenticated: boolean;
   onNavigate: (path: string) => void;
   onLogout: () => void;
@@ -17,7 +16,6 @@ const UserMenuDropdown: React.FC<UserMenuDropdownProps> = ({
   isOpen,
   onClose,
   buttonRef,
-  user,
   isAuthenticated,
   onNavigate,
   onLogout,

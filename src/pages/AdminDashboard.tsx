@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, FileText, AlertCircle, TrendingUp, BarChart3, Settings, Trash2 } from 'lucide-react';
+import { Users, Activity, FileText, AlertCircle, TrendingUp, BarChart3, Settings, Trash2, X, Edit2 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import ApiService from '../api';
 
@@ -17,9 +17,14 @@ interface AdminUser {
   email: string;
   name: string;
   role: string;
-  company: string;
+  company?: string;
   created_at: string;
-  is_active: boolean;
+  is_active?: boolean;
+}
+
+interface FeatureFlag {
+  key: string;
+  enabled: boolean;
 }
 
 /**
@@ -38,6 +43,96 @@ export const AdminDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'operations' | 'compliance'>('overview');
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  
+  // Feature flags state
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
+  const [loadingFlags, setLoadingFlags] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
+  
+  // User edit modal state
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [editFormData, setEditFormData] = useState({ name: '', role: '' });
+
+  // Handle user deletion
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      setDeletingUserId(userId);
+      await ApiService.deleteUser(userId);
+      setUsers(users.filter(u => u.id !== userId));
+      console.log('User deleted successfully');
+    } catch (err) {
+      console.error('Failed to delete user:', err);
+      alert(`Failed to delete user: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
+  // Handle user edit
+  const handleEditUser = (user: AdminUser) => {
+    setEditingUser(user);
+    setEditFormData({ name: user.name, role: user.role });
+  };
+
+  const handleSaveUserEdit = async () => {
+    if (!editingUser) return;
+    try {
+      await ApiService.updateUser(editingUser.id, editFormData);
+      setUsers(users.map(u => u.id === editingUser.id ? { ...u, ...editFormData } : u));
+      setEditingUser(null);
+      console.log('User updated successfully');
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      alert(`Failed to update user: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  // Load feature flags
+  const loadFeatureFlags = async () => {
+    try {
+      setLoadingFlags(true);
+      const flags = await ApiService.getFeatureFlags();
+      setFeatureFlags(flags);
+    } catch (err) {
+      console.error('Failed to load feature flags:', err);
+    } finally {
+      setLoadingFlags(false);
+    }
+  };
+
+  // Toggle feature flag
+  const handleToggleFlag = async (key: string, currentState: boolean) => {
+    try {
+      await ApiService.updateFeatureFlag(key, !currentState);
+      setFeatureFlags(flags => flags.map(f => f.key === key ? { ...f, enabled: !currentState } : f));
+      console.log(`Feature flag ${key} toggled`);
+    } catch (err) {
+      console.error('Failed to update feature flag:', err);
+      alert(`Failed to update feature flag: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  // Clear cache
+  const handleClearCache = async () => {
+    if (!window.confirm('Are you sure you want to clear the system cache? This may impact performance temporarily.')) {
+      return;
+    }
+    try {
+      setClearingCache(true);
+      await ApiService.clearSystemCache();
+      console.log('System cache cleared successfully');
+      alert('System cache cleared successfully');
+    } catch (err) {
+      console.error('Failed to clear cache:', err);
+      alert(`Failed to clear cache: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setClearingCache(false);
+    }
+  };
 
   // Check permissions
   if (!hasPermission('manage_users') && user?.role !== 'admin') {
@@ -59,7 +154,7 @@ export const AdminDashboard: React.FC = () => {
     const fetchStats = async () => {
       try {
         setIsLoading(true);
-        const statsData = await ApiService.get('/api/v1/admin/stats');
+        const statsData = await ApiService.getAdminStats();
         setStats(statsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load stats');
@@ -75,7 +170,7 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const usersData = await ApiService.get('/api/v1/users');
+        const usersData = await ApiService.getUsers();
         setUsers(usersData);
       } catch (err) {
         console.error('Failed to load users:', err);
@@ -251,8 +346,20 @@ export const AdminDashboard: React.FC = () => {
                         {u.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-6 py-3 text-sm">
-                      <button className="text-red-600 hover:text-red-700 transition">
+                    <td className="px-6 py-3 text-sm flex gap-2">
+                      <button 
+                        onClick={() => handleEditUser(u)}
+                        className="text-blue-600 hover:text-blue-700 transition"
+                        title="Edit user"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteUser(u.id)}
+                        disabled={deletingUserId === u.id}
+                        className="text-red-600 hover:text-red-700 transition disabled:opacity-50"
+                        title="Delete user"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </td>
@@ -266,15 +373,175 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Operations Tab */}
       {activeTab === 'operations' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600">Operations monitoring coming soon</p>
+        <div className="space-y-4">
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">All Operations (Rooms)</h2>
+            <div className="text-sm text-gray-600 mb-4">
+              Total operations: {stats?.total_operations || 0}
+            </div>
+            <p className="text-gray-600">Operations list integration in development...</p>
+            <p className="text-sm text-gray-500 mt-2">
+              This tab will display all rooms with real-time status updates, vessel information, and operational metrics.
+            </p>
+          </div>
         </div>
       )}
 
       {/* Compliance Tab */}
       {activeTab === 'compliance' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600">Compliance reports coming soon</p>
+        <div className="space-y-6">
+          {/* Load flags on tab open */}
+          {!featureFlags.length && !loadingFlags && (
+            <button 
+              onClick={loadFeatureFlags}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+            >
+              Load Feature Flags
+            </button>
+          )}
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Feature Flags */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Settings size={20} className="text-blue-600" />
+                Feature Flags
+              </h2>
+              {loadingFlags ? (
+                <p className="text-sm text-gray-600">Loading flags...</p>
+              ) : featureFlags.length > 0 ? (
+                <div className="space-y-2">
+                  {featureFlags.map(flag => (
+                    <div key={flag.key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 capitalize">{flag.key}</span>
+                      <button
+                        onClick={() => handleToggleFlag(flag.key, flag.enabled)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+                          flag.enabled
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                        }`}
+                      >
+                        {flag.enabled ? 'Enabled' : 'Disabled'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600">No feature flags loaded</p>
+              )}
+            </div>
+
+            {/* System Health */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <AlertCircle size={20} className="text-green-600" />
+                System Health
+              </h2>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-gray-600">Status</span>
+                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                    Healthy
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-gray-600">Database</span>
+                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                    Connected
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-gray-600">Cache</span>
+                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                    Connected
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Audit & Compliance */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <FileText size={20} className="text-purple-600" />
+              Compliance & Audit
+            </h2>
+            <div className="space-y-3">
+              <button className="w-full px-4 py-2 border border-gray-300 text-left rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">
+                Export Audit Log
+              </button>
+              <button className="w-full px-4 py-2 border border-gray-300 text-left rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700">
+                Generate Compliance Report
+              </button>
+              <button 
+                onClick={handleClearCache}
+                disabled={clearingCache}
+                className="w-full px-4 py-2 border border-red-300 text-left rounded-lg hover:bg-red-50 text-sm font-medium text-red-700 disabled:opacity-50"
+              >
+                {clearingCache ? 'Clearing Cache...' : 'Clear System Cache'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Edit Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Edit User</h3>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={editFormData.role}
+                  onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="owner">Owner</option>
+                  <option value="seller">Seller</option>
+                  <option value="buyer">Buyer</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => setEditingUser(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveUserEdit}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

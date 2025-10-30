@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Activity, 
   Clock, 
@@ -25,7 +24,6 @@ export const ActivityPage: React.FC<ActivityPageProps> = ({
   activities: propActivities 
 }) => {
   const { currentRoomId } = useApp();
-  const navigate = useNavigate();
   const [activities, setActivities] = useState<ActivityType[]>(propActivities || []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

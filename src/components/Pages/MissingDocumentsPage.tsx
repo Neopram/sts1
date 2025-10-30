@@ -155,10 +155,10 @@ export const MissingDocumentsPage: React.FC<MissingDocumentsPageProps> = ({
   };
 
   // Get filtered and sorted documents
-  const allMissing = overview?.categories.missing || [];
-  const allExpiring = overview?.categories.expiring || [];
-  const allExpired = overview?.categories.expired || [];
-  const allUnderReview = overview?.categories.underReview || [];
+  const allMissing = overview?.categories?.missing || [];
+  const allExpiring = overview?.categories?.expiring || [];
+  const allExpired = overview?.categories?.expired || [];
+  const allUnderReview = overview?.categories?.underReview || [];
 
   const filteredMissing = sortDocuments(filterDocuments(allMissing));
   const filteredExpiring = sortDocuments(filterDocuments(allExpiring));

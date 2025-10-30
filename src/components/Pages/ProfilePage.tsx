@@ -3,12 +3,10 @@ import {
   User,
   Camera,
   Shield,
-  Key,
   Calendar,
   X,
   CheckCircle,
   AlertCircle,
-  Settings,
   Download
 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';

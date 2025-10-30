@@ -26,7 +26,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   // Load PDF dynamically to avoid issues with pdfjs-dist not being available during build
-  const [PDFDocument, setPDFDocument] = useState<any>(null);
   const [pdfjs, setPdfjs] = useState<any>(null);
 
   useEffect(() => {
@@ -59,7 +58,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         }
 
         const pdf = await pdfjs.getDocument(pdfUrl).promise;
-        setPDFDocument(pdf);
         setNumPages(pdf.numPages);
         setCurrentPage(1);
       } catch (err) {

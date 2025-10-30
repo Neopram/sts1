@@ -130,19 +130,19 @@ const STSClearanceApp: React.FC = () => {
   };
 
   // Handle document action
-  const handleDocumentAction = async (documentId: string, action: 'approve' | 'reject', data?: any) => {
+  const handleDocumentAction = async (documentId: string, action: string, data?: any) => {
     if (!currentRoomId) return;
     
     try {
       if (action === 'approve') {
         await ApiService.approveDocument(currentRoomId, documentId, data || {});
-      } else {
+      } else if (action === 'reject') {
         await ApiService.rejectDocument(currentRoomId, documentId, data?.reason || 'No reason provided');
       }
       await fetchCockpitData();
       await fetchActivities();
     } catch (err) {
-      console.error(`Error ${action}ing document:`, err);
+      console.error(`Error with document action ${action}:`, err);
     }
   };
 
@@ -161,11 +161,11 @@ const STSClearanceApp: React.FC = () => {
   };
 
   // Handle send message
-  const handleSendMessage = async (content: string, attachments?: File[]) => {
+  const handleSendMessage = async (content: string, _attachments?: File[]) => {
     if (!currentRoomId) return;
     
     try {
-      await ApiService.sendMessage(currentRoomId, content, attachments);
+      await ApiService.sendMessage(currentRoomId, content, 'text');
       await fetchMessages();
     } catch (err) {
       console.error('Error sending message:', err);

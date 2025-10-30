@@ -34,7 +34,6 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   // Load data from API with vessel filtering
   const loadData = async () => {
@@ -111,10 +110,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
 
   // Navigation functions
   const navigateToDocuments = () => navigate('/documents');
-  const navigateToApproval = () => navigate('/approval');
   const navigateToActivity = () => navigate('/activity');
-  const navigateToHistory = () => navigate('/history');
-  const navigateToMessages = () => navigate('/messages');
 
   // Generate PDF snapshot
   const handleGenerateSnapshot = async () => {

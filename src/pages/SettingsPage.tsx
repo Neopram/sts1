@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Lock, Eye, FileText, Info, Save, AlertCircle } from 'lucide-react';
+import { Bell, Eye, FileText, Info, Save, AlertCircle } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 
 interface NotificationSettings {

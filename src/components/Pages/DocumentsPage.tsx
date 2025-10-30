@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Eye, Check, X, Clock, AlertTriangle, FileText, Upload, Edit3, RefreshCw, Search, Filter, Download } from 'lucide-react';
+import { Eye, Check, X, Clock, AlertTriangle, FileText, Upload, Edit3, RefreshCw, Search, Download } from 'lucide-react';
 import { Document } from '../../types/api';
 import { useApp } from '../../contexts/AppContext';
 import ApiService from '../../api';
@@ -10,7 +10,7 @@ interface DocumentsPageProps {
   refreshTrigger?: number;
   cockpitData?: any;
   onUpdateDocumentStatus?: (documentId: string, status: string) => void;
-  onDocumentAction?: (documentId: string, action: string) => void;
+  onDocumentAction?: (documentId: string, action: 'approve' | 'reject' | string, data?: any) => Promise<void> | void;
   onViewDocument?: (documentId: string) => void;
 }
 
@@ -32,7 +32,6 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'preview'>('details');
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -69,7 +68,7 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
       } else if (action === 'reject') {
         await ApiService.rejectDocument(currentRoomId, documentId, data?.reason || 'Rejected');
       } else if (action === 'update_status') {
-        await ApiService.updateDocumentStatus(currentRoomId, documentId, data?.status || 'under_review');
+        await ApiService.updateDocument(currentRoomId, documentId, { status: data?.status || 'under_review' });
       } else if (action === 'view') {
         const document = await ApiService.getDocument(currentRoomId, documentId);
         setSelectedDocument(document);

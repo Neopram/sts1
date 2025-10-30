@@ -36,26 +36,20 @@ const NotificationsPage: React.FC = () => {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [_loading, setLoading] = useState(false);
+  const [_error, setError] = useState<string | null>(null);
 
   // Load notifications from API
   const loadNotifications = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      
       // Call the actual API endpoint
       const apiNotifications = await ApiService.getNotifications();
       setNotifications(apiNotifications);
       setFilteredNotifications(apiNotifications);
     } catch (err) {
       console.error('Error loading notifications:', err);
-      setError('Failed to load notifications. Please try again.');
       setNotifications([]);
       setFilteredNotifications([]);
-    } finally {
-      setLoading(false);
     }
   };
 

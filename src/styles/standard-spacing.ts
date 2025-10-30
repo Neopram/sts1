@@ -80,7 +80,7 @@ export const spacing = {
 
 export const colors = {
   // Status colors
-  success: {
+  statusSuccess: {
     bg: 'bg-green-50',
     border: 'border-green-200',
     text: 'text-green-800',

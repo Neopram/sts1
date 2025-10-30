@@ -103,6 +103,8 @@ class MissingDocumentsService:
                         "id": str(doc_type.id),
                         "code": doc_type.code,
                         "name": doc_type.name,
+                        "description": doc_type.description or "",
+                        "category": doc_type.category or "general",
                         "criticality": doc_type.criticality,
                         "required": doc_type.required
                     },
@@ -159,32 +161,51 @@ class MissingDocumentsService:
                 completion_percentage = round((total_approved / total_documents) * 100, 1)
             
             return {
-                "statistics": {
-                    "total_documents": total_documents,
-                    "total_missing": total_missing,
-                    "total_expiring": total_expiring,
-                    "total_under_review": total_under_review,
-                    "total_expired": total_expired,
-                    "total_approved": total_approved,
-                    "completion_percentage": completion_percentage
+                "summary": {
+                    "totalDocuments": total_documents,
+                    "missingCount": total_missing,
+                    "expiringCount": total_expiring,
+                    "expiredCount": total_expired,
+                    "underReviewCount": total_under_review,
+                    "criticalCount": len([d for d in missing_documents if d.get('priority') == 'high'])
                 },
-                "documents": {
+                "categories": {
                     "missing": missing_documents,
                     "expiring": expiring_documents,
-                    "under_review": under_review_documents,
-                    "expired": expired_documents
+                    "expired": expired_documents,
+                    "underReview": under_review_documents
                 },
-                "config": config or self._get_default_config(),
-                "timestamp": datetime.now().isoformat()
+                "statistics": {
+                    "completionPercentage": completion_percentage,
+                    "lastUpdated": datetime.now().isoformat(),
+                    "expirationRiskScore": min(100, (total_expiring + total_expired) * 10)
+                },
+                "config": config or self._get_default_config()
             }
             
         except Exception as e:
             logger.error(f"Error getting missing documents overview: {e}")
             return {
                 "error": str(e),
-                "statistics": {},
-                "documents": {},
-                "timestamp": datetime.now().isoformat()
+                "summary": {
+                    "totalDocuments": 0,
+                    "missingCount": 0,
+                    "expiringCount": 0,
+                    "expiredCount": 0,
+                    "underReviewCount": 0,
+                    "criticalCount": 0
+                },
+                "categories": {
+                    "missing": [],
+                    "expiring": [],
+                    "expired": [],
+                    "underReview": []
+                },
+                "statistics": {
+                    "completionPercentage": 0,
+                    "lastUpdated": datetime.now().isoformat(),
+                    "expirationRiskScore": 0
+                }
             }
     
     def _sort_documents(self, documents: List[Dict], sort_key: str) -> List[Dict]:

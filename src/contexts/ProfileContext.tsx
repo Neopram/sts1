@@ -107,7 +107,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
         setIsLoading(true);
         
         // Get auth token from localStorage
-        const token = localStorage.getItem('auth_token');
+        const token = localStorage.getItem('auth-token');
         if (!token) {
           setError('No authentication token found');
           setIsLoading(false);
@@ -211,7 +211,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('auth-token');
       if (!token) throw new Error('No authentication token');
 
       const response = await fetch('/api/v1/profile/me', {
@@ -236,7 +236,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
         throw new Error(`Failed to update profile: ${response.statusText}`);
       }
 
-      const profileData = await response.json();
+      await response.json();
       if (profile) {
         const updatedProfile: UserProfile = {
           ...profile,
@@ -284,7 +284,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('auth-token');
       if (!token) throw new Error('No authentication token');
 
       const response = await fetch('/api/v1/profile/preferences', {
@@ -320,7 +320,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('auth-token');
       if (!token) throw new Error('No authentication token');
 
       const response = await fetch('/api/v1/profile/change-password', {
@@ -364,7 +364,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('auth-token');
       if (!token) throw new Error('No authentication token');
 
       const response = await fetch('/api/v1/profile/enable-2fa', {
@@ -399,7 +399,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('auth-token');
       if (!token) throw new Error('No authentication token');
 
       const response = await fetch('/api/v1/profile/disable-2fa', {
@@ -434,7 +434,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('auth-token');
       if (!token) throw new Error('No authentication token');
 
       const formData = new FormData();
@@ -474,7 +474,7 @@ export const ProfileProvider: React.FC<ProfileProviderProps> = ({ children }) =>
       setIsLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('auth-token');
       if (!token) throw new Error('No authentication token');
 
       const response = await fetch(`/api/v1/profile/activities?limit=${limit}`, {

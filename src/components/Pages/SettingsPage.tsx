@@ -24,7 +24,7 @@ const SettingsPage: React.FC = () => {
 
   const [activeSection, setActiveSection] = useState('profile');
   const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Load settings on component mount

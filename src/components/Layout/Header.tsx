@@ -11,9 +11,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Plus,
-  Ship,
-  Sparkles,
-  Shield
+  Ship
 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -35,9 +33,6 @@ const Header: React.FC = () => {
 
   // Check if user is authenticated
   const isAuthenticated = !!(user && localStorage.getItem('auth-token'));
-  
-  // Animation state
-  const [showAnimation, setShowAnimation] = useState(true);
   
   // Create room modal state
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
@@ -265,7 +260,6 @@ const Header: React.FC = () => {
                 isOpen={showUserMenu}
                 onClose={() => setShowUserMenu(false)}
                 buttonRef={userMenuButtonRef}
-                user={user}
                 isAuthenticated={isAuthenticated}
                 onNavigate={handleNavigation}
                 onLogout={handleLogout}

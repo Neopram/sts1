@@ -79,7 +79,7 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({
         await onSendMessage(newMessage.trim(), attachments);
       } else {
         // Fallback to API service
-        await ApiService.sendMessage(currentRoomId!, newMessage.trim(), attachments);
+        await ApiService.sendMessage(currentRoomId!, newMessage.trim(), 'text');
       }
       
       // Add message to local state

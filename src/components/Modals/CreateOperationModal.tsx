@@ -154,7 +154,7 @@ export const CreateOperationModal: React.FC<CreateOperationModalProps> = ({
 
     try {
       // Call backend to create operation
-      const response = await ApiService.post('/api/v1/rooms', {
+      const response = await ApiService.staticPost('/api/v1/rooms', {
         title: formData.title,
         location: formData.location,
         sts_eta: formData.sts_eta,
