@@ -1,12 +1,11 @@
 """
 Weather service for STS Clearance system
-Handles marine weather data integration from external APIs
+Handles marine weather data integration from Open-Meteo API (free, no API key required)
 """
 
-import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import aiohttp
 from sqlalchemy import select
@@ -19,11 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 class WeatherService:
-    """Service for fetching and caching marine weather data"""
+    """Service for fetching and caching marine weather data using Open-Meteo"""
 
     def __init__(self):
-        self.api_key = "your_openweather_api_key_here"  # Should come from env
-        self.base_url = "https://api.openweathermap.org/data/2.5"
+        # Open-Meteo API - completely free, no API key required
+        self.base_url = "https://api.open-meteo.com/v1/forecast"
         self.cache_duration = timedelta(hours=1)  # Cache weather data for 1 hour
 
     async def get_weather_data(self, latitude: float, longitude: float, session: AsyncSession) -> Optional[Dict]:
@@ -83,91 +82,94 @@ class WeatherService:
         return None
 
     async def _fetch_weather_from_api(self, latitude: float, longitude: float) -> Optional[Dict]:
-        """Fetch weather data from OpenWeatherMap API"""
+        """Fetch weather data from Open-Meteo API (free, no API key required)"""
         try:
             params = {
-                'lat': latitude,
-                'lon': longitude,
-                'appid': self.api_key,
-                'units': 'metric',  # Celsius
-                'exclude': 'minutely,hourly'  # Only current, daily
+                'latitude': latitude,
+                'longitude': longitude,
+                'current': 'temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,precipitation',
+                'timezone': 'UTC',
+                'wind_speed_unit': 'kmh',
+                'temperature_unit': 'celsius'
             }
 
             async with aiohttp.ClientSession() as client_session:
-                async with client_session.get(f"{self.base_url}/onecall", params=params) as response:
+                async with client_session.get(self.base_url, params=params) as response:
                     if response.status == 200:
                         data = await response.json()
-
-                        # Extract relevant marine weather data
                         current = data.get('current', {})
-                        daily = data.get('daily', [{}])[0] if data.get('daily') else {}
 
+                        # Convert wind speed from km/h to knots for marine compatibility
+                        wind_speed_kph = current.get('wind_speed_10m', 0)
+                        wind_speed_knots = wind_speed_kph / 1.852
+
+                        # Interpret WMO weather code
+                        weather_code = current.get('weather_code', 0)
+                        weather_desc = self._get_weather_description(weather_code)
+
+                        # Estimate wave height from wind speed (simplified marine model)
+                        wave_height = min(wind_speed_kph / 20, 4)
+                        
                         weather_info = {
-                            'temperature': current.get('temp'),
-                            'humidity': current.get('humidity'),
-                            'wind_speed': current.get('wind_speed'),
-                            'wind_direction': current.get('wind_deg'),
-                            'visibility': current.get('visibility'),
+                            'temperature': current.get('temperature_2m'),
+                            'humidity': current.get('relative_humidity_2m'),
+                            'wind_speed': wind_speed_knots,  # in knots
+                            'wind_speed_kph': wind_speed_kph,  # in km/h
+                            'wind_direction': current.get('wind_direction_10m'),
+                            'wind_direction_cardinal': self._degrees_to_cardinal(current.get('wind_direction_10m', 0)),
+                            'visibility': 10,  # Default good visibility
                             'pressure': current.get('pressure'),
-                            'weather_main': current.get('weather', [{}])[0].get('main') if current.get('weather') else None,
-                            'weather_description': current.get('weather', [{}])[0].get('description') if current.get('weather') else None,
-                            'daily_high': daily.get('temp', {}).get('max'),
-                            'daily_low': daily.get('temp', {}).get('min'),
-                            'precipitation_probability': daily.get('pop', 0) * 100,
-                            'marine_conditions': self._assess_marine_conditions(current, daily),
+                            'weather_main': weather_desc,
+                            'weather_description': weather_desc,
+                            'wave_height': wave_height,
+                            'sea_state': self._calculate_sea_state(wind_speed_kph, wave_height),
+                            'precipitation': current.get('precipitation', 0),
+                            'is_raining': self._is_raining_code(weather_code),
+                            'marine_conditions': self._assess_marine_conditions(current),
+                            'sts_optimality': self._calculate_sts_optimality(wind_speed_knots, wave_height, current.get('temperature_2m', 20)),
                             'last_updated': datetime.utcnow().isoformat()
                         }
 
                         return weather_info
 
         except Exception as e:
-            logger.error(f"Error fetching weather from API: {e}")
+            logger.error(f"Error fetching weather from Open-Meteo API: {e}")
 
         return None
 
-    def _assess_marine_conditions(self, current: Dict, daily: Dict) -> str:
+    def _assess_marine_conditions(self, current: Dict) -> str:
         """Assess marine conditions based on weather data"""
         try:
-            wind_speed = current.get('wind_speed', 0)
-            visibility = current.get('visibility', 10000)  # meters
-            pop = daily.get('pop', 0)  # precipitation probability
+            wind_speed_kph = current.get('wind_speed_10m', 0)
+            precipitation = current.get('precipitation', 0)
+            weather_code = current.get('weather_code', 0)
 
-            # Beaufort scale for wind
-            if wind_speed < 1:
+            # Beaufort scale for wind (in km/h)
+            if wind_speed_kph < 1:
                 wind_condition = "calm"
-            elif wind_speed < 4:
+            elif wind_speed_kph < 6:
                 wind_condition = "light"
-            elif wind_speed < 7:
+            elif wind_speed_kph < 12:
                 wind_condition = "moderate"
-            elif wind_speed < 11:
+            elif wind_speed_kph < 20:
                 wind_condition = "fresh"
-            elif wind_speed < 17:
+            elif wind_speed_kph < 31:
                 wind_condition = "strong"
             else:
                 wind_condition = "storm"
 
-            # Visibility assessment
-            if visibility < 1000:
-                visibility_condition = "poor"
-            elif visibility < 5000:
-                visibility_condition = "moderate"
+            # Precipitation assessment
+            if self._is_raining_code(weather_code):
+                precip_condition = "raining"
             else:
-                visibility_condition = "good"
-
-            # Precipitation risk
-            if pop > 0.7:
-                precip_condition = "high_risk"
-            elif pop > 0.3:
-                precip_condition = "moderate_risk"
-            else:
-                precip_condition = "low_risk"
+                precip_condition = "dry"
 
             # Overall marine conditions
-            if wind_condition in ["storm", "strong"] or visibility_condition == "poor":
+            if wind_condition in ["storm", "strong"]:
                 return "hazardous"
-            elif wind_condition == "fresh" or precip_condition == "high_risk":
+            elif wind_condition == "fresh" or precip_condition == "raining":
                 return "challenging"
-            elif wind_condition == "moderate" or precip_condition == "moderate_risk":
+            elif wind_condition == "moderate":
                 return "fair"
             else:
                 return "favorable"
@@ -175,6 +177,90 @@ class WeatherService:
         except Exception as e:
             logger.error(f"Error assessing marine conditions: {e}")
             return "unknown"
+
+    def _get_weather_description(self, code: int) -> str:
+        """Convert WMO Weather code to description"""
+        weather_codes = {
+            0: "Clear sky",
+            1: "Mainly clear",
+            2: "Partly cloudy",
+            3: "Overcast",
+            45: "Foggy",
+            48: "Depositing rime fog",
+            51: "Light drizzle",
+            53: "Moderate drizzle",
+            55: "Dense drizzle",
+            61: "Slight rain",
+            63: "Moderate rain",
+            65: "Heavy rain",
+            71: "Slight snow",
+            73: "Moderate snow",
+            75: "Heavy snow",
+            77: "Snow grains",
+            80: "Slight rain showers",
+            81: "Moderate rain showers",
+            82: "Violent rain showers",
+            85: "Slight snow showers",
+            86: "Heavy snow showers",
+            95: "Thunderstorm",
+            96: "Thunderstorm with slight hail",
+            99: "Thunderstorm with heavy hail",
+        }
+        return weather_codes.get(code, "Unknown")
+
+    def _is_raining_code(self, code: int) -> bool:
+        """Check if weather code indicates rain"""
+        return code >= 51 and code <= 82
+
+    def _calculate_sea_state(self, wind_kph: float, wave_height: float) -> str:
+        """Calculate sea state from wind speed and wave height"""
+        if wind_kph < 5 or wave_height < 0.5:
+            return "calm"
+        elif wind_kph < 15 or wave_height < 1.25:
+            return "slight"
+        elif wind_kph < 25 or wave_height < 2.5:
+            return "moderate"
+        elif wind_kph < 35 or wave_height < 4:
+            return "rough"
+        return "very_rough"
+
+    def _degrees_to_cardinal(self, degrees: float) -> str:
+        """Convert degrees to cardinal direction"""
+        directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+                     "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+        index = int((degrees + 11.25) / 22.5) % 16
+        return directions[index]
+
+    def _calculate_sts_optimality(self, wind_knots: float, wave_height: float, temperature: float) -> Dict:
+        """Calculate STS operation optimality score (0-100)"""
+        score = 100
+
+        # Wind Assessment (Critical)
+        if wind_knots > 35:
+            score = 0  # Stop operations
+        elif wind_knots > 30:
+            score -= 40  # Marginal conditions
+        elif wind_knots > 20:
+            score -= 20  # Monitor
+        elif wind_knots > 15:
+            score -= 10  # Good conditions degrading
+
+        # Wave Height Assessment
+        if wave_height > 4:
+            score -= 40
+        elif wave_height > 3:
+            score -= 20
+        elif wave_height > 2:
+            score -= 10
+
+        # Temperature extremes
+        if temperature < 5 or temperature > 40:
+            score -= 5
+
+        return {
+            "optimal": score >= 80,
+            "percentage": max(0, score)
+        }
 
     async def _cache_weather_data(self, latitude: float, longitude: float, data: Dict, session: AsyncSession):
         """Cache weather data in database"""

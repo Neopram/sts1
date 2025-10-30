@@ -49,7 +49,7 @@ interface PasswordFormData {
   confirmPassword: string;
 }
 
-const SettingsPage: React.FC = () => {
+const SettingsPage_Enhanced: React.FC = () => {
   const { user, logout } = useApp();
   const { theme, isDark, setTheme, toggleTheme } = useTheme();
   const { currentLanguage, setLanguage: changeLanguage } = useLanguage();
@@ -227,7 +227,7 @@ const SettingsPage: React.FC = () => {
       setUserDateFormat(profileSettings.dateFormat as any);
       setUserTimeFormat(profileSettings.timeFormat as any);
       
-      if (profileSettings.language !== currentLanguage?.code) {
+      if (profileSettings.language !== language) {
         changeLanguage(profileSettings.language as any);
       }
 
@@ -398,50 +398,46 @@ const SettingsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your account settings and preferences</p>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Settings</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Manage your account and application preferences</p>
         </div>
 
-        {/* Success/Error Messages */}
+        {/* Message */}
         {message && (
           <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
             message.type === 'success'
-              ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-              : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+              ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800'
+              : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
           }`}>
             {message.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+              <CheckCircle className="w-5 h-5 flex-shrink-0" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
             )}
-            <span className={message.type === 'success' ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}>
-              {message.text}
-            </span>
+            <span>{message.text}</span>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar Navigation */}
           <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-2 sticky top-8">
-              {sections.map((section) => (
+            <nav className="space-y-1 bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              {sections.map(section => (
                 <button
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors flex items-center gap-3 ${
                     activeSection === section.id
-                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-l-4 border-blue-500'
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-l-4 border-blue-600 dark:border-blue-400'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                  }`}
-                >
+                  }`}>
                   {section.icon}
                   <div>
-                    <div className="font-medium">{section.title}</div>
-                    <div className="text-xs opacity-75 hidden sm:block">{section.description}</div>
+                    <div className="font-medium text-sm">{section.title}</div>
                   </div>
                 </button>
               ))}
-            </div>
+            </nav>
           </div>
 
           {/* Main Content */}
@@ -451,100 +447,107 @@ const SettingsPage: React.FC = () => {
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Profile Settings</h2>
 
-                {/* Display Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Display Name
-                  </label>
-                  <input
-                    type="text"
-                    value={profileSettings.displayName}
-                    onChange={(e) => setProfileSettings(prev => ({ ...prev, displayName: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                    placeholder="Your full name"
-                  />
-                </div>
+                <div className="space-y-4">
+                  {/* Display Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Display Name
+                    </label>
+                    <input
+                      type="text"
+                      value={profileSettings.displayName}
+                      onChange={(e) => setProfileSettings(prev => ({ ...prev, displayName: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Your display name"
+                    />
+                  </div>
 
-                {/* Email (Read-only) */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    value={profileSettings.email}
-                    disabled
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Email cannot be changed</p>
-                </div>
+                  {/* Email (Read-only) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={profileSettings.email}
+                      disabled
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                    />
+                  </div>
 
-                {/* Timezone */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Timezone
-                  </label>
-                  <select
-                    value={profileSettings.timezone}
-                    onChange={(e) => setProfileSettings(prev => ({ ...prev, timezone: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  >
-                    {timezones.map(tz => (
-                      <option key={tz} value={tz}>{tz}</option>
-                    ))}
-                  </select>
-                </div>
+                  {/* Timezone */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Timezone
+                    </label>
+                    <select
+                      value={profileSettings.timezone}
+                      onChange={(e) => setProfileSettings(prev => ({ ...prev, timezone: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      {timezones.map(tz => (
+                        <option key={tz} value={tz}>{tz}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* Language */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Language
-                  </label>
-                  <select
-                    value={profileSettings.language}
-                    onChange={(e) => setProfileSettings(prev => ({ ...prev, language: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  >
-                    {languages.map(lang => (
-                      <option key={lang.code} value={lang.code}>{lang.name}</option>
-                    ))}
-                  </select>
-                </div>
+                  {/* Language */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Language
+                    </label>
+                    <select
+                      value={profileSettings.language}
+                      onChange={(e) => setProfileSettings(prev => ({ ...prev, language: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      {languages.map(lang => (
+                        <option key={lang.code} value={lang.code}>{lang.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                {/* Date Format */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Date Format
-                  </label>
-                  <select
-                    value={profileSettings.dateFormat}
-                    onChange={(e) => setProfileSettings(prev => ({ ...prev, dateFormat: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                  </select>
-                </div>
+                  {/* Date Format */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Date Format
+                    </label>
+                    <select
+                      value={profileSettings.dateFormat}
+                      onChange={(e) => setProfileSettings(prev => ({ ...prev, dateFormat: e.target.value as any }))}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                    </select>
+                  </div>
 
-                {/* Time Format */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Time Format
-                  </label>
-                  <select
-                    value={profileSettings.timeFormat}
-                    onChange={(e) => setProfileSettings(prev => ({ ...prev, timeFormat: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="12h">12-hour (12:00 PM)</option>
-                    <option value="24h">24-hour (13:00)</option>
-                  </select>
-                </div>
+                  {/* Time Format */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Time Format
+                    </label>
+                    <select
+                      value={profileSettings.timeFormat}
+                      onChange={(e) => setProfileSettings(prev => ({ ...prev, timeFormat: e.target.value as any }))}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="12h">12-hour (AM/PM)</option>
+                      <option value="24h">24-hour</option>
+                    </select>
+                  </div>
 
-                {/* Preview */}
-                <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Preview: {profileSettings.displayName || 'Your Name'}</p>
+                  {/* Preview */}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <span className="font-medium">Preview:</span> {formatDateTime(new Date(), {
+                        timezone: profileSettings.timezone,
+                        dateFormat: profileSettings.dateFormat as any,
+                        timeFormat: profileSettings.timeFormat as any
+                      })}
+                    </p>
+                  </div>
                 </div>
 
                 <button
@@ -560,31 +563,25 @@ const SettingsPage: React.FC = () => {
             {/* Notifications Section */}
             {activeSection === 'notifications' && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Notification Settings</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Notification Preferences</h2>
 
                 <div className="space-y-4">
                   {[
-                    { key: 'emailNotifications', label: 'Email Notifications', description: 'Receive email notifications' },
-                    { key: 'documentUpdates', label: 'Document Updates', description: 'Get notified about document changes' },
-                    { key: 'approvalRequests', label: 'Approval Requests', description: 'Receive approval request notifications' },
-                    { key: 'systemAlerts', label: 'System Alerts', description: 'Important system notifications' },
-                    { key: 'weeklyDigest', label: 'Weekly Digest', description: 'Get a weekly summary' }
-                  ].map(item => (
-                    <div key={item.key} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{item.label}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{item.description}</p>
-                      </div>
+                    { key: 'emailNotifications', label: 'Email Notifications' },
+                    { key: 'documentUpdates', label: 'Document Updates' },
+                    { key: 'approvalRequests', label: 'Approval Requests' },
+                    { key: 'systemAlerts', label: 'System Alerts' },
+                    { key: 'weeklyDigest', label: 'Weekly Digest Email' }
+                  ].map(({ key, label }) => (
+                    <label key={key} className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <input
                         type="checkbox"
-                        checked={notificationSettings[item.key as keyof typeof notificationSettings] as boolean}
-                        onChange={(e) => setNotificationSettings(prev => ({
-                          ...prev,
-                          [item.key]: e.target.checked
-                        }))}
-                        className="w-5 h-5 text-blue-600 rounded"
+                        checked={(notificationSettings as any)[key]}
+                        onChange={(e) => setNotificationSettings(prev => ({ ...prev, [key]: e.target.checked }))}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
                       />
-                    </div>
+                      <span className="ml-3 text-gray-700 dark:text-gray-300">{label}</span>
+                    </label>
                   ))}
                 </div>
 
@@ -603,71 +600,74 @@ const SettingsPage: React.FC = () => {
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Appearance Settings</h2>
 
-                {/* Theme */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    Theme
-                  </label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {themes.map(t => (
-                      <button
-                        key={t.value}
-                        onClick={() => setAppearanceSettings(prev => ({ ...prev, theme: t.value as any }))}
-                        className={`p-4 rounded-lg border-2 flex flex-col items-center gap-2 transition-all ${
-                          appearanceSettings.theme === t.value
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                        }`}
-                      >
-                        {t.icon}
-                        <span className="font-medium text-sm text-gray-900 dark:text-white">{t.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Font Size */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Font Size
-                  </label>
-                  <select
-                    value={appearanceSettings.fontSize}
-                    onChange={(e) => setAppearanceSettings(prev => ({ ...prev, fontSize: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="small">Small</option>
-                    <option value="medium">Medium</option>
-                    <option value="large">Large</option>
-                  </select>
-                </div>
-
-                {/* Compact Mode */}
-                <div className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="space-y-4">
+                  {/* Theme Selection */}
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white">Compact Mode</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Reduce spacing for more content</p>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      Theme
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {themes.map(t => (
+                        <button
+                          key={t.value}
+                          onClick={() => setAppearanceSettings(prev => ({ ...prev, theme: t.value as any }))}
+                          className={`p-4 rounded-lg border-2 transition-all flex items-center gap-2 justify-center ${
+                            appearanceSettings.theme === t.value
+                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                          }`}
+                        >
+                          {t.icon}
+                          <span className="font-medium text-sm">{t.name}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={appearanceSettings.compactMode}
-                    onChange={(e) => setAppearanceSettings(prev => ({ ...prev, compactMode: e.target.checked }))}
-                    className="w-5 h-5 text-blue-600 rounded"
-                  />
-                </div>
 
-                {/* Animations */}
-                <div className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  {/* Font Size */}
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white">Enable Animations</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Show animations and transitions</p>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Font Size
+                    </label>
+                    <select
+                      value={appearanceSettings.fontSize}
+                      onChange={(e) => setAppearanceSettings(prev => ({ ...prev, fontSize: e.target.value as any }))}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="small">Small</option>
+                      <option value="medium">Medium</option>
+                      <option value="large">Large</option>
+                    </select>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={appearanceSettings.showAnimations}
-                    onChange={(e) => setAppearanceSettings(prev => ({ ...prev, showAnimations: e.target.checked }))}
-                    className="w-5 h-5 text-blue-600 rounded"
-                  />
+
+                  {/* Compact Mode */}
+                  <label className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <input
+                      type="checkbox"
+                      checked={appearanceSettings.compactMode}
+                      onChange={(e) => setAppearanceSettings(prev => ({ ...prev, compactMode: e.target.checked }))}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
+                    />
+                    <span className="ml-3 text-gray-700 dark:text-gray-300">Compact Mode</span>
+                  </label>
+
+                  {/* Show Animations */}
+                  <label className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <input
+                      type="checkbox"
+                      checked={appearanceSettings.showAnimations}
+                      onChange={(e) => setAppearanceSettings(prev => ({ ...prev, showAnimations: e.target.checked }))}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
+                    />
+                    <span className="ml-3 text-gray-700 dark:text-gray-300">Show Animations</span>
+                  </label>
+
+                  {/* Quick Theme Toggle */}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      <span className="font-medium">Quick tip:</span> Press Ctrl+Shift+T to toggle dark/light mode
+                    </p>
+                  </div>
                 </div>
 
                 <button
@@ -677,12 +677,6 @@ const SettingsPage: React.FC = () => {
                 >
                   {saving ? 'Saving...' : 'Save Appearance Settings'}
                 </button>
-
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-900 dark:text-blue-200">
-                    <span className="font-medium">Tip:</span> Use Ctrl+Shift+T to quickly toggle dark mode
-                  </p>
-                </div>
               </div>
             )}
 
@@ -693,7 +687,10 @@ const SettingsPage: React.FC = () => {
 
                 {/* Change Password */}
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-6 space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Change Password</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Lock className="w-5 h-5" />
+                    Change Password
+                  </h3>
 
                   <div className="space-y-4">
                     {/* Old Password */}
@@ -858,4 +855,4 @@ const SettingsPage: React.FC = () => {
   );
 };
 
-export default SettingsPage;
+export default SettingsPage_Enhanced;

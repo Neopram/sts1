@@ -2,8 +2,8 @@
  * Weather Service
  * Handles fetching and caching weather data for STS operations
  * 
- * Uses weatherapi.com free API
- * Consider upgrade for production use
+ * Uses Open-Meteo API (free, no API key required)
+ * https://open-meteo.com/
  */
 
 export interface WeatherData {
@@ -31,13 +31,12 @@ export interface Coordinates {
 }
 
 export class WeatherService {
-  private static readonly API_BASE = 'https://api.weatherapi.com/v1';
-  private static readonly API_KEY = import.meta.env.VITE_WEATHER_API_KEY;
+  private static readonly API_BASE = 'https://api.open-meteo.com/v1';
   private static cache: Map<string, {data: WeatherData; timestamp: number}> = new Map();
   private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   /**
-   * Get weather for coordinates
+   * Get weather for coordinates using Open-Meteo API
    * Implements caching to avoid excessive API calls
    */
   static async getWeather(coords: Coordinates): Promise<WeatherData> {
@@ -50,14 +49,17 @@ export class WeatherService {
     }
 
     try {
-      // If no API key, return mock data
-      if (!this.API_KEY) {
-        console.warn('Weather API key not configured, using mock data');
-        return this.getMockWeather();
-      }
+      const params = new URLSearchParams({
+        latitude: coords.latitude.toString(),
+        longitude: coords.longitude.toString(),
+        current: 'temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,precipitation,weather_code',
+        timezone: 'UTC',
+        wind_speed_unit: 'kmh',
+        temperature_unit: 'celsius'
+      });
 
       const response = await fetch(
-        `${this.API_BASE}/current.json?key=${this.API_KEY}&q=${coords.latitude},${coords.longitude}&aqi=no`
+        `${this.API_BASE}/forecast?${params}`
       );
 
       if (!response.ok) {
@@ -66,7 +68,7 @@ export class WeatherService {
       }
 
       const jsonData = await response.json();
-      const weatherData = this.parseWeatherResponse(jsonData);
+      const weatherData = this.parseOpenMeteoResponse(jsonData);
 
       // Cache the result
       this.cache.set(cacheKey, {
@@ -82,46 +84,102 @@ export class WeatherService {
   }
 
   /**
-   * Parse WeatherAPI response to our format
+   * Parse Open-Meteo response to our format
    */
-  private static parseWeatherResponse(data: any): WeatherData {
+  private static parseOpenMeteoResponse(data: any): WeatherData {
     const current = data.current;
-    const location = data.location;
-
+    const windSpeedKph = current.wind_speed_10m || 0;
+    
     // Convert wind speed from km/h to knots
-    const windSpeedKnots = current.wind_kph / 1.852;
+    const windSpeedKnots = windSpeedKph / 1.852;
 
-    // Estimate wave height from wind speed and fetch (simplified)
-    const waveHeight = Math.min(current.wind_kph / 20, 4);
-    const seaState = this.calculateSeaState(current.wind_kph, waveHeight);
+    // Interpret weather code (WMO Weather interpretation codes)
+    const conditions = this.getWeatherDescription(current.weather_code);
+    const isRaining = this.isRainingCode(current.weather_code);
+
+    // Estimate wave height from wind speed
+    const waveHeight = Math.min(windSpeedKph / 20, 4);
+    const seaState = this.calculateSeaState(windSpeedKph, waveHeight);
+
+    // Wind direction as cardinal
+    const windDirection = this.degreesToCardinal(current.wind_direction_10m || 0);
 
     // Calculate STS optimality
     const optimality = this.calculateSTSOptimality({
       windSpeedKnots,
-      visibility: current.vis_km,
+      visibility: 10, // Default good visibility
       waveHeight,
-      isRaining: current.will_it_rain === 1,
-      temperature: current.temp_c
+      isRaining,
+      temperature: current.temperature_2m || 20
     });
 
     return {
-      temperature: current.temp_c,
-      temperatureF: current.temp_f,
-      feelsLike: current.feelslike_c,
+      temperature: current.temperature_2m || 0,
+      temperatureF: ((current.temperature_2m || 0) * 9/5) + 32,
+      feelsLike: current.apparent_temperature || current.temperature_2m || 0,
       windSpeed: windSpeedKnots,
-      windSpeedKph: current.wind_kph,
-      windDirection: current.wind_dir,
-      windDirectionDegrees: current.wind_degree,
-      humidity: current.humidity,
-      visibility: current.vis_km,
+      windSpeedKph: windSpeedKph,
+      windDirection: windDirection,
+      windDirectionDegrees: current.wind_direction_10m || 0,
+      humidity: current.relative_humidity_2m || 0,
+      visibility: 10,
       waveHeight: waveHeight,
       seaState: seaState,
-      conditions: current.condition.text,
-      precipitation: current.precip_mm,
-      isRaining: current.will_it_rain === 1,
+      conditions: conditions,
+      precipitation: current.precipitation || 0,
+      isRaining: isRaining,
       optimalForSTS: optimality.optimal,
       optimalPercentage: optimality.percentage
     };
+  }
+
+  /**
+   * Convert WMO Weather codes to description
+   */
+  private static getWeatherDescription(code: number): string {
+    const weatherCodes: Record<number, string> = {
+      0: 'Clear sky',
+      1: 'Mainly clear',
+      2: 'Partly cloudy',
+      3: 'Overcast',
+      45: 'Foggy',
+      48: 'Depositing rime fog',
+      51: 'Light drizzle',
+      53: 'Moderate drizzle',
+      55: 'Dense drizzle',
+      61: 'Slight rain',
+      63: 'Moderate rain',
+      65: 'Heavy rain',
+      71: 'Slight snow',
+      73: 'Moderate snow',
+      75: 'Heavy snow',
+      77: 'Snow grains',
+      80: 'Slight rain showers',
+      81: 'Moderate rain showers',
+      82: 'Violent rain showers',
+      85: 'Slight snow showers',
+      86: 'Heavy snow showers',
+      95: 'Thunderstorm',
+      96: 'Thunderstorm with slight hail',
+      99: 'Thunderstorm with heavy hail',
+    };
+    return weatherCodes[code] || 'Unknown';
+  }
+
+  /**
+   * Check if weather code indicates rain
+   */
+  private static isRainingCode(code: number): boolean {
+    return code >= 51 && code <= 82;
+  }
+
+  /**
+   * Convert degrees to cardinal direction
+   */
+  private static degreesToCardinal(degrees: number): string {
+    const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    const index = Math.round(((degrees + 11.25) % 360) / 22.5);
+    return directions[index % 16];
   }
 
   /**

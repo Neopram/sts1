@@ -48,17 +48,17 @@ async def setup_and_run():
 
 if __name__ == "__main__":
     print("""
-    ╔══════════════════════════════════════════════════════════════╗
-    ║                    STS CLEARANCE SYSTEM                      ║
-    ║                        Backend API                           ║
-    ╠══════════════════════════════════════════════════════════════╣
-    ║  🌊 Ship-to-Ship Transfer Operations Management              ║
-    ║  📋 Document Management & Approval Workflow                 ║
-    ║  💬 Real-time Chat & Notifications                          ║
-    ║  🚢 Vessel Management & Tracking                            ║
-    ║  📊 Activity Logs & Audit Trail                             ║
-    ║  📸 Status Snapshots & Reports                              ║
-    ╚══════════════════════════════════════════════════════════════╝
+    ============================================================
+                    STS CLEARANCE SYSTEM
+                        Backend API
+    ============================================================
+      Ship-to-Ship Transfer Operations Management
+      Document Management & Approval Workflow
+      Real-time Chat & Notifications
+      Vessel Management & Tracking
+      Activity Logs & Audit Trail
+      Status Snapshots & Reports
+    ============================================================
     """)
     
     asyncio.run(setup_and_run())

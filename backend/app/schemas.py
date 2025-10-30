@@ -219,3 +219,140 @@ class PasswordChange(BaseModel):
     current_password: str
     new_password: str
     confirm_password: str
+
+
+# ============ PHASE 2: SETTINGS SCHEMAS ============
+
+class EmailSettingsResponse(BaseModel):
+    """Email settings for user"""
+    id: Optional[UUID] = None
+    user_id: Optional[UUID] = None
+    notifications_enabled: bool = True
+    email_frequency: str = "immediate"
+    digest_enabled: bool = False
+    security_alerts: bool = True
+    marketing_emails: bool = False
+    verified: bool = False
+    verified_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class EmailSettingsUpdate(BaseModel):
+    """Update email settings"""
+    notifications_enabled: Optional[bool] = None
+    email_frequency: Optional[str] = None
+    digest_enabled: Optional[bool] = None
+    security_alerts: Optional[bool] = None
+    marketing_emails: Optional[bool] = None
+
+
+class TwoFactorAuthResponse(BaseModel):
+    """2FA status response"""
+    enabled: bool = False
+    verified: bool = False
+    method: str = "totp"
+    backup_codes_count: int = 0
+    enabled_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TwoFactorAuthSetup(BaseModel):
+    """2FA setup response with QR code"""
+    secret: str
+    qr_code: str  # Base64 encoded
+    provisioning_uri: str
+    backup_codes: List[str]
+    instructions: Dict[str, Any]
+
+
+class TwoFactorAuthVerify(BaseModel):
+    """Verify 2FA token"""
+    token: str
+    backup_codes: Optional[List[str]] = None
+
+
+class LoginHistoryResponse(BaseModel):
+    """Login history entry"""
+    id: Optional[UUID] = None
+    ip_address: str
+    browser: Optional[str] = None
+    os: Optional[str] = None
+    device: Optional[str] = None
+    country: Optional[str] = None
+    city: Optional[str] = None
+    success: bool = True
+    risk_level: str = "low"
+    risk_score: int = 0
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BackupScheduleResponse(BaseModel):
+    """Backup schedule configuration"""
+    id: Optional[UUID] = None
+    user_id: Optional[UUID] = None
+    enabled: bool = False
+    frequency: str = "daily"
+    time_of_day: str = "00:00"
+    include_documents: bool = True
+    include_data: bool = True
+    compression: bool = True
+    retention_days: int = 30
+    last_backup: Optional[datetime] = None
+    next_backup: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BackupScheduleUpdate(BaseModel):
+    """Update backup schedule"""
+    enabled: Optional[bool] = None
+    frequency: Optional[str] = None
+    time_of_day: Optional[str] = None
+    include_documents: Optional[bool] = None
+    include_data: Optional[bool] = None
+    compression: Optional[bool] = None
+    retention_days: Optional[int] = None
+
+
+class BackupMetadataResponse(BaseModel):
+    """Backup file metadata"""
+    id: Optional[UUID] = None
+    file_name: str
+    file_size: int = 0
+    backup_type: str = "full"
+    status: str = "completed"
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ExportFormatResponse(BaseModel):
+    """Available export format"""
+    format: str
+    name: str
+    description: str
+    icon: str
+
+
+class ExportDataRequest(BaseModel):
+    """Request to export data"""
+    format: str  # json, csv, xml, pdf, xlsx, sql
+    include_settings: bool = False
+    include_documents: bool = False
+
+
+class ExportResponse(BaseModel):
+    """Export data response"""
+    success: bool
+    file_name: str
+    content_type: str
+    url: Optional[str] = None

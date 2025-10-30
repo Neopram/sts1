@@ -29,3 +29,25 @@ flake8==6.1.0
 
 # JWT Authentication
 PyJWT==2.10.1
+
+# Phase 2: Email Service
+pyotp==2.9.0
+qrcode==7.4.2
+jinja2==3.1.2
+secure==0.3.0
+
+# Phase 2: Login Tracking & Geo IP
+geoip2==4.7.0
+user-agents==2.2.0
+
+# Phase 2: Export Formats
+openpyxl==3.1.5
+xmltodict==0.13.0
+
+# Data Processing
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Rate Limiting & Security
+redis==5.0.0
+bcrypt==4.1.1

@@ -12,6 +12,7 @@ import { HelpProvider } from './contexts/HelpContext'
 import { ProfileProvider } from './contexts/ProfileContext'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { SearchProvider } from './contexts/SearchContext'
+import { AppInitializer } from './components/AppInitializer'
 import ErrorBoundary from './components/ErrorBoundary'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -24,7 +25,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <ProfileProvider>
                 <SettingsProvider>
                   <SearchProvider>
-                    <RouterProvider router={router} />
+                    <AppInitializer>
+                      <RouterProvider router={router} />
+                    </AppInitializer>
                   </SearchProvider>
                 </SettingsProvider>
               </ProfileProvider>

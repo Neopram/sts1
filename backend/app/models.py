@@ -432,3 +432,120 @@ class MissingDocumentsConfig(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", backref="missing_documents_config")
+
+
+# ============ PHASE 2: SETTINGS MODELS ============
+
+class EmailSettings(Base):
+    """Email notification preferences for users"""
+    __tablename__ = "email_settings"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    user_id = Column(UUIDType, ForeignKey("users.id"), nullable=False, unique=True)
+    notifications_enabled = Column(Boolean, default=True)
+    email_frequency = Column(String(50), default='immediate')  # immediate, daily, weekly
+    digest_enabled = Column(Boolean, default=False)
+    security_alerts = Column(Boolean, default=True)
+    marketing_emails = Column(Boolean, default=False)
+    verified = Column(Boolean, default=False)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    verification_token = Column(String(500), nullable=True)
+    verification_token_sent_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", backref="email_settings")
+
+
+class TwoFactorAuth(Base):
+    """Two-factor authentication configuration"""
+    __tablename__ = "two_factor_auth"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    user_id = Column(UUIDType, ForeignKey("users.id"), nullable=False, unique=True)
+    method = Column(String(50), default='totp')  # totp, sms, email
+    secret = Column(String(500), nullable=True)  # TOTP secret
+    enabled = Column(Boolean, default=False)
+    verified = Column(Boolean, default=False)
+    backup_codes = Column(JSON, default=list)  # List of hashed backup codes
+    phone_number = Column(String(50), nullable=True)  # For SMS method
+    attempts = Column(Integer, default=0)  # Failed verification attempts
+    locked_until = Column(DateTime(timezone=True), nullable=True)
+    enabled_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", backref="two_factor_auth")
+
+
+class LoginHistory(Base):
+    """Track user login activities"""
+    __tablename__ = "login_history"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    user_id = Column(UUIDType, ForeignKey("users.id"), nullable=False)
+    ip_address = Column(String(50), nullable=False)
+    user_agent = Column(String(500), nullable=True)
+    browser = Column(String(100), nullable=True)
+    os = Column(String(100), nullable=True)
+    device = Column(String(100), nullable=True)
+    is_mobile = Column(Boolean, default=False)
+    country = Column(String(100), nullable=True)
+    city = Column(String(100), nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    timezone = Column(String(100), nullable=True)
+    success = Column(Boolean, default=True)
+    risk_level = Column(String(50), default='low')  # low, medium, high
+    risk_score = Column(Integer, default=0)
+    reason = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", backref="login_history")
+
+
+class BackupSchedule(Base):
+    """Backup scheduling configuration"""
+    __tablename__ = "backup_schedule"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    user_id = Column(UUIDType, ForeignKey("users.id"), nullable=False, unique=True)
+    enabled = Column(Boolean, default=False)
+    frequency = Column(String(50), default='daily')  # daily, weekly, monthly
+    time_of_day = Column(String(5), default='00:00')  # HH:MM format
+    day_of_week = Column(Integer, nullable=True)  # For weekly backups (0-6)
+    day_of_month = Column(Integer, nullable=True)  # For monthly backups (1-31)
+    last_backup = Column(DateTime(timezone=True), nullable=True)
+    next_backup = Column(DateTime(timezone=True), nullable=True)
+    include_documents = Column(Boolean, default=True)
+    include_data = Column(Boolean, default=True)
+    compression = Column(Boolean, default=True)
+    retention_days = Column(Integer, default=30)
+    auto_cleanup = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", backref="backup_schedule")
+    backups = relationship("BackupMetadata", back_populates="schedule")
+
+
+class BackupMetadata(Base):
+    """Backup file metadata"""
+    __tablename__ = "backup_metadata"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    schedule_id = Column(UUIDType, ForeignKey("backup_schedule.id"), nullable=False)
+    user_id = Column(UUIDType, ForeignKey("users.id"), nullable=False)
+    file_name = Column(String(500), nullable=False)
+    file_path = Column(String(1000), nullable=False)
+    file_size = Column(Integer, default=0)  # bytes
+    backup_type = Column(String(50), default='full')  # full, incremental
+    include_documents = Column(Boolean, default=True)
+    include_data = Column(Boolean, default=True)
+    compressed = Column(Boolean, default=True)
+    status = Column(String(50), default='completed')  # pending, in_progress, completed, failed
+    error_message = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    schedule = relationship("BackupSchedule", back_populates="backups")
+    user = relationship("User", backref="backups")

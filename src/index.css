@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Import dark theme CSS variables and styles */
+@import './styles/dark-theme.css';
 /* Import responsive fixes */
 @import './styles/responsive-fixes.css';
 /* Import accessibility fixes */

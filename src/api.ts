@@ -747,6 +747,49 @@ class ApiService {
     }
   }
 
+  static async exportUserDataCSV(): Promise<Blob> {
+    try {
+      const service = new ApiService();
+      const token = localStorage.getItem('auth-token');
+      
+      const response = await fetch('/api/v1/settings/export/csv', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      return blob;
+    } catch (error) {
+      console.error('Error in exportUserDataCSV:', error);
+      throw error;
+    }
+  }
+
+  static async changePassword(oldPassword: string, newPassword: string, confirmPassword: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request('/api/v1/settings/password', {
+        method: 'PUT',
+        body: JSON.stringify({
+          old_password: oldPassword,
+          new_password: newPassword,
+          confirm_password: confirmPassword
+        })
+      });
+      console.log('changePassword response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in changePassword:', error);
+      throw error;
+    }
+  }
+
   // Missing Documents methods
   static async getMissingDocuments(roomIds?: string[], vesselIds?: string[]): Promise<any> {
     try {

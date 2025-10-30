@@ -28,7 +28,8 @@ from app.monitoring.performance import HealthChecker, PerformanceMonitor
 from app.routers import (activities, approval_matrix, approvals, auth, cache_management, cockpit, config,
                          documents, files, historical_access, messages, notifications, profile, regional_operations, rooms,
                          search, settings, snapshots, stats, users, vessels, weather, vessel_sessions, websocket,
-                         sanctions, vessel_integrations, missing_documents)
+                         sanctions, vessel_integrations, missing_documents, email_settings, totp_settings, 
+                         login_tracking, backup_settings, advanced_export)
 
 # Configure logging
 logging.basicConfig(
@@ -109,6 +110,13 @@ app.include_router(profile.router)
 app.include_router(sanctions.router)
 app.include_router(vessel_integrations.router)
 app.include_router(missing_documents.router)
+
+# Phase 2 Routers
+app.include_router(email_settings.router)
+app.include_router(totp_settings.router)
+app.include_router(login_tracking.router)
+app.include_router(backup_settings.router)
+app.include_router(advanced_export.router)
 
 
 # Root endpoint
