@@ -97,6 +97,22 @@ class MissingDocumentsService:
             expiring_threshold = now + timedelta(days=30)  # Documents expiring in 30 days
             
             for doc, doc_type, room, vessel in rows:
+                # Calculate days until expiry
+                days_until_expiry = None
+                if doc.expires_on:
+                    days_until_expiry = (doc.expires_on.date() - now.date()).days
+                
+                # Determine reason based on status
+                reason = doc.status
+                if doc.status == 'missing':
+                    reason = 'missing'
+                elif doc.status == 'expired':
+                    reason = 'expired'
+                elif doc.status == 'under_review':
+                    reason = 'under_review'
+                elif doc.status == 'approved' and doc.expires_on and doc.expires_on < expiring_threshold:
+                    reason = 'expiring_soon'
+                
                 doc_data = {
                     "id": str(doc.id),
                     "type": {
@@ -110,9 +126,11 @@ class MissingDocumentsService:
                     },
                     "status": doc.status,
                     "priority": doc.priority,
-                    "expires_on": doc.expires_on.isoformat() if doc.expires_on else None,
-                    "uploaded_by": doc.uploaded_by,
-                    "uploaded_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+                    "reason": reason,
+                    "expiresOn": doc.expires_on.isoformat() if doc.expires_on else None,
+                    "daysUntilExpiry": days_until_expiry,
+                    "uploadedBy": doc.uploaded_by,
+                    "uploadedAt": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
                     "notes": doc.notes,
                     "room": {
                         "id": str(room.id),
@@ -123,7 +141,7 @@ class MissingDocumentsService:
                         "id": str(vessel.id),
                         "name": vessel.name,
                         "imo": vessel.imo,
-                        "vessel_type": vessel.vessel_type
+                        "vesselType": vessel.vessel_type
                     } if vessel else None
                 }
                 
