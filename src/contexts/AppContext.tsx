@@ -54,9 +54,9 @@ const PERMISSION_MATRIX = {
     view_all_operations: false,
     edit_operation: false,
     delete_operation: false,
-    approve_documents: false,
+    approve_documents: true,
     manage_users: false,
-    view_analytics: false,
+    view_analytics: true,
   },
   seller: {
     create_operation: false,

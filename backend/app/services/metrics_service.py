@@ -1,326 +1,349 @@
 """
-Metrics Service for STS Clearance system
-Tracks performance metrics for PDF generation and caching
-Day 3 Enhancement: Performance monitoring and analytics
+Metrics Calculation Service
+
+Unified service for calculating all metrics used by dashboards.
+Handles time-based calculations, aggregations, and trend analysis.
 """
 
-import json
-import logging
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional, Tuple
+from decimal import Decimal
+import logging
+
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Room, Document, Approval, Party, Metric, PartyMetric, Vessel
+from app.schemas.dashboard_schemas import MetricsAggregation
 
 logger = logging.getLogger(__name__)
 
 
-class PerformanceMetric:
-    """Represents a single performance metric"""
-    
-    def __init__(self, name: str, value: float, unit: str = "ms", metadata: Optional[Dict] = None):
-        self.name = name
-        self.value = value
-        self.unit = unit
-        self.timestamp = datetime.utcnow()
-        self.metadata = metadata or {}
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "name": self.name,
-            "value": self.value,
-            "unit": self.unit,
-            "timestamp": self.timestamp.isoformat(),
-            "metadata": self.metadata,
-        }
-
-
 class MetricsService:
-    """Service for tracking and reporting performance metrics"""
-    
-    def __init__(self):
-        self.metrics: List[PerformanceMetric] = []
-        self.aggregated_stats: Dict[str, Dict[str, Any]] = {}
-        self.metrics_file = Path("uploads/.metrics")
-        self.metrics_file.mkdir(parents=True, exist_ok=True)
+    """
+    Centralized metrics calculation service.
+    All role-based dashboards use this service for metric calculations.
+    """
 
-    def record_metric(
-        self,
-        name: str,
-        value: float,
-        unit: str = "ms",
-        metadata: Optional[Dict] = None
-    ) -> None:
-        """Record a performance metric"""
-        metric = PerformanceMetric(name, value, unit, metadata)
-        self.metrics.append(metric)
-        
-        # Update aggregated stats
-        self._update_aggregated_stats(metric)
-        
-        logger.debug(f"Recorded metric: {name}={value}{unit}")
+    def __init__(self, session: AsyncSession):
+        self.session = session
+        self.now = datetime.utcnow()
 
-    def record_pdf_generation(
-        self,
-        snapshot_id: str,
-        duration_ms: float,
-        file_size_bytes: int,
-        included_sections: List[str],
-        was_cached: bool = False
-    ) -> None:
-        """Record PDF generation metrics"""
-        self.record_metric(
-            name="pdf_generation_time",
-            value=duration_ms,
-            unit="ms",
-            metadata={
-                "snapshot_id": snapshot_id,
-                "file_size_bytes": file_size_bytes,
-                "included_sections": included_sections,
-                "was_cached": was_cached,
-            }
-        )
+    # ============ DEMURRAGE CALCULATIONS ============
 
-    def record_cache_operation(
-        self,
-        operation: str,
-        duration_ms: float,
-        hit: bool,
-        content_hash: str
-    ) -> None:
-        """Record cache operation metrics"""
-        self.record_metric(
-            name="cache_operation",
-            value=duration_ms,
-            unit="ms",
-            metadata={
-                "operation": operation,
-                "hit": hit,
-                "content_hash": content_hash[:16],
-            }
-        )
-
-    def record_api_request(
-        self,
-        endpoint: str,
-        method: str,
-        duration_ms: float,
-        status_code: int,
-        user_email: Optional[str] = None
-    ) -> None:
-        """Record API request metrics"""
-        self.record_metric(
-            name="api_request",
-            value=duration_ms,
-            unit="ms",
-            metadata={
-                "endpoint": endpoint,
-                "method": method,
-                "status_code": status_code,
-                "user_email": user_email,
-            }
-        )
-
-    def get_summary(self, hours: int = 24) -> Dict[str, Any]:
-        """Get summary statistics for the last N hours"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        recent_metrics = [
-            m for m in self.metrics
-            if m.timestamp >= cutoff_time
-        ]
+    async def calculate_demurrage_exposure(
+        self, room_id: str, current_time: Optional[datetime] = None
+    ) -> float:
+        """
+        Calculate demurrage exposure for a room.
+        Demurrage = (current_time - created_at) * rate_per_hour
         
-        if not recent_metrics:
-            return {
-                "period_hours": hours,
-                "total_metrics": 0,
-                "statistics": {}
-            }
-        
-        # Group metrics by name
-        metrics_by_name: Dict[str, List[float]] = {}
-        for metric in recent_metrics:
-            if metric.name not in metrics_by_name:
-                metrics_by_name[metric.name] = []
-            metrics_by_name[metric.name].append(metric.value)
-        
-        # Calculate statistics
-        stats = {}
-        for name, values in metrics_by_name.items():
-            stats[name] = self._calculate_stats(values, name)
-        
-        return {
-            "period_hours": hours,
-            "total_metrics": len(recent_metrics),
-            "statistics": stats,
-        }
-
-    def get_pdf_generation_stats(self, hours: int = 24) -> Dict[str, Any]:
-        """Get PDF generation specific statistics"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        pdf_metrics = [
-            m for m in self.metrics
-            if m.name == "pdf_generation_time" and m.timestamp >= cutoff_time
-        ]
-        
-        if not pdf_metrics:
-            return {
-                "period_hours": hours,
-                "total_generations": 0,
-                "cached_count": 0,
-                "generated_count": 0,
-                "statistics": {}
-            }
-        
-        durations = [m.value for m in pdf_metrics]
-        cached_count = sum(1 for m in pdf_metrics if m.metadata.get("was_cached"))
-        generated_count = len(pdf_metrics) - cached_count
-        
-        return {
-            "period_hours": hours,
-            "total_generations": len(pdf_metrics),
-            "cached_count": cached_count,
-            "generated_count": generated_count,
-            "statistics": self._calculate_stats(durations, "pdf_generation_time"),
-            "cache_hit_rate_percent": round(cached_count / len(pdf_metrics) * 100, 2),
-        }
-
-    def get_api_performance(self, endpoint: Optional[str] = None, hours: int = 24) -> Dict[str, Any]:
-        """Get API request performance metrics"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        api_metrics = [
-            m for m in self.metrics
-            if m.name == "api_request" and m.timestamp >= cutoff_time
-        ]
-        
-        if endpoint:
-            api_metrics = [
-                m for m in api_metrics
-                if m.metadata.get("endpoint") == endpoint
-            ]
-        
-        if not api_metrics:
-            return {
-                "period_hours": hours,
-                "total_requests": 0,
-                "endpoints": {}
-            }
-        
-        # Group by endpoint
-        by_endpoint: Dict[str, List[float]] = {}
-        by_status: Dict[int, int] = {}
-        
-        for metric in api_metrics:
-            ep = metric.metadata.get("endpoint", "unknown")
-            if ep not in by_endpoint:
-                by_endpoint[ep] = []
-            by_endpoint[ep].append(metric.value)
+        Args:
+            room_id: The room ID
+            current_time: Current time for calculation (defaults to now)
             
-            status = metric.metadata.get("status_code", 0)
-            by_status[status] = by_status.get(status, 0) + 1
-        
-        endpoint_stats = {
-            endpoint: self._calculate_stats(durations, endpoint)
-            for endpoint, durations in by_endpoint.items()
-        }
-        
-        return {
-            "period_hours": hours,
-            "total_requests": len(api_metrics),
-            "by_status_code": by_status,
-            "endpoints": endpoint_stats,
-        }
+        Returns:
+            Demurrage exposure in USD
+        """
+        if current_time is None:
+            current_time = self.now
 
-    def export_metrics(self, filepath: Optional[Path] = None) -> str:
-        """Export metrics to JSON file"""
-        if filepath is None:
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-            filepath = self.metrics_file / f"metrics_{timestamp}.json"
-        
-        try:
-            data = {
-                "export_timestamp": datetime.utcnow().isoformat(),
-                "total_metrics": len(self.metrics),
-                "metrics": [m.to_dict() for m in self.metrics],
-                "summary": self.get_summary(),
-                "pdf_stats": self.get_pdf_generation_stats(),
-            }
-            
-            with open(filepath, "w") as f:
-                json.dump(data, f, indent=2)
-            
-            logger.info(f"Exported metrics to {filepath}")
-            return str(filepath)
-        except Exception as e:
-            logger.error(f"Failed to export metrics: {e}")
-            raise
+        # Get room data
+        stmt = select(Room).where(Room.id == room_id)
+        result = await self.session.execute(stmt)
+        room = result.scalar()
 
-    def clear_old_metrics(self, hours: int = 168) -> int:
-        """Remove metrics older than specified hours (default 1 week)"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        original_count = len(self.metrics)
-        
-        self.metrics = [
-            m for m in self.metrics
-            if m.timestamp >= cutoff_time
-        ]
-        
-        removed = original_count - len(self.metrics)
-        logger.info(f"Cleared {removed} metrics older than {hours} hours")
-        return removed
+        if not room or not room.demurrage_rate_per_hour or not room.created_at_timestamp:
+            return 0.0
 
-    def _calculate_stats(self, values: List[float], name: str = "") -> Dict[str, float]:
-        """Calculate statistics for a list of values"""
-        if not values:
+        # Calculate hours elapsed
+        time_diff = current_time - room.created_at_timestamp
+        hours_elapsed = time_diff.total_seconds() / 3600
+
+        # Calculate demurrage
+        demurrage = hours_elapsed * room.demurrage_rate_per_hour
+
+        return float(demurrage)
+
+    async def calculate_demurrage_breakdown(
+        self, room_id: str
+    ) -> Dict[str, float]:
+        """
+        Get detailed demurrage breakdown for a room.
+        
+        Returns:
+            Dict with daily_rate, hours_pending, days_pending, exposure
+        """
+        stmt = select(Room).where(Room.id == room_id)
+        result = await self.session.execute(stmt)
+        room = result.scalar()
+
+        if not room:
             return {}
-        
-        sorted_values = sorted(values)
-        n = len(values)
-        
-        # Mean
-        mean = sum(values) / n
-        
-        # Median
-        if n % 2 == 0:
-            median = (sorted_values[n // 2 - 1] + sorted_values[n // 2]) / 2
+
+        exposure = await self.calculate_demurrage_exposure(room_id)
+
+        daily_rate = room.demurrage_rate_per_day or 0.0
+        hourly_rate = room.demurrage_rate_per_hour or 0.0
+
+        if not room.created_at_timestamp:
+            hours_pending = 0.0
+            days_pending = 0.0
         else:
-            median = sorted_values[n // 2]
-        
-        # Percentiles
-        p50 = sorted_values[int(n * 0.50) - 1] if int(n * 0.50) > 0 else sorted_values[0]
-        p95 = sorted_values[int(n * 0.95) - 1] if int(n * 0.95) > 0 else sorted_values[-1]
-        p99 = sorted_values[int(n * 0.99) - 1] if int(n * 0.99) > 0 else sorted_values[-1]
-        
-        # Std deviation
-        variance = sum((x - mean) ** 2 for x in values) / n
-        std_dev = variance ** 0.5
-        
+            time_diff = self.now - room.created_at_timestamp
+            hours_pending = time_diff.total_seconds() / 3600
+            days_pending = hours_pending / 24
+
         return {
-            "min": round(min(values), 2),
-            "max": round(max(values), 2),
-            "mean": round(mean, 2),
-            "median": round(median, 2),
-            "std_dev": round(std_dev, 2),
-            "p50": round(p50, 2),
-            "p95": round(p95, 2),
-            "p99": round(p99, 2),
-            "count": n,
+            "daily_rate": daily_rate,
+            "hourly_rate": hourly_rate,
+            "hours_pending": hours_pending,
+            "days_pending": days_pending,
+            "exposure": exposure,
         }
 
-    def _update_aggregated_stats(self, metric: PerformanceMetric) -> None:
-        """Update aggregated statistics"""
-        name = metric.name
-        if name not in self.aggregated_stats:
-            self.aggregated_stats[name] = {
-                "count": 0,
-                "sum": 0,
-                "min": float('inf'),
-                "max": float('-inf'),
-            }
+    # ============ COMMISSION CALCULATIONS ============
+
+    async def calculate_commission(
+        self, room_id: str
+    ) -> float:
+        """
+        Calculate commission for a room.
+        Commission = cargo_value_usd * (commission_percentage / 100)
+        """
+        stmt = select(Room).where(Room.id == room_id)
+        result = await self.session.execute(stmt)
+        room = result.scalar()
+
+        if not room or not room.cargo_value_usd or not room.broker_commission_percentage:
+            return 0.0
+
+        commission = room.cargo_value_usd * (room.broker_commission_percentage / 100)
+        return float(commission)
+
+    # ============ DOCUMENT TRACKING ============
+
+    async def count_documents_by_status(
+        self, room_id: str, status: str
+    ) -> int:
+        """Count documents in a room with specific status"""
+        stmt = select(func.count(Document.id)).where(
+            and_(Document.room_id == room_id, Document.status == status)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
+
+    async def get_document_completion_percent(
+        self, room_id: str
+    ) -> float:
+        """Get document completion percentage (approved / total * 100)"""
+        # Count total documents
+        total_stmt = select(func.count(Document.id)).where(Document.room_id == room_id)
+        total_result = await self.session.execute(total_stmt)
+        total = total_result.scalar() or 0
+
+        if total == 0:
+            return 0.0
+
+        # Count approved documents
+        approved_stmt = select(func.count(Document.id)).where(
+            and_(Document.room_id == room_id, Document.status == "approved")
+        )
+        approved_result = await self.session.execute(approved_stmt)
+        approved = approved_result.scalar() or 0
+
+        return (approved / total) * 100
+
+    # ============ APPROVAL TRACKING ============
+
+    async def count_pending_approvals(
+        self, room_id: str
+    ) -> int:
+        """Count pending approvals for a room"""
+        stmt = select(func.count(Approval.id)).where(
+            and_(Approval.room_id == room_id, Approval.status == "pending")
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
+
+    async def get_approval_completion_percent(
+        self, room_id: str
+    ) -> float:
+        """Get approval completion percentage"""
+        # Count total approvals
+        total_stmt = select(func.count(Approval.id)).where(Approval.room_id == room_id)
+        total_result = await self.session.execute(total_stmt)
+        total = total_result.scalar() or 0
+
+        if total == 0:
+            return 100.0  # No approvals needed = 100% complete
+
+        # Count approved
+        approved_stmt = select(func.count(Approval.id)).where(
+            and_(Approval.room_id == room_id, Approval.status == "approved")
+        )
+        approved_result = await self.session.execute(approved_stmt)
+        approved = approved_result.scalar() or 0
+
+        return (approved / total) * 100
+
+    # ============ TIME CALCULATIONS ============
+
+    async def get_hours_since_creation(
+        self, room_id: str
+    ) -> float:
+        """Get hours since room was created"""
+        stmt = select(Room.created_at_timestamp).where(Room.id == room_id)
+        result = await self.session.execute(stmt)
+        created_at = result.scalar()
+
+        if not created_at:
+            return 0.0
+
+        time_diff = self.now - created_at
+        return time_diff.total_seconds() / 3600
+
+    # ============ PARTY PERFORMANCE TRACKING ============
+
+    async def get_party_response_time(
+        self, party_id: str, room_id: str
+    ) -> Optional[float]:
+        """Get response time (hours) for a party in a room"""
+        stmt = select(PartyMetric.response_time_hours).where(
+            and_(PartyMetric.party_id == party_id, PartyMetric.room_id == room_id)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar()
+
+    async def calculate_party_reliability_index(
+        self, party_id: str, days: int = 180
+    ) -> float:
+        """
+        Calculate reliability index for a party based on historical performance.
+        Returns 0-10 score.
+        """
+        # Get all party metrics in last N days
+        cutoff_date = self.now - timedelta(days=days)
+        stmt = select(PartyMetric).where(
+            and_(
+                PartyMetric.party_id == party_id,
+                PartyMetric.created_at >= cutoff_date,
+            )
+        )
+        result = await self.session.execute(stmt)
+        metrics = result.scalars().all()
+
+        if not metrics:
+            return 5.0  # Default neutral score
+
+        # Average reliability_index from historical data
+        valid_scores = [m.reliability_index for m in metrics if m.reliability_index]
+        if valid_scores:
+            return float(sum(valid_scores) / len(valid_scores))
+
+        return 5.0
+
+    # ============ AGGREGATION HELPERS ============
+
+    async def get_metrics_aggregation(
+        self, metric_type: str, period_days: int = 30
+    ) -> Optional[MetricsAggregation]:
+        """
+        Get aggregated metrics across multiple rooms.
+        Used for system-wide dashboards.
+        """
+        cutoff_date = self.now - timedelta(days=period_days)
+
+        stmt = select(Metric).where(
+            and_(
+                Metric.metric_type == metric_type,
+                Metric.metric_date >= cutoff_date,
+            )
+        )
+        result = await self.session.execute(stmt)
+        metrics = result.scalars().all()
+
+        if not metrics:
+            return None
+
+        values = [m.value for m in metrics]
+        total = sum(values)
+        average = total / len(values) if values else 0.0
+
+        # Determine trend
+        if len(values) >= 2:
+            recent_avg = sum(values[-5:]) / min(5, len(values))
+            older_avg = sum(values[:-5]) / max(1, len(values) - 5)
+            if recent_avg > older_avg * 1.05:
+                trend = "up"
+            elif recent_avg < older_avg * 0.95:
+                trend = "down"
+            else:
+                trend = "stable"
+        else:
+            trend = "stable"
+
+        return MetricsAggregation(
+            by_room=None,
+            by_vessel=None,
+            total=total,
+            average=average,
+            trend=trend,
+            period=f"{period_days} days",
+        )
+
+    # ============ URGENCY CALCULATION ============
+
+    def calculate_urgency_level(
+        self, metric_value: float, thresholds: Dict[str, float]
+    ) -> str:
+        """
+        Calculate urgency level based on metric value and thresholds.
         
-        stats = self.aggregated_stats[name]
-        stats["count"] += 1
-        stats["sum"] += metric.value
-        stats["min"] = min(stats["min"], metric.value)
-        stats["max"] = max(stats["max"], metric.value)
+        Args:
+            metric_value: The metric value to evaluate
+            thresholds: Dict with keys critical, high, medium (lower bounds)
+                        e.g., {"critical": 20000, "high": 10000, "medium": 5000}
+        
+        Returns:
+            "critical", "high", "medium", or "low"
+        """
+        if metric_value >= thresholds.get("critical", float("inf")):
+            return "critical"
+        elif metric_value >= thresholds.get("high", float("inf")):
+            return "high"
+        elif metric_value >= thresholds.get("medium", float("inf")):
+            return "medium"
+        return "low"
 
+    # ============ CACHING ============
 
-# Global service instance
-metrics_service = MetricsService()
+    async def cache_metric(
+        self, room_id: str, metric_type: str, value: float
+    ) -> None:
+        """Cache a calculated metric in the metrics table"""
+        stmt = select(Metric).where(
+            and_(
+                Metric.room_id == room_id,
+                Metric.metric_type == metric_type,
+                Metric.metric_date == self.now.date(),
+            )
+        )
+        result = await self.session.execute(stmt)
+        existing = result.scalar()
+
+        if existing:
+            existing.value = value
+            existing.computed_at = self.now
+        else:
+            metric = Metric(
+                id=str(__import__("uuid").uuid4()),
+                room_id=room_id,
+                metric_type=metric_type,
+                metric_date=self.now,
+                value=value,
+                computed_at=self.now,
+            )
+            self.session.add(metric)
+
+        await self.session.commit()

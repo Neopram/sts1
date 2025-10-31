@@ -4,6 +4,7 @@ import SettingsPage from './components/Pages/SettingsPage';
 import ProfilePage from './components/Pages/ProfilePage';
 import NotificationsPage from './components/Pages/NotificationsPage';
 import HelpPage from './components/Pages/HelpPage';
+import LoginPage from './components/Pages/LoginPage';
 import RegisterPage from './components/Pages/RegisterPage';
 import RegionalOperationsPage from './components/Pages/RegionalOperationsPage';
 import SanctionsCheckerPage from './components/Pages/SanctionsCheckerPage';
@@ -13,8 +14,13 @@ import { AdvancedFilteringPage } from './components/Pages/AdvancedFilteringPage'
 import { RolePermissionMatrixPage } from './components/Pages/RolePermissionMatrixPage';
 import PerformanceDashboardPage from './components/Pages/PerformanceDashboardPage';
 import { AdminDashboard } from './components/Pages/AdminDashboard';
+import { RoleDashboardSelector } from './components/Pages/RoleDashboardSelector';
 
 export const router = createBrowserRouter([
+  {
+    path: '/login',
+    element: <LoginPage />
+  },
   {
     path: '/register',
     element: <RegisterPage />
@@ -26,6 +32,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <Navigate to="/overview" replace />
+      },
+      {
+        path: 'dashboard',
+        element: <RoleDashboardSelector />
       },
       {
         path: 'overview',

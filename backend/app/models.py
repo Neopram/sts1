@@ -2,7 +2,8 @@ import os
 import uuid
 
 from sqlalchemy import (JSON, Boolean, Column, DateTime, Float, ForeignKey,
-                        Integer, String, Text)
+                        Integer, String, Text, UniqueConstraint, Index)
+import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -68,6 +69,23 @@ class Room(Base):
     updated_at = Column(DateTime(timezone=True), nullable=True)
     description = Column(Text, nullable=True)
     status = Column(String(50), default='active', nullable=False)
+    
+    # ============ DASHBOARD METRICS FIELDS ============
+    # Operational metrics for dashboard calculations
+    cargo_type = Column(String(100), nullable=True)  # crude, gasoil, fuel, etc
+    cargo_quantity = Column(Float, nullable=True)  # in barrels or tons
+    cargo_value_usd = Column(Float, nullable=True)  # total cargo value
+    demurrage_rate_per_day = Column(Float, nullable=True)  # USD/day
+    demurrage_rate_per_hour = Column(Float, nullable=True)  # USD/hour
+    status_detail = Column(String(50), nullable=True)  # pending, ready, active, completed
+    timeline_phase = Column(String(50), nullable=True)  # pre_docs, docs_pending, ready, active
+    eta_actual = Column(DateTime(timezone=True), nullable=True)  # Actual ETA
+    eta_estimated = Column(DateTime(timezone=True), nullable=True)  # Estimated ETA
+    created_at_timestamp = Column(DateTime(timezone=True), nullable=True)  # When operation started
+    
+    # Broker commission fields
+    broker_commission_percentage = Column(Float, nullable=True)  # e.g., 0.5 for 0.5%
+    broker_commission_amount = Column(Float, nullable=True)  # USD amount
 
     parties = relationship("Party", back_populates="room")
     documents = relationship("Document", back_populates="room")
@@ -77,6 +95,8 @@ class Room(Base):
     notifications = relationship("Notification", back_populates="room")
     vessels = relationship("Vessel", back_populates="room")
     snapshots = relationship("Snapshot", back_populates="room")
+    metrics = relationship("Metric", back_populates="room", cascade="all, delete-orphan")
+    party_metrics = relationship("PartyMetric", back_populates="room", cascade="all, delete-orphan")
 
 
 class Party(Base):
@@ -120,10 +140,16 @@ class Document(Base):
     created_at = Column(DateTime(timezone=True), nullable=True)
     notes = Column(Text, nullable=True)
     priority = Column(String(20), default='normal', nullable=False)  # low, normal, high, urgent
+    
+    # ============ DASHBOARD TRACKING FIELDS ============
+    uploaded_by_user_id = Column(UUIDType, ForeignKey("users.id"), nullable=True)
+    critical_path = Column(Boolean, default=False)  # Is this critical path document?
+    estimated_days_to_expire = Column(Integer, nullable=True)
 
     room = relationship("Room", back_populates="documents")
     vessel = relationship("Vessel", back_populates="documents")
     document_type = relationship("DocumentType", back_populates="documents")
+    uploaded_by_user = relationship("User", foreign_keys=[uploaded_by_user_id], backref="uploaded_documents")
     versions = relationship(
         "DocumentVersion",
         back_populates="document",
@@ -324,6 +350,61 @@ class UserRolePermission(Base):
     can_see_vessel_level = Column(Boolean, default=False)  # Can see their own vessel messages
     can_see_all_vessels = Column(Boolean, default=False)  # Can see all vessel messages
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ============ DASHBOARD METRICS MODELS ============
+
+class Metric(Base):
+    """
+    Computed metrics for dashboard calculations.
+    One entry per room per metric type per date.
+    Used for historical tracking and trend analysis.
+    """
+    __tablename__ = "metrics"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    room_id = Column(UUIDType, ForeignKey("rooms.id"), nullable=False, index=True)
+    metric_type = Column(String(50), nullable=False)  # demurrage, commission, compliance, etc
+    metric_date = Column(DateTime(timezone=True), nullable=False, index=True)
+    value = Column(Float, nullable=False)  # The computed metric value
+    computed_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    room = relationship("Room", back_populates="metrics")
+    
+    # Composite unique constraint
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint('room_id', 'metric_type', 'metric_date', name='uq_metrics_room_type_date'),
+    )
+
+
+class PartyMetric(Base):
+    """
+    Performance tracking for parties (Charterer, Shipowner, Broker, etc).
+    Used to calculate reliability index and performance scores.
+    """
+    __tablename__ = "party_metrics"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    party_id = Column(UUIDType, ForeignKey("parties.id"), nullable=False, index=True)
+    room_id = Column(UUIDType, ForeignKey("rooms.id"), nullable=False, index=True)
+    
+    # Performance metrics
+    response_time_hours = Column(Float, nullable=True)  # Hours to respond
+    quality_score = Column(Float, nullable=True)  # 1-10 scale
+    reliability_index = Column(Float, nullable=True)  # 1-10 scale
+    last_interaction = Column(DateTime(timezone=True), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    room = relationship("Room", back_populates="party_metrics")
+    party = relationship("Party", backref="metrics")
+    
+    # Composite unique constraint
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint('party_id', 'room_id', name='uq_party_metrics_party_room'),
+    )
 
 
 class UserSettings(Base):
