@@ -1,0 +1,323 @@
+name: Phase 3-4-5 Deployment Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - production
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  # ============ PHASE 3: TESTING ============
+  phase-3-test:
+    name: Phase 3 - Endpoint Testing
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install Python dependencies
+        working-directory: ./sts/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install httpx pytest pytest-asyncio
+
+      - name: Set up environment variables
+        env:
+          DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_ENV
+          echo "REDIS_URL=$REDIS_URL" >> $GITHUB_ENV
+
+      - name: Initialize database
+        working-directory: ./sts/backend
+        run: |
+          python -m alembic upgrade head
+
+      - name: Create test users
+        working-directory: ./sts/backend
+        run: |
+          python PHASE3_CREATE_TEST_USERS.py
+
+      - name: Start API server
+        working-directory: ./sts/backend
+        run: |
+          python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5  # Wait for server to start
+
+      - name: Run endpoint tests
+        working-directory: ./sts/backend
+        run: |
+          python PHASE3_ENDPOINT_TESTING.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: phase-3-test-results
+          path: ./sts/backend/test-results/
+
+  # ============ PHASE 4: FRONTEND BUILD & VALIDATION ============
+  phase-4-frontend:
+    name: Phase 4 - Frontend Integration
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint code
+        run: npm run lint
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: http://localhost:8000
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -f "./dist/index.html" ]; then
+            echo "Build failed - dist/index.html not found"
+            exit 1
+          fi
+
+      - name: Check component files
+        run: |
+          if [ ! -f "./src/components/Pages/DashboardInspector.tsx" ]; then
+            echo "DashboardInspector component not found"
+            exit 1
+          fi
+          if [ ! -f "./src/services/dashboardApi.ts" ]; then
+            echo "Dashboard API service not found"
+            exit 1
+          fi
+
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-dist
+          path: ./dist/
+
+  # ============ PHASE 5: DOCKER BUILD & PUSH ============
+  phase-5-docker:
+    name: Phase 5 - Docker Build
+    runs-on: ubuntu-latest
+    needs: [phase-3-test, phase-4-frontend]
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/sts-clearance
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./sts/backend
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/sts-clearance-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./sts
+          dockerfile: ./frontend/Dockerfile.prod
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/sts-clearance-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============ DEPLOYMENT ============
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [phase-5-docker]
+    if: github.ref == 'refs/heads/develop'
+    
+    environment:
+      name: staging
+      url: https://staging.stsclearance.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster sts-staging \
+            --service sts-clearance \
+            --force-new-deployment
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster sts-staging \
+            --services sts-clearance
+
+      - name: Verify deployment
+        run: |
+          curl -f https://staging.stsclearance.com/health || exit 1
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [phase-5-docker]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    environment:
+      name: production
+      url: https://stsclearance.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: us-east-1
+
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster sts-production \
+            --service sts-clearance \
+            --force-new-deployment
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster sts-production \
+            --services sts-clearance
+
+      - name: Verify deployment
+        run: |
+          curl -f https://stsclearance.com/health || exit 1
+
+      - name: Send deployment notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'STS Clearance Hub deployed to production'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ============ NOTIFICATIONS ============
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [phase-3-test, phase-4-frontend, phase-5-docker]
+    if: always()
+
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          if [ "${{ needs.phase-3-test.result }}" == "success" ] && \
+             [ "${{ needs.phase-4-frontend.result }}" == "success" ] && \
+             [ "${{ needs.phase-5-docker.result }}" == "success" ]; then
+            echo "status=✅ All phases passed" >> $GITHUB_OUTPUT
+          else
+            echo "status=❌ One or more phases failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            Phase 3-4-5 Pipeline: ${{ steps.status.outputs.status }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

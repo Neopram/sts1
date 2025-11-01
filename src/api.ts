@@ -13,13 +13,26 @@ class ApiService {
   private token: string | null;
 
   constructor() {
-    // In development, use the proxy; in production, use the configured URL
-    if (import.meta.env.DEV) {
-      this.baseURL = '';  // Use Vite proxy (same origin)
+    // Check for explicit API URL (LAN testing or production)
+    const apiUrl = import.meta.env.VITE_API_URL;
+    
+    if (apiUrl) {
+      // Use explicit API URL (LAN testing or production)
+      this.baseURL = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+    } else if (import.meta.env.DEV) {
+      // Development: use the proxy (same origin)
+      this.baseURL = '';  // Use Vite proxy
     } else {
-      this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+      // Fallback to localhost
+      this.baseURL = 'http://localhost:8001';
     }
+    
     this.token = localStorage.getItem('auth-token');
+    
+    // Log configuration for debugging
+    if (import.meta.env.DEV) {
+      console.log('🔌 API Base URL:', this.baseURL || '(using proxy)');
+    }
   }
 
   setToken(token: string) {
@@ -59,7 +72,8 @@ class ApiService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || `HTTP ${response.status}: ${response.statusText}`);
+        const errorMessage = errorData?.detail || errorData?.message || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
 
       // Handle empty responses
@@ -70,7 +84,8 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
-      console.error(`API request failed for ${endpoint}:`, error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`API request failed for ${endpoint}: ${errorMsg}`);
       throw error;
     }
   }
@@ -169,6 +184,89 @@ class ApiService {
       return response as RoomSummary;
     } catch (error) {
       console.error('Error in getRoomSummary:', error);
+      throw error;
+    }
+  }
+
+  // ============ ROOM STATUS AND TRANSITIONS ============
+  
+  // Get room status with allowed transitions
+  static async getRoomStatus(roomId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/status`);
+      return response;
+    } catch (error) {
+      console.error('Error in getRoomStatus:', error);
+      throw error;
+    }
+  }
+
+  // Get room timeline
+  static async getRoomTimeline(roomId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/timeline`);
+      return response;
+    } catch (error) {
+      console.error('Error in getRoomTimeline:', error);
+      throw error;
+    }
+  }
+
+  // Start room operation
+  static async startRoom(roomId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/start`, {
+        method: 'POST'
+      });
+      return response;
+    } catch (error) {
+      console.error('Error in startRoom:', error);
+      throw error;
+    }
+  }
+
+  // Complete room operation
+  static async completeRoom(roomId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/complete`, {
+        method: 'POST'
+      });
+      return response;
+    } catch (error) {
+      console.error('Error in completeRoom:', error);
+      throw error;
+    }
+  }
+
+  // Cancel room operation
+  static async cancelRoom(roomId: string, reason?: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/cancel?reason=${encodeURIComponent(reason || '')}`, {
+        method: 'POST'
+      });
+      return response;
+    } catch (error) {
+      console.error('Error in cancelRoom:', error);
+      throw error;
+    }
+  }
+
+  // Transition room status
+  static async transitionRoomStatus(roomId: string, newStatus: string, reason?: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/status/transition`, {
+        method: 'POST',
+        body: JSON.stringify({ new_status: newStatus, reason })
+      });
+      return response;
+    } catch (error) {
+      console.error('Error in transitionRoomStatus:', error);
       throw error;
     }
   }
@@ -469,6 +567,89 @@ class ApiService {
       return response as any[];
     } catch (error) {
       console.error('Error in getMyVesselSessions:', error);
+      throw error;
+    }
+  }
+
+  // ============ VESSEL MANAGEMENT (Owner) ============
+  
+  // Get single vessel
+  static async getVessel(roomId: string, vesselId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/vessels/${vesselId}`);
+      return response;
+    } catch (error) {
+      console.error('Error in getVessel:', error);
+      throw error;
+    }
+  }
+
+  // Create vessel
+  static async createVessel(roomId: string, vesselData: {
+    name: string;
+    vessel_type: string;
+    flag: string;
+    imo: string;
+    length?: number;
+    beam?: number;
+    draft?: number;
+    gross_tonnage?: number;
+    net_tonnage?: number;
+    built_year?: number;
+    classification_society?: string;
+  }): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/vessels`, {
+        method: 'POST',
+        body: JSON.stringify(vesselData)
+      });
+      return response;
+    } catch (error) {
+      console.error('Error in createVessel:', error);
+      throw error;
+    }
+  }
+
+  // Update vessel
+  static async updateVessel(roomId: string, vesselId: string, vesselData: {
+    name?: string;
+    vessel_type?: string;
+    flag?: string;
+    imo?: string;
+    status?: string;
+    length?: number;
+    beam?: number;
+    draft?: number;
+    gross_tonnage?: number;
+    net_tonnage?: number;
+    built_year?: number;
+    classification_society?: string;
+  }): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/vessels/${vesselId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(vesselData)
+      });
+      return response;
+    } catch (error) {
+      console.error('Error in updateVessel:', error);
+      throw error;
+    }
+  }
+
+  // Delete vessel
+  static async deleteVessel(roomId: string, vesselId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/vessels/${vesselId}`, {
+        method: 'DELETE'
+      });
+      return response;
+    } catch (error) {
+      console.error('Error in deleteVessel:', error);
       throw error;
     }
   }
@@ -953,6 +1134,28 @@ class ApiService {
       return response;
     } catch (error) {
       console.error('Error in resetUserPassword:', error);
+      throw error;
+    }
+  }
+
+  // Create user (admin only)
+  static async createUser(userData: {
+    email: string;
+    name: string;
+    role: string;
+    company?: string;
+    password?: string;
+  }): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request('/api/v1/auth/admin/create-user', {
+        method: 'POST',
+        body: JSON.stringify(userData)
+      });
+      console.log('createUser response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in createUser:', error);
       throw error;
     }
   }
@@ -1822,4 +2025,8 @@ class ApiService {
 
 // Export the class
 export { ApiService };
+
+// Export an instance for convenience
+export const api = new ApiService();
+
 export default ApiService;

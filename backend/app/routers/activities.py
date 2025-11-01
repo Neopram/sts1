@@ -22,6 +22,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["activities"])
 
 
+# Helper function to extract user info from current_user (dict or User object)
+def get_user_info(current_user):
+    """Extract email from current_user (dict or User object)"""
+    if isinstance(current_user, dict):
+        return current_user.get("email") or current_user.get("user_email")
+    else:
+        return current_user.email
+
+
 # Response schemas
 class ActivityResponse(BaseModel):
     id: str
@@ -66,7 +75,7 @@ async def get_user_activities(
         from app.permission_matrix import permission_matrix
         from app.models import User
 
-        user_email = current_user.email
+        user_email = get_user_info(current_user)
 
         # 1. CHECK PERMISSION - User must have "activities.view_own" permission at minimum
         user_result = await session.execute(
@@ -193,7 +202,7 @@ async def get_room_activities(
         from app.permission_matrix import permission_matrix
         from app.models import User
         
-        user_email = current_user.email
+        user_email = get_user_info(current_user)
 
         # 1. VERIFY ROOM ACCESS - First checkpoint
         await require_room_access(room_id, user_email, session)
@@ -290,7 +299,7 @@ async def get_activities_summary(
         from app.permission_matrix import permission_matrix
         from app.models import User
         
-        user_email = current_user.email
+        user_email = get_user_info(current_user)
 
         # 1. VERIFY ROOM ACCESS
         await require_room_access(room_id, user_email, session)
@@ -402,7 +411,7 @@ async def get_activities_timeline(
         from app.permission_matrix import permission_matrix
         from app.models import User
         
-        user_email = current_user.email
+        user_email = get_user_info(current_user)
 
         # 1. VERIFY ROOM ACCESS
         await require_room_access(room_id, user_email, session)
@@ -581,7 +590,7 @@ async def get_my_recent_activities(
     Get recent activities for current user across all rooms
     """
     try:
-        user_email = current_user.email
+        user_email = get_user_info(current_user)
 
         # Get user's recent activities
         activities_result = await session.execute(

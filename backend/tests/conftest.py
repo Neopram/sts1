@@ -126,7 +126,7 @@ def test_user():
         "id": str(uuid.uuid4()),
         "email": "test@maritime.com",
         "name": "Test User",
-        "role": "owner",
+        "role": "broker",  # Changed to broker to allow room creation
     }
 
 
@@ -184,9 +184,33 @@ def mock_current_user(test_user):
     return _mock_current_user
 
 
-@pytest.fixture
-def authenticated_client(test_client, mock_current_user):
-    """Create an authenticated test client."""
+@pytest_asyncio.fixture
+async def authenticated_client(test_client, db_session, test_user):
+    """Create an authenticated test client with user in database."""
+    from app.models import User
+    
+    # Create user in database if not exists
+    from sqlalchemy import select
+    result = await db_session.execute(
+        select(User).where(User.email == test_user["email"])
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        user = User(
+            id=test_user["id"],
+            email=test_user["email"],
+            name=test_user["name"],
+            role=test_user["role"],
+            password_hash="test_hash",
+        )
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+    
+    # Mock get_current_user to return dict (for compatibility)
+    async def mock_current_user():
+        return test_user
+    
     app.dependency_overrides[get_current_user] = mock_current_user
     yield test_client
     app.dependency_overrides.clear()
@@ -248,6 +272,161 @@ async def sample_room(db_session: AsyncSession, test_user):
     await db_session.commit()
     await db_session.refresh(room)
     return room
+
+
+@pytest_asyncio.fixture
+async def test_room(db_session: AsyncSession, test_user):
+    """Alias for sample_room for backwards compatibility."""
+    from app.models import Party
+    
+    room = Room(
+        id=str(uuid.uuid4()),
+        title="Test Room",
+        location="Test Location",
+        sts_eta=datetime.utcnow() + timedelta(days=7),
+        created_by=test_user["email"],
+    )
+    db_session.add(room)
+    await db_session.flush()
+    
+    # Add test_user as a party in the room so they can access it
+    party = Party(
+        id=str(uuid.uuid4()),
+        room_id=room.id,
+        role="owner",
+        name=test_user["name"],
+        email=test_user["email"],
+    )
+    db_session.add(party)
+    await db_session.commit()
+    await db_session.refresh(room)
+    return room
+
+
+@pytest.fixture
+def auth_headers(test_user):
+    """Create authentication headers for testing."""
+    # Create a mock token (in real app, this would be a JWT)
+    return {
+        "Authorization": f"Bearer mock_token_for_{test_user['email']}",
+    }
+
+
+@pytest_asyncio.fixture
+async def authenticated_async_client(async_client, override_get_db, db_session, test_user):
+    """Create an authenticated async client for testing."""
+    from app.dependencies import get_current_user
+    from app.models import User, Party
+    
+    # Create a User object for the mock
+    async def mock_current_user():
+        # Try to get user from database first
+        from sqlalchemy import select
+        result = await db_session.execute(
+            select(User).where(User.email == test_user["email"])
+        )
+        user = result.scalar_one_or_none()
+        if not user:
+            # Create user if not exists
+            user = User(
+                id=test_user["id"],
+                email=test_user["email"],
+                name=test_user["name"],
+                role=test_user["role"],
+                password_hash="test_hash",
+            )
+            db_session.add(user)
+            await db_session.flush()
+            
+            # Create a Party entry for this user (required by some endpoints)
+            party = Party(
+                id=str(uuid.uuid4()),
+                room_id=None,  # Not associated with a specific room yet
+                role=test_user["role"],
+                name=test_user["name"],
+                email=test_user["email"],
+            )
+            db_session.add(party)
+            await db_session.commit()
+            await db_session.refresh(user)
+        else:
+            # Ensure Party exists even if User exists
+            party_result = await db_session.execute(
+                select(Party).where(Party.email == test_user["email"]).limit(1)
+            )
+            party = party_result.scalar_one_or_none()
+            if not party:
+                party = Party(
+                    id=str(uuid.uuid4()),
+                    room_id=None,
+                    role=test_user["role"],
+                    name=test_user["name"],
+                    email=test_user["email"],
+                )
+                db_session.add(party)
+                await db_session.commit()
+        return user
+    
+    app.dependency_overrides[get_current_user] = mock_current_user
+    yield async_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def mock_room_data():
+    """Mock room data for testing."""
+    return {
+        "title": "New STS Operation",
+        "location": "Singapore",
+        "sts_eta": (datetime.utcnow() + timedelta(days=7)).isoformat(),
+        "parties": [
+            {
+                "role": "owner",
+                "name": "Test Owner",
+                "email": "owner@test.com"
+            },
+            {
+                "role": "charterer",
+                "name": "Test Charterer",
+                "email": "charterer@test.com"
+            }
+        ]
+    }
+
+
+@pytest_asyncio.fixture
+async def test_document_types(db_session: AsyncSession):
+    """Create test document types for testing."""
+    document_types = [
+        DocumentType(
+            id=str(uuid.uuid4()),
+            code="INSURANCE_CERT",
+            name="Insurance Certificate",
+            required=True,
+            criticality="high",
+        ),
+        DocumentType(
+            id=str(uuid.uuid4()),
+            code="SAFETY_CERT",
+            name="Safety Certificate",
+            required=True,
+            criticality="high",
+        ),
+    ]
+    for doc_type in document_types:
+        db_session.add(doc_type)
+    await db_session.commit()
+    return document_types
+
+
+@pytest.fixture
+def temp_file(temp_upload_dir):
+    """Create a temporary file for testing."""
+    import os
+    temp_file_path = os.path.join(temp_upload_dir, "test_document.pdf")
+    with open(temp_file_path, "wb") as f:
+        f.write(b"Mock PDF content for testing")
+    return temp_file_path
 
 
 @pytest_asyncio.fixture

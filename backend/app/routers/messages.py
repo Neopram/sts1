@@ -26,6 +26,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["messages"])
 
 
+# Helper function to extract user info from current_user (dict or User object)
+def get_user_info(current_user, include_name=False):
+    """Extract email and optionally name from current_user (dict or User object)"""
+    if isinstance(current_user, dict):
+        email = current_user.get("email") or current_user.get("user_email")
+        name = current_user.get("name") or current_user.get("user_name", "Unknown User")
+        if include_name:
+            return email, name
+        return email
+    else:
+        if include_name:
+            return current_user.email, current_user.name or "Unknown User"
+        return current_user.email
+
+
 # Pydantic models
 class MessageResponse(BaseModel):
     id: str
@@ -226,7 +241,7 @@ async def get_room_messages(
     """
     try:
         # current_user is now a User SQLAlchemy object, not a dict
-        user_email = current_user.email
+        user_email = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -303,9 +318,8 @@ async def send_message(
     Send a message to a room (HTTP endpoint for non-WebSocket clients)
     """
     try:
-        # current_user is now a User SQLAlchemy object, not a dict
-        user_email = current_user.email
-        user_name = current_user.name or "Unknown User"
+        # Handle both dict and User object
+        user_email, user_name = get_user_info(current_user, include_name=True)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -367,7 +381,7 @@ async def mark_message_read(
     """
     try:
         # current_user is now a User SQLAlchemy object, not a dict
-        user_email = current_user.email
+        user_email = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -418,7 +432,7 @@ async def get_unread_message_count(
     Get count of unread messages for current user in a room
     """
     try:
-        user_email = current_user.email
+        user_email = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -456,7 +470,7 @@ async def get_online_users(
     Get list of users currently online in a room
     """
     try:
-        user_email = current_user.email
+        user_email = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)

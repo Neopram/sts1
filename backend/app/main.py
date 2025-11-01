@@ -25,11 +25,12 @@ from app.middleware.caching import get_cache_stats, clear_cache
 from app.config.settings import Settings, Environment
 from app.security_initialization import initialize_security_middleware, initialize_security_headers, get_security_configuration
 from app.monitoring.performance import HealthChecker, PerformanceMonitor
-from app.routers import (activities, approval_matrix, approvals, auth, cache_management, cockpit, config,
+from app.routers import (activities, approval_matrix, approvals, auth, cache_management, config,
                          documents, files, historical_access, messages, notifications, profile, regional_operations, rooms,
                          search, settings, snapshots, stats, users, vessels, weather, vessel_sessions, websocket,
                          sanctions, vessel_integrations, missing_documents, email_settings, totp_settings, 
-                         login_tracking, backup_settings, advanced_export)
+                         login_tracking, backup_settings, advanced_export, dashboard,
+                         demurrage_api, commission_api, compliance_api, notifications_api_v2, documents_api_v2, dashboard_api_v2)
 
 # Configure logging
 logging.basicConfig(
@@ -83,8 +84,9 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Include routers
-app.include_router(cockpit.router)
+# app.include_router(cockpit.router)  # Cockpit removed
 app.include_router(auth.router)
+app.include_router(dashboard.router)
 app.include_router(rooms.router)
 app.include_router(documents.router)
 app.include_router(messages.router)
@@ -104,6 +106,7 @@ app.include_router(search.router)
 app.include_router(config.router)
 app.include_router(cache_management.router)
 app.include_router(websocket.router)
+# app.include_router(websocket_v2.router)  # websocket_v2 removed
 app.include_router(users.router)
 app.include_router(settings.router)
 app.include_router(profile.router)
@@ -117,6 +120,14 @@ app.include_router(totp_settings.router)
 app.include_router(login_tracking.router)
 app.include_router(backup_settings.router)
 app.include_router(advanced_export.router)
+
+# FASE 2 API Endpoints - Business Logic Services
+app.include_router(demurrage_api.router)
+app.include_router(commission_api.router)
+app.include_router(compliance_api.router)
+app.include_router(notifications_api_v2.router)
+app.include_router(documents_api_v2.router)
+app.include_router(dashboard_api_v2.router)
 
 
 # Root endpoint

@@ -138,7 +138,7 @@ class CriticalityScorer:
         # Rank by urgency
         return self.rank_documents_by_urgency(expiring_soon)
 
-    def calculate_progress(self, documents: List[DocumentResponse]) -> float:
+    def calculate_progress(self, documents: List[DocumentResponse]) -> dict:
         """
         Calculate overall progress percentage for required documents
 
@@ -146,17 +146,33 @@ class CriticalityScorer:
             documents: List of all documents
 
         Returns:
-            Progress percentage (0-100)
+            Dictionary with progress information:
+            {
+                "total_required_docs": int,
+                "resolved_required_docs": int,
+                "progress_percentage": float
+            }
         """
         required_docs = [doc for doc in documents if doc.required]
+        total_required = len(required_docs)
 
         if not required_docs:
-            return 100.0  # No required docs = 100% complete
+            return {
+                "total_required_docs": 0,
+                "resolved_required_docs": 0,
+                "progress_percentage": 100.0
+            }
 
-        approved_docs = [doc for doc in required_docs if doc.status == "approved"]
+        # Resolved = approved or under_review (not missing/expired)
+        resolved_docs = [doc for doc in required_docs if doc.status in ["approved", "under_review"]]
+        resolved_count = len(resolved_docs)
 
-        progress = (len(approved_docs) / len(required_docs)) * 100
-        return round(progress, 1)
+        progress = (resolved_count / total_required) * 100
+        return {
+            "total_required_docs": total_required,
+            "resolved_required_docs": resolved_count,
+            "progress_percentage": round(progress, 1)
+        }
 
     def get_high_priority_documents(
         self, documents: List[DocumentResponse]

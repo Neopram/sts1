@@ -118,6 +118,8 @@ class DocumentType(Base):
     id = Column(UUIDType, primary_key=True, default=uuid_default)
     code = Column(String(50), unique=True, nullable=False)
     name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)  # Document type description
+    category = Column(String(100), default="general", nullable=False)  # general, technical, regulatory, commercial, etc.
     required = Column(Boolean, default=True)
     criticality = Column(String(20), nullable=False)  # high, med, low
 
@@ -239,6 +241,10 @@ class Notification(Base):
     room_id = Column(UUIDType, ForeignKey("rooms.id"), nullable=True)
     read = Column(Boolean, default=False)
     data = Column(Text, nullable=True)  # JSON data
+    priority = Column(String(20), nullable=True)  # low, medium, high
+    action_url = Column(String(500), nullable=True)  # URL for action
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # When notification expires
+    read_at = Column(DateTime(timezone=True), nullable=True)  # When notification was read
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     room = relationship("Room", back_populates="notifications")
@@ -404,6 +410,34 @@ class PartyMetric(Base):
     # Composite unique constraint
     __table_args__ = (
         sqlalchemy.UniqueConstraint('party_id', 'room_id', name='uq_party_metrics_party_room'),
+    )
+
+
+class ApprovalWorkflow(Base):
+    """
+    Multi-step approval workflows for operations, documents, and mutual signoffs.
+    Tracks the progress of approval processes across multiple steps.
+    """
+    __tablename__ = "approval_workflows"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    room_id = Column(UUIDType, ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False)
+    document_id = Column(UUIDType, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
+    workflow_type = Column(String(50), nullable=True)  # document/operation/mutual_signoff
+    status = Column(String(50), nullable=False, default="pending")  # pending/approved/rejected
+    current_step = Column(Integer, nullable=False, default=1)
+    total_steps = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    
+    room = relationship("Room", backref="approval_workflows")
+    document = relationship("Document", backref="approval_workflows")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_approval_workflow_room', 'room_id'),
+        Index('idx_approval_workflow_status', 'status'),
+        Index('idx_approval_workflow_type', 'workflow_type'),
     )
 
 

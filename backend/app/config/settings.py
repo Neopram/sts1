@@ -8,7 +8,7 @@ import logging
 from typing import List, Optional
 from enum import Enum
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -115,7 +115,36 @@ class Settings(BaseSettings):
             "http://localhost:3001",
             "http://127.0.0.1:3001",
         ],
-        description="Allowed CORS origins"
+        description="Allowed CORS origins. Can be set via CORS_ORIGINS env var (comma-separated)"
+    )
+    
+    @field_validator('cors_origins', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS origins from environment variable or use default"""
+        import os
+        cors_env = os.getenv('CORS_ORIGINS')
+        if cors_env:
+            # Support comma-separated or JSON array format
+            if cors_env.startswith('['):
+                import json
+                try:
+                    return json.loads(cors_env)
+                except json.JSONDecodeError:
+                    pass
+            # Comma-separated format
+            return [origin.strip() for origin in cors_env.split(',') if origin.strip()]
+        return v if isinstance(v, list) else []
+    
+    # LAN Testing Configuration
+    backend_host: str = Field(
+        default="localhost",
+        description="Backend host for LAN testing (can be IP address)"
+    )
+    backend_port: int = Field(
+        default=8001,
+        description="Backend port for LAN testing",
+        ge=1024, le=65535
     )
     
     # ============ SECURITY - RATE LIMITING ============
@@ -170,11 +199,12 @@ class Settings(BaseSettings):
         ge=1024, le=65535
     )
     
-    model_config = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "case_sensitive": False,
-    }
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="allow"  # Permitir campos extra del .env que no están definidos
+    )
     
     @field_validator("cors_origins", mode="before")
     @classmethod

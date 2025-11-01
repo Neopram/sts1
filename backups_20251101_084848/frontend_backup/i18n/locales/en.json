@@ -1,0 +1,50 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "goodbye": "Goodbye",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information"
+  },
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "analytics": "Analytics",
+    "settings": "Settings",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "forgotPassword": "Forgot Password?",
+    "resetPassword": "Reset Password",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "loginSuccess": "Login successful",
+    "registerSuccess": "Registration successful",
+    "invalidCredentials": "Invalid credentials"
+  },
+  "sts": {
+    "clearance": "Clearance",
+    "vessel": "Vessel",
+    "transfer": "Transfer",
+    "operations": "Operations",
+    "documents": "Documents",
+    "approval": "Approval",
+    "broker": "Broker",
+    "commission": "Commission",
+    "demurrage": "Demurrage"
+  }
+}

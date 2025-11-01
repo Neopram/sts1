@@ -1,3 +1,8 @@
+import sys
+import io
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 """
 Test suite for Day 2: Real PDF Generation
 Tests ReportLab PDF generation, data gathering, and storage

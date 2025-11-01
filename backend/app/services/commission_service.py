@@ -362,3 +362,226 @@ class CommissionService:
         elif stuck_deals_count > 0:
             return "medium"
         return "low"
+
+    # ============ COMMISSION ACCRUAL TRACKING ============
+
+    async def calculate_commission_accrual_tracking(
+        self,
+        broker_id: str
+    ) -> Dict[str, Any]:
+        """
+        Track commission accrual by operation status.
+        
+        Accrual rates:
+        - pending: 0% (no accrual until docs submitted)
+        - partial: 50% (docs submitted, awaiting approval)
+        - completed: 100% (all approvals done)
+        - paid: Commission already paid out
+        
+        Returns:
+          {
+            "pending": {"count": int, "value": float},
+            "partial": {"count": int, "value": float},
+            "completed": {"count": int, "value": float},
+            "paid": {"count": int, "value": float},
+            "total_potential": float,
+            "total_accrued": float,
+            "accrual_rate": float  # percent
+          }
+        """
+        try:
+            # Get all rooms for broker
+            stmt = select(Room).join(
+                Party, Room.id == Party.room_id
+            ).where(
+                and_(
+                    Party.email == broker_id,
+                    Party.role == "broker",
+                    Room.status != "cancelled"
+                )
+            )
+            
+            result = await self.session.execute(stmt)
+            rooms = result.scalars().all()
+            
+            # Track accrual by status
+            accrual_tracking = {
+                "pending": {"count": 0, "value": 0.0},
+                "partial": {"count": 0, "value": 0.0},
+                "completed": {"count": 0, "value": 0.0},
+                "paid": {"count": 0, "value": 0.0},
+            }
+            
+            total_potential = 0.0
+            total_accrued = 0.0
+            
+            for room in rooms:
+                # Calculate commission for this room
+                commission = await self.metrics_service.calculate_commission(room.id)
+                total_potential += commission
+                
+                # Determine status and accrual percentage
+                doc_completion = await self.metrics_service.get_document_completion_percent(room.id)
+                approval_completion = await self.metrics_service.get_approval_completion_percent(room.id)
+                
+                # Determine status
+                if room.status == "completed":
+                    # Check if payment was made (would be in PartyMetric or separate payment table)
+                    status = "paid"  # Assume all completed are paid for now
+                    accrual_rate = 1.0  # 100%
+                elif approval_completion >= 100:
+                    status = "completed"
+                    accrual_rate = 1.0  # 100%
+                elif doc_completion >= 100:
+                    status = "partial"
+                    accrual_rate = 0.5  # 50%
+                else:
+                    status = "pending"
+                    accrual_rate = 0.0  # 0%
+                
+                # Add to tracking
+                accrued_amount = commission * accrual_rate
+                accrual_tracking[status]["count"] += 1
+                accrual_tracking[status]["value"] += accrued_amount
+                total_accrued += accrued_amount
+            
+            # Calculate accrual rate percentage
+            if total_potential > 0:
+                accrual_rate_pct = (total_accrued / total_potential) * 100
+            else:
+                accrual_rate_pct = 0.0
+            
+            # Format values
+            for status in accrual_tracking:
+                accrual_tracking[status]["value"] = round(accrual_tracking[status]["value"], 2)
+            
+            return {
+                "pending": accrual_tracking["pending"],
+                "partial": accrual_tracking["partial"],
+                "completed": accrual_tracking["completed"],
+                "paid": accrual_tracking["paid"],
+                "total_potential": round(total_potential, 2),
+                "total_accrued": round(total_accrued, 2),
+                "accrual_rate": round(accrual_rate_pct, 1),
+            }
+        
+        except Exception as e:
+            logger.error(f"Error calculating commission accrual tracking: {e}")
+            return {
+                "pending": {"count": 0, "value": 0.0},
+                "partial": {"count": 0, "value": 0.0},
+                "completed": {"count": 0, "value": 0.0},
+                "paid": {"count": 0, "value": 0.0},
+                "total_potential": 0.0,
+                "total_accrued": 0.0,
+                "accrual_rate": 0.0,
+                "error": str(e),
+            }
+
+    # ============ COMMISSION ESTIMATION BY COUNTERPARTY ============
+
+    async def estimate_commission_by_counterparty(
+        self,
+        broker_id: str,
+        days_back: int = 90
+    ) -> List[Dict[str, Any]]:
+        """
+        Average commission by counterparty type.
+        
+        Returns for each counterparty:
+        {
+          "counterparty": str,
+          "type": "charterer|owner",
+          "deals_count": int,
+          "avg_commission": float,
+          "total_commission": float,
+          "trend": "up|down|stable",
+          "next_deal_estimate": float
+        }
+        
+        Sorted by total_commission DESC
+        """
+        try:
+            cutoff_date = self.now - timedelta(days=days_back)
+            
+            # Get all parties (counterparties) grouped by type
+            stmt = select(Party).distinct().where(
+                Party.role.in_(["charterer", "owner"])
+            )
+            
+            result = await self.session.execute(stmt)
+            counterparties = result.scalars().all()
+            
+            counterparty_stats = []
+            
+            for counterparty in counterparties:
+                # Get all rooms involving this counterparty and broker
+                rooms_stmt = select(Room).join(
+                    Party, Room.id == Party.room_id
+                ).where(
+                    and_(
+                        or_(
+                            Party.id == counterparty.id,
+                            Party.name == counterparty.name
+                        ),
+                        Room.created_at >= cutoff_date,
+                    )
+                ).distinct()
+                
+                rooms_result = await self.session.execute(rooms_stmt)
+                rooms = rooms_result.scalars().all()
+                
+                if not rooms:
+                    continue
+                
+                # Calculate metrics
+                commissions = []
+                for room in rooms:
+                    commission = await self.metrics_service.calculate_commission(room.id)
+                    commissions.append(commission)
+                
+                if not commissions:
+                    continue
+                
+                total_commission = sum(commissions)
+                avg_commission = total_commission / len(commissions)
+                deals_count = len(commissions)
+                
+                # Calculate trend (comparing first half vs second half of period)
+                if len(commissions) >= 2:
+                    mid = len(commissions) // 2
+                    first_half_avg = sum(commissions[:mid]) / mid
+                    second_half_avg = sum(commissions[mid:]) / (len(commissions) - mid)
+                    
+                    if second_half_avg > first_half_avg * 1.1:
+                        trend = "up"
+                    elif second_half_avg < first_half_avg * 0.9:
+                        trend = "down"
+                    else:
+                        trend = "stable"
+                else:
+                    trend = "stable"
+                
+                # Next deal estimate (average of recent 3 deals or all if less)
+                recent_count = min(3, len(commissions))
+                next_estimate = sum(commissions[-recent_count:]) / recent_count if commissions else 0
+                
+                counterparty_stats.append({
+                    "counterparty": counterparty.name,
+                    "email": counterparty.email,
+                    "type": counterparty.role,
+                    "deals_count": deals_count,
+                    "avg_commission": round(avg_commission, 2),
+                    "total_commission": round(total_commission, 2),
+                    "trend": trend,
+                    "next_deal_estimate": round(next_estimate, 2),
+                })
+            
+            # Sort by total_commission DESC
+            counterparty_stats.sort(key=lambda x: x["total_commission"], reverse=True)
+            
+            return counterparty_stats
+        
+        except Exception as e:
+            logger.error(f"Error estimating commission by counterparty: {e}")
+            return []

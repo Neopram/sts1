@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-11-01T05:56:11.531274",
+  "status": "CRITICAL",
+  "checks": {
+    "python_version": true,
+    "virtual_env": false,
+    "dependencies": false,
+    "file_structure": true,
+    "environment": false,
+    "database": true,
+    "models": true,
+    "routers": true,
+    "services": true,
+    "frontend": true
+  },
+  "issues": [
+    "Missing: python-jose"
+  ],
+  "warnings": [
+    "Not running in virtual environment",
+    "Activate it: .venv\\Scripts\\Activate.ps1"
+  ]
+}

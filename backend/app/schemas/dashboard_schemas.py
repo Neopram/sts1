@@ -169,6 +169,49 @@ class OwnerDashboard(BaseModel):
     alert_priority: str
 
 
+# ============ INSPECTOR DASHBOARD SCHEMAS ============
+
+class Finding(BaseModel):
+    """SIRE finding for Inspector"""
+    finding_id: str
+    vessel_name: str
+    severity: str = Field(..., description="critical, major, minor")
+    category: str = Field(..., description="safety, operations, equipment, etc")
+    description: str
+    remediation_due: Optional[str] = Field(None, description="ISO format datetime")
+    days_to_due: Optional[int] = None
+
+
+class ComplianceItem(BaseModel):
+    """Compliance item for Inspector"""
+    item_id: str
+    requirement: str
+    vessel_name: str
+    status: str = Field(..., description="compliant, non-compliant, pending")
+    last_verified: Optional[str] = Field(None, description="ISO format datetime")
+    next_due: Optional[str] = Field(None, description="ISO format datetime")
+
+
+class Recommendation(BaseModel):
+    """Recommendation for Inspector"""
+    recommendation_id: str
+    vessel_name: str
+    priority: str = Field(..., description="critical, high, medium, low")
+    title: str
+    description: str
+    estimated_impact: str = Field(..., description="Description of positive impact")
+    implementation_difficulty: str = Field(..., description="easy, medium, hard")
+
+
+class InspectorDashboard(BaseModel):
+    """Complete Inspector Dashboard response"""
+    findings: List[Finding]
+    compliance: List[ComplianceItem]
+    recommendations: List[Recommendation]
+    summary: Dict[str, Any] = Field(..., description="Summary statistics")
+    alert_priority: str = Field(..., description="critical, high, medium, low")
+
+
 # ============ ADMIN DASHBOARD SCHEMAS ============
 
 class SystemHealth(BaseModel):

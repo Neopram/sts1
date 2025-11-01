@@ -1,0 +1,274 @@
+{
+  "timestamp": "2025-11-01T07:26:12.475932",
+  "total_files": 53,
+  "fixed": 37,
+  "skipped": 16,
+  "errors": 0,
+  "results": [
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_data.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_room.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_users.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_users_all_roles.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_users_now.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE1_VALIDATION_TESTS.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE2_VALIDATION_TESTS.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE3_VALIDATION_TESTS.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\fix_test_encoding.py",
+      "success": false,
+      "message": "Already has encoding fix"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\PHASE3_CREATE_TEST_USERS.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\PHASE3_ENDPOINT_TESTING.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\reset_test_passwords.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\run_all_tests.py",
+      "success": false,
+      "message": "Already has encoding fix"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\run_migration.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\run_server.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\run_tests.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_api_documents.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_app_startup.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_app_startup_fixed.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_chat_detailed.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_chat_endpoints.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_chat_system.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_complete_system.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_cors.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_dashboard.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_day3_enhancements.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_doc_endpoint.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_document_fixes.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_document_get_fix.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_documents_fix.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_endpoints.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_debug.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_direct.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_final.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_now.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_manual_login.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_monitoring_simple.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_new_features.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_option_b_permissions.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_pdf_generation.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_snapshot_persistence.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_startup.py",
+      "success": true,
+      "message": "Encoding fix added"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_vessel_isolation.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\conftest.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_api_endpoints.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_criticality_scorer.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_fase2_api.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_fase3_websocket.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_integration_api.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_opcion_a_b_endpoints.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_performance.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_rooms.py",
+      "success": false,
+      "message": "No unicode characters found"
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_security_opcion_a_b_c.py",
+      "success": false,
+      "message": "No unicode characters found"
+    }
+  ]
+}

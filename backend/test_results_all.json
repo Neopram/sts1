@@ -1,0 +1,404 @@
+{
+  "timestamp": "2025-11-01T07:14:54.740704",
+  "tests_executed": [
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_data.py",
+      "description": "Create Data",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "success": true
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_room.py",
+      "description": "Create Room",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_room.py\", line 128, in <module>\n    print(\"\\U0001f680 STS Clearance Hub - Frontend Data Fix\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f680' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_users.py",
+      "description": "Create Users",
+      "returncode": 0,
+      "stdout": "User already exists: admin@sts.com\nUser already exists: owner@sts.com\nUser already exists: charterer@sts.com\nUser already exists: broker@sts.com\nUser already exists: viewer@sts.com\nUser already exists: test@sts.com\nTest room already exists\nError creating test data: 'charmap' codec can't encode character '\\u2705' in position 2: character maps to <undefined>\n",
+      "stderr": "",
+      "success": true
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_users_all_roles.py",
+      "description": "Create Users All Roles",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_users_all_roles.py\", line 144, in <module>\n    print(\"\\U0001f680 STS Clearance Hub - Test User Creation\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f680' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_users_now.py",
+      "description": "Create Users Now",
+      "returncode": 1,
+      "stdout": "============================================================\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\create_test_users_now.py\", line 13, in <module>\n    print(\"\\U0001f528 Creando usuarios de prueba\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f528' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE1_VALIDATION_TESTS.py",
+      "description": "Fase1 Validation Tests",
+      "returncode": 1,
+      "stdout": "\n\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE1_VALIDATION_TESTS.py\", line 227, in <module>\n    exit_code = main()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE1_VALIDATION_TESTS.py\", line 185, in main\n    print(\"\\u2554\" + \"=\"*58 + \"\\u2557\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u2554' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE2_VALIDATION_TESTS.py",
+      "description": "Fase2 Validation Tests",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE2_VALIDATION_TESTS.py\", line 429, in <module>\n    sys.exit(main())\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE2_VALIDATION_TESTS.py\", line 64, in main\n    print(\"\\n\\U0001f680 FASE 2 VALIDATION STARTING...\\n\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f680' in position 2: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE3_VALIDATION_TESTS.py",
+      "description": "Fase3 Validation Tests",
+      "returncode": 1,
+      "stdout": "\n======================================================================\nFASE 3: WebSocket Integration - VALIDATION TESTS\n======================================================================\n\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE3_VALIDATION_TESTS.py\", line 447, in <module>\n    exit_code = asyncio.run(run_all_tests())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\FASE3_VALIDATION_TESTS.py\", line 402, in run_all_tests\n    print(\"\\U0001f4cb Component Tests:\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f4cb' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\PHASE3_CREATE_TEST_USERS.py",
+      "description": "Phase3 Create Test Users",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\PHASE3_CREATE_TEST_USERS.py\", line 28, in <module>\n    from app.config.settings import Settings\n  File \"c:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\app\\config\\settings.py\", line 208, in <module>\n    settings = Settings()\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\pydantic_settings\\main.py\", line 71, in __init__\n    super().__init__(\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\pydantic\\main.py\", line 164, in __init__\n    __pydantic_self__.__pydantic_validator__.validate_python(data, self_instance=__pydantic_self__)\npydantic_core._pydantic_core.ValidationError: 25 validation errors for Settings\npostgres_db\n  Extra inputs are not permitted [type=extra_forbidden, input_value='sts_clearance', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.5/v/extra_forbidden\npostgres_user\n  Extra inputs are not permitte",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\PHASE3_ENDPOINT_TESTING.py",
+      "description": "Phase3 Endpoint Testing",
+      "returncode": 1,
+      "stdout": "\n================================================================================\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\PHASE3_ENDPOINT_TESTING.py\", line 409, in <module>\n    asyncio.run(main())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\PHASE3_ENDPOINT_TESTING.py\", line 390, in main\n    print(\"\\U0001f680 PHASE 3: COMPREHENSIVE ENDPOINT TESTING SUITE\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f680' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\reset_test_passwords.py",
+      "description": "Reset Passwords",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\reset_test_passwords.py\", line 26, in <module>\n    print(f\"\\u2713 Updated {email} with test password\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u2713' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\run_tests.py",
+      "description": "Run Tests",
+      "returncode": 1,
+      "stdout": "\n======================================================================\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\run_tests.py\", line 37, in run_command\n    print(f\"\\U0001f9ea {description}\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f9ea' in position 0: character maps to <undefined>\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\run_tests.py\", line 238, in main\n    returncode = runner.run_all_tests(coverage=args.coverage)\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\run_tests.py\", line 61, in run_all_tests\n    returncode, stdout, stderr = self.run_command(cmd, \"Running ALL Tests\")\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\run_tests.py\", line 51, in run_command\n    print(f\"\\u274c Error running com",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_api_documents.py",
+      "description": "Api Documents",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_api_documents.py\", line 63, in <module>\n    asyncio.run(test_api())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_api_documents.py\", line 15, in test_api\n    print(\"1\\ufe0f\\u20e3 Logging in...\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode characters in position 1-2: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_app_startup.py",
+      "description": "App Startup",
+      "returncode": 1,
+      "stdout": "============================================================\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_app_startup.py\", line 10, in <module>\n    print(\"\\U0001f50d TESTING APPLICATION STARTUP\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f50d' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_app_startup_fixed.py",
+      "description": "App Startup Fixed",
+      "returncode": 1,
+      "stdout": "============================================================\nTESTING APPLICATION STARTUP\n============================================================\n\n[1] Importing FastAPI app...\n\nERROR: ValidationError: 25 validation errors for Settings\npostgres_db\n  Extra inputs are not permitted [type=extra_forbidden, input_value='sts_clearance', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.5/v/extra_forbidden\npostgres_user\n  Extra inputs are not permitted [type=extra_forbidden, input_value='postgres', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.5/v/extra_forbidden\npostgres_password\n  Extra inputs are not permitted [type=extra_forbidden, input_value='password', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.5/v/extra_forbidden\npostgres_host\n  Extra inputs are not permitted [type=extra_forbidden, input_value='localhost', input_type=str]\n    For further information visit https://errors.pydantic.dev",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_app_startup_fixed.py\", line 17, in <module>\n    from app.main import app as fastapi_app\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\app\\main.py\", line 25, in <module>\n    from app.config.settings import Settings, Environment\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\app\\config\\settings.py\", line 208, in <module>\n    settings = Settings()\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\pydantic_settings\\main.py\", line 71, in __init__\n    super().__init__(\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\pydantic\\main.py\", line 164, in __init__\n    __pydantic_self__.__pydantic_validator__.validate_python(data, self_instance=__pydantic_self__)\npydantic_core._pydantic_core.ValidationError: 25 validation errors for Settings\npostgres_db\n  Extra inputs are not permitted [type=extra_forbidden, input_value='sts_clearance', input",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_chat_detailed.py",
+      "description": "Chat Detailed",
+      "returncode": 1,
+      "stdout": "Testing: owner@sts.com (owner)\nRoom: fdf18990-39d9-4214-bcaa-a0772ec77955\nToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJvd...\n\nMaking GET request...\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\httpx\\_transports\\default.py\", line 66, in map_httpcore_exceptions\n    yield\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\httpx\\_transports\\default.py\", line 366, in handle_async_request\n    resp = await self._pool.handle_async_request(req)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\httpcore\\_async\\connection_pool.py\", line 256, in handle_async_request\n    raise exc from None\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\httpcore\\_async\\connection_pool.py\", line 236, in handle_async_request\n    response = await connection.handle_async_request(\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\httpcore\\_async\\connection.py\", line 101, in handle_async_request\n    raise exc\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\l",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_chat_endpoints.py",
+      "description": "Chat Endpoints",
+      "returncode": 1,
+      "stdout": "\n================================================================================\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_chat_endpoints.py\", line 96, in <module>\n    asyncio.run(test_chat_endpoints())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_chat_endpoints.py\", line 20, in test_chat_endpoints\n    print(\"\\U0001f310 TESTING CHAT ENDPOINTS BY ROLE (HTTP)\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f310' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_chat_system.py",
+      "description": "Chat System",
+      "returncode": 1,
+      "stdout": "\n================================================================================\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_chat_system.py\", line 184, in <module>\n    asyncio.run(test_chat_system())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_chat_system.py\", line 19, in test_chat_system\n    print(\"\\U0001f9ea COMPREHENSIVE CHAT SYSTEM TEST BY ROLE\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f9ea' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_complete_system.py",
+      "description": "Complete System",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_complete_system.py\", line 358, in <module>\n    test_suite.run_all_tests()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_complete_system.py\", line 321, in run_all_tests\n    print(\"\\U0001f680 Starting Complete STS Clearance System Test\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f680' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_cors.py",
+      "description": "Cors",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_cors.py\", line 143, in <module>\n    test_cors_headers()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_cors.py\", line 13, in test_cors_headers\n    print(\"\\U0001f310 Testing CORS Configuration...\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f310' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_dashboard.py",
+      "description": "Dashboard",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_dashboard.py\", line 4, in <module>\n    print(\"\\U0001f510 Obteniendo token...\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f510' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_day3_enhancements.py",
+      "description": "Day3 Enhancements",
+      "returncode": 1,
+      "stdout": "\n======================================================================\nDAY 3 ENHANCEMENTS - COMPREHENSIVE TEST SUITE\nTesting: Async Background Generation, Dual-Layer Caching, Metrics\n======================================================================\n\n============================================================\nTEST 1: Background Task Service\n============================================================\n",
+      "stderr": "2025-11-01 07:15:23,554 - app.services.background_task_service - INFO - Created background task: da32aaac-f4d6-4cab-b7cd-f3346966b48a (type: test_task)\n2025-11-01 07:15:23,558 - app.services.background_task_service - ERROR - Task da32aaac-f4d6-4cab-b7cd-f3346966b48a failed: No handler registered for task type: test_task\nTraceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\app\\services\\background_task_service.py\", line 177, in _execute_task\n    raise ValueError(f\"No handler registered for task type: {task.task_type}\")\nValueError: No handler registered for task type: test_task\nTraceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_day3_enhancements.py\", line 81, in test_background_task_creation\n    results.add_pass(\"Task Creation\", f\"Created task {task_id}\")\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_day3_enhancements.py\", line 40, in add_pass\n    print(f\"\\u2705 PASS: {name}\")\n  File \"C:\\Users\\feder\\AppData\\Lo",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_doc_endpoint.py",
+      "description": "Doc Endpoint",
+      "returncode": 1,
+      "stdout": "Starting test...\nDocument found: add81bbf-f742-414a-9a4e-215f9a8f0735\n  Room: 3ae03b4e-acda-4af0-8dd4-0ea296faf8bf\n  Status: approved\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_doc_endpoint.py\", line 28, in test\n    print(f\"  Type ID: {doc.document_type_id}\")\nAttributeError: 'Document' object has no attribute 'document_type_id'. Did you mean: 'document_type'?\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_doc_endpoint.py\", line 73, in <module>\n    asyncio.run(test())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_doc_endpoint.py\", line 65, in test\n    print(f\"\\u274c Error: {type(e).__name__}: {e}\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\l",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_document_fixes.py",
+      "description": "Document Fixes",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_document_fixes.py\", line 125, in <module>\n    asyncio.run(test_document_access())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_document_fixes.py\", line 25, in test_document_access\n    print(\"\\n\\U0001f50d Testing Document Access Logic\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f50d' in position 2: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_document_get_fix.py",
+      "description": "Document Get Fix",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_document_get_fix.py\", line 24, in test_document_retrieval\n    print(\"\\U0001f510 Logging in...\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f510' in position 0: character maps to <undefined>\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_document_get_fix.py\", line 126, in <module>\n    asyncio.run(test_document_retrieval())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n   ",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_documents_fix.py",
+      "description": "Documents Fix",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_documents_fix.py\", line 86, in <module>\n    asyncio.run(test_documents())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_documents_fix.py\", line 31, in test_documents\n    print(f\"\\u2713 Admin user: {admin.email}, Role: {admin.role}\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u2713' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_endpoints.py",
+      "description": "Endpoints",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_endpoints.py\", line 182, in <module>\n    main()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_endpoints.py\", line 46, in main\n    print(\"\\U0001f9ea Testing STS Clearance API Endpoints\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f9ea' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_debug.py",
+      "description": "Login Debug",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "success": true
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_direct.py",
+      "description": "Login Direct",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_direct.py\", line 21, in test_login\n    print(f\"\\u2705 Usuario encontrado: {user.email}\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\u2705' in position 0: character maps to <undefined>\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_direct.py\", line 42, in <module>\n    asyncio.run(test_login())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_final.py",
+      "description": "Login Final",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_final.py\", line 72, in <module>\n    test_login()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_final.py\", line 13, in test_login\n    print(\"\\U0001f510 Testing Login Functionality\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f510' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_now.py",
+      "description": "Login Now",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_login_now.py\", line 5, in <module>\n    print(\"\\U0001f510 Probando login con admin@sts.com / password123...\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f510' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_manual_login.py",
+      "description": "Manual Login",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_manual_login.py\", line 34, in <module>\n    asyncio.run(test())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_manual_login.py\", line 18, in test\n    login_data = LoginRequest(email=\"test@sts.com\", password=\"test123\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\pydantic\\main.py\", line 164, in __init__\n    __pydantic_self__.__pydantic_validator__.validate_python(data, self_instance=__pydantic_self__)\npydantic_core._pydantic_core.ValidationError: 1 validation error for LoginRequest\nusername\n  Field required [type=missing, input_value={'email': 'test@sts.com', 'passw",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_monitoring_simple.py",
+      "description": "Monitoring Simple",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_monitoring_simple.py\", line 51, in <module>\n    success = asyncio.run(test_database_metrics())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_monitoring_simple.py\", line 16, in test_database_metrics\n    print(\"\\U0001f50d Testing Database Metrics Collection (SQLite compatibility)...\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f50d' in position 0: character maps to <undefined>\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_new_features.py",
+      "description": "New Features",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "2025-11-01 07:15:38,776 - __main__ - INFO - \n\\u2554==============================================================================\\u2557\n2025-11-01 07:15:38,776 - __main__ - INFO - \\u2551               STS CLEARHUB NEW FEATURES TEST SUITE                         \\u2551\n2025-11-01 07:15:38,776 - __main__ - INFO - \\u255a==============================================================================\\u255d\n\n2025-11-01 07:15:38,776 - __main__ - INFO - ================================================================================\n2025-11-01 07:15:38,776 - __main__ - INFO - TEST 1: Database Tables\n2025-11-01 07:15:38,776 - __main__ - INFO - ================================================================================\n2025-11-01 07:15:40,528 - app.dependencies - INFO - Initialized default role-based message permissions\n2025-11-01 07:15:40,552 - __main__ - INFO - \\u2713 All 4 tables exist:\n2025-11-01 07:15:40,553 - __main__ - INFO -   \\u2713 external_integrations\n2025-11-01 07:15:40,553 - __",
+      "success": true
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_option_b_permissions.py",
+      "description": "Option B Permissions",
+      "returncode": 1,
+      "stdout": "================================================================================\nOPTION B - GRANULAR MESSAGE PERMISSIONS TEST\n================================================================================\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_option_b_permissions.py\", line 217, in <module>\n    asyncio.run(test_permissions())\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\runners.py\", line 44, in run\n    return loop.run_until_complete(main)\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\asyncio\\base_events.py\", line 641, in run_until_complete\n    return future.result()\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_option_b_permissions.py\", line 49, in test_permissions\n    print(\"\\n1\\ufe0f\\u20e3  Initializing default role permissions...\")\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\nUnicodeEncodeError: 'charmap' codec can't encode characters in position 3-4: character maps to <undefined>\n\nDuring handling of the above exception, another exception occur",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_pdf_generation.py",
+      "description": "Pdf Generation",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_pdf_generation.py\", line 20, in <module>\n    from app.database import Base\nImportError: cannot import name 'Base' from 'app.database' (C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\app\\database.py)\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_snapshot_persistence.py",
+      "description": "Snapshot Persistence",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "INFO:__main__:============================================================\nINFO:__main__:SNAPSHOT PERSISTENCE TEST\nINFO:__main__:============================================================\nINFO:__main__:\n1. Initializing database...\nINFO:app.dependencies:Initialized default role-based message permissions\nINFO:__main__:   \\u2705 Database initialized\nINFO:__main__:\n2. Creating test room and party...\nINFO:__main__:   \\u2705 Created test room: 218427ce-55f9-4e1c-a9ea-f9cf4a5be27c\nINFO:__main__:   \\u2705 Created test party: test-user-1761974148.086264@example.com\nINFO:__main__:\n3. Testing snapshot creation...\nINFO:__main__:   \\u2705 Snapshot created and committed: 2188228e-4ec2-4f94-a65b-95e00b0e665e\nINFO:__main__:\n4. Verifying persistence in new session...\nINFO:__main__:   \\u2705 Snapshot retrieved from database!\nINFO:__main__:      - ID: 2188228e-4ec2-4f94-a65b-95e00b0e665e\nINFO:__main__:      - Title: Test Snapshot - Persistence Check\nINFO:__main__:      - Room ID: 218427ce-55f9-4e1c-a9e",
+      "success": true
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_startup.py",
+      "description": "Startup",
+      "returncode": 1,
+      "stdout": "\n=== TESTING IMPORTS ===\n\nImporting FastAPI app...\n",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_startup.py\", line 21, in test_imports\n    from app.main import app\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\app\\main.py\", line 25, in <module>\n    from app.config.settings import Settings, Environment\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\app\\config\\settings.py\", line 208, in <module>\n    settings = Settings()\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\pydantic_settings\\main.py\", line 71, in __init__\n    super().__init__(\n  File \"C:\\Users\\feder\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\pydantic\\main.py\", line 164, in __init__\n    __pydantic_self__.__pydantic_validator__.validate_python(data, self_instance=__pydantic_self__)\npydantic_core._pydantic_core.ValidationError: 25 validation errors for Settings\npostgres_db\n  Extra inputs are not permitted [type=extra_forbidden, input_value='sts_clearance', input_type=str]\n    For fu",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\test_vessel_isolation.py",
+      "description": "Vessel Isolation",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "success": true
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\conftest.py",
+      "description": "Conftest",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\conftest.py\", line 24, in <module>\n    from app.database import get_async_session\nModuleNotFoundError: No module named 'app'\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_api_endpoints.py",
+      "description": "Api Endpoints",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_api_endpoints.py\", line 9, in <module>\n    from app.models import Document, Room, User\nModuleNotFoundError: No module named 'app'\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_criticality_scorer.py",
+      "description": "Criticality Scorer",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_criticality_scorer.py\", line 9, in <module>\n    from app.schemas import Criticality, DocumentResponse\nModuleNotFoundError: No module named 'app'\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_fase2_api.py",
+      "description": "Fase2 Api",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_fase2_api.py\", line 15, in <module>\n    from app.main import app\nModuleNotFoundError: No module named 'app'\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_fase3_websocket.py",
+      "description": "Fase3 Websocket",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_fase3_websocket.py\", line 14, in <module>\n    from app.websocket_v2_manager import (\nModuleNotFoundError: No module named 'app'\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_integration_api.py",
+      "description": "Integration Api",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "success": true
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_opcion_a_b_endpoints.py",
+      "description": "Opcion A B Endpoints",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "success": true
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_performance.py",
+      "description": "Performance",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "success": true
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_rooms.py",
+      "description": "Rooms",
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_rooms.py\", line 13, in <module>\n    from app.models import ActivityLog, Document, Party, Room\nModuleNotFoundError: No module named 'app'\n",
+      "success": false
+    },
+    {
+      "file": "C:\\Users\\feder\\Desktop\\StsHub\\sts\\backend\\tests\\test_security_opcion_a_b_c.py",
+      "description": "Security Opcion A B C",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "",
+      "success": true
+    }
+  ],
+  "summary": {
+    "total": 49,
+    "passed": 10,
+    "failed": 39,
+    "skipped": 0,
+    "errors": []
+  }
+}

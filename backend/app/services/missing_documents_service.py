@@ -5,7 +5,7 @@ Provides comprehensive view of missing and expiring documents
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from sqlalchemy import select, or_, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -415,6 +415,285 @@ class MissingDocumentsService:
             logger.error(f"Error updating user config: {e}")
             await session.rollback()
             return None
+
+    # ============ CRITICAL MISSING DOCUMENTS ============
+
+    async def get_critical_missing_documents(
+        self,
+        user_email: str,
+        room_ids: List[str] = None,
+        vessel_ids: List[str] = None,
+        session: AsyncSession = None,
+        max_results: int = 10
+    ) -> List[Dict]:
+        """
+        Get only critical missing documents, sorted by urgency.
+        
+        Critical = status 'missing' OR (status 'expired' with high priority)
+        
+        Returns top N documents sorted by days_until_expiry ASC
+        
+        Returns:
+        [
+          {
+            "id": str,
+            "type": {...},
+            "room": {...},
+            "vessel": {...},
+            "urgency": "critical|high|medium",
+            "days_until_action": int
+          }
+        ]
+        """
+        try:
+            if not session:
+                logger.error("Database session required")
+                return []
+            
+            from app.models import Document, DocumentType, Room, Vessel
+            
+            # Build base query
+            query = (
+                select(Document, DocumentType, Room, Vessel)
+                .join(DocumentType, Document.type_id == DocumentType.id)
+                .join(Room, Document.room_id == Room.id)
+                .outerjoin(Vessel, Document.vessel_id == Vessel.id)
+                .where(
+                    or_(
+                        Document.status == "missing",
+                        and_(
+                            Document.status == "expired",
+                            Document.priority == "high"
+                        )
+                    )
+                )
+            )
+            
+            # Apply room filter
+            if room_ids:
+                query = query.where(Document.room_id.in_(room_ids))
+            
+            # Apply vessel filter
+            if vessel_ids:
+                query = query.where(
+                    or_(
+                        Document.vessel_id.in_(vessel_ids),
+                        Document.vessel_id.is_(None)
+                    )
+                )
+            
+            # Execute query
+            result = await session.execute(query)
+            rows = result.all()
+            
+            critical_docs = []
+            now = datetime.now()
+            
+            for doc, doc_type, room, vessel in rows:
+                # Calculate urgency
+                if doc.status == "expired":
+                    urgency = "critical"
+                    days_until_action = -1 if not doc.expires_on else (doc.expires_on.date() - now.date()).days
+                elif doc.status == "missing" and doc_type.criticality == "high":
+                    urgency = "critical"
+                    days_until_action = 999  # High urgency for missing critical docs
+                else:
+                    urgency = "high"
+                    days_until_action = 999
+                
+                doc_data = {
+                    "id": str(doc.id),
+                    "type": {
+                        "id": str(doc_type.id),
+                        "code": doc_type.code,
+                        "name": doc_type.name,
+                        "criticality": doc_type.criticality,
+                        "required": doc_type.required
+                    },
+                    "status": doc.status,
+                    "priority": doc.priority,
+                    "room": {
+                        "id": str(room.id),
+                        "title": room.title,
+                    },
+                    "vessel": {
+                        "id": str(vessel.id),
+                        "name": vessel.name,
+                    } if vessel else None,
+                    "urgency": urgency,
+                    "days_until_action": days_until_action,
+                    "expiresOn": doc.expires_on.isoformat() if doc.expires_on else None,
+                }
+                
+                critical_docs.append(doc_data)
+            
+            # Sort by days_until_action ASC (most urgent first)
+            critical_docs.sort(key=lambda d: d["days_until_action"])
+            
+            return critical_docs[:max_results]
+        
+        except Exception as e:
+            logger.error(f"Error getting critical missing documents: {e}")
+            return []
+
+    # ============ MISSING DOCUMENTS REPORT ============
+
+    async def generate_missing_documents_report(
+        self,
+        room_id: str,
+        session: AsyncSession = None
+    ) -> Dict[str, Any]:
+        """
+        Generate comprehensive report for missing documents by room.
+        
+        Returns:
+        {
+          "room_id": str,
+          "room_title": str,
+          "generated_at": datetime,
+          "summary": {
+            "total_docs_required": int,
+            "approved": int,
+            "missing": int,
+            "expired": int,
+            "under_review": int,
+            "completion_percent": float,
+            "eta_to_completion": str
+          },
+          "critical_items": [
+            {
+              "doc_type": str,
+              "status": str,
+              "priority": str,
+              "responsible_party": str
+            }
+          ],
+          "statistics": {
+            "avg_days_to_complete": float,
+            "bottleneck_doc_type": str,
+            "risk_score": float
+          }
+        }
+        """
+        try:
+            if not session:
+                logger.error("Database session required")
+                return {"error": "Database session required"}
+            
+            from app.models import Document, DocumentType, Room, Party
+            
+            # Get room
+            room_query = select(Room).where(Room.id == room_id)
+            room_result = await session.execute(room_query)
+            room = room_result.scalar_one_or_none()
+            
+            if not room:
+                return {"error": f"Room not found: {room_id}"}
+            
+            # Get all documents in room
+            docs_query = select(Document, DocumentType).join(
+                DocumentType, Document.type_id == DocumentType.id
+            ).where(Document.room_id == room_id)
+            
+            docs_result = await session.execute(docs_query)
+            doc_rows = docs_result.all()
+            
+            if not doc_rows:
+                return {
+                    "room_id": str(room.id),
+                    "room_title": room.title,
+                    "generated_at": datetime.now().isoformat(),
+                    "summary": {
+                        "total_docs_required": 0,
+                        "approved": 0,
+                        "missing": 0,
+                        "expired": 0,
+                        "under_review": 0,
+                        "completion_percent": 100.0,
+                        "eta_to_completion": "Complete"
+                    },
+                    "critical_items": [],
+                    "statistics": {
+                        "avg_days_to_complete": 0,
+                        "bottleneck_doc_type": "None",
+                        "risk_score": 0
+                    }
+                }
+            
+            # Analyze documents
+            total = len(doc_rows)
+            approved = 0
+            missing = 0
+            expired = 0
+            under_review = 0
+            critical_items = []
+            
+            for doc, doc_type in doc_rows:
+                if doc.status == "approved":
+                    approved += 1
+                elif doc.status == "missing":
+                    missing += 1
+                    if doc_type.criticality == "high":
+                        critical_items.append({
+                            "doc_type": doc_type.name,
+                            "status": doc.status,
+                            "priority": doc.priority,
+                            "responsible_party": "Parties in room"
+                        })
+                elif doc.status == "expired":
+                    expired += 1
+                    critical_items.append({
+                        "doc_type": doc_type.name,
+                        "status": doc.status,
+                        "priority": "urgent",
+                        "responsible_party": "Parties in room"
+                    })
+                elif doc.status == "under_review":
+                    under_review += 1
+            
+            completion_percent = (approved / total * 100) if total > 0 else 0
+            
+            # Estimate ETA
+            if approved == total:
+                eta_text = "Complete"
+            elif missing > 0:
+                est_days = missing * 2  # Assume 2 days per missing doc
+                eta_text = f"~{est_days} days"
+            else:
+                eta_text = "In progress"
+            
+            # Calculate risk score (0-100)
+            risk_score = min(100, (missing * 25) + (expired * 40) + (under_review * 10))
+            
+            # Find bottleneck (most problematic doc type)
+            bottleneck = "None"
+            if critical_items:
+                bottleneck = critical_items[0]["doc_type"]
+            
+            return {
+                "room_id": str(room.id),
+                "room_title": room.title,
+                "generated_at": datetime.now().isoformat(),
+                "summary": {
+                    "total_docs_required": total,
+                    "approved": approved,
+                    "missing": missing,
+                    "expired": expired,
+                    "under_review": under_review,
+                    "completion_percent": round(completion_percent, 1),
+                    "eta_to_completion": eta_text
+                },
+                "critical_items": critical_items[:5],  # Top 5 critical items
+                "statistics": {
+                    "avg_days_to_complete": 2.5,  # Mock average
+                    "bottleneck_doc_type": bottleneck,
+                    "risk_score": round(risk_score, 1)
+                }
+            }
+        
+        except Exception as e:
+            logger.error(f"Error generating missing documents report: {e}")
+            return {"error": str(e)}
 
 
 # Global instance

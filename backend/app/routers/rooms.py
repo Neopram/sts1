@@ -14,15 +14,33 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_async_session
-from app.dependencies import get_current_user, log_activity
+from app.dependencies import get_current_user, log_activity, require_room_access
 from app.models import (ActivityLog, Approval, Document, DocumentType, Message,
                         Party, Room, Snapshot, User, Vessel)
-from app.schemas import PartyRole, RoomResponse
+from app.schemas import PartyRole, RoomResponse, RoomSummaryResponse, DocumentResponse
 from app.permission_decorators import require_permission
+from app.services.room_status_service import RoomStatusService
+from app.services.criticality_scorer import criticality_scorer
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["rooms"])
+
+
+# Helper function to extract user info from current_user (dict or User object)
+def get_user_info(current_user, include_name=False):
+    """Extract email, role, and optionally name from current_user (dict or User object)"""
+    if isinstance(current_user, dict):
+        email = current_user.get("email") or current_user.get("user_email")
+        role = current_user.get("role") or current_user.get("user_role")
+        name = current_user.get("name") or current_user.get("user_name", "")
+        if include_name:
+            return email, role, name
+        return email, role
+    else:
+        if include_name:
+            return current_user.email, current_user.role, current_user.name
+        return current_user.email, current_user.role
 
 
 # Request schemas for room management
@@ -54,28 +72,31 @@ async def get_rooms(
     Get all rooms accessible to the user
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
-        # Get all rooms where user is a party
+        # Get all rooms where user is a party - optimized query with distinct
+        from sqlalchemy.orm import selectinload
+        
         rooms_result = await session.execute(
             select(Room)
             .join(Party, Room.id == Party.room_id)
             .where(Party.email == user_email)
+            .distinct()  # Avoid duplicates if user is party multiple times
+            .order_by(Room.sts_eta.asc())  # Order by ETA for better UX
         )
 
-        rooms = rooms_result.scalars().all()
+        rooms = rooms_result.scalars().unique().all()
 
         # Convert to response format
-        response = []
-        for room in rooms:
-            response.append(
-                RoomResponse(
-                    id=str(room.id),
-                    title=room.title,
-                    location=room.location,
-                    sts_eta=room.sts_eta,
-                )
+        response = [
+            RoomResponse(
+                id=str(room.id),
+                title=room.title,
+                location=room.location,
+                sts_eta=room.sts_eta,
             )
+            for room in rooms
+        ]
 
         return response
 
@@ -94,7 +115,7 @@ async def get_room(
     Get specific room information
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Get room and verify user access
         room_result = await session.execute(
@@ -122,6 +143,121 @@ async def get_room(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/rooms/{room_id}/summary", response_model=RoomSummaryResponse)
+async def get_room_summary(
+    room_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Get comprehensive summary of room status including blockers and progress
+    """
+    try:
+        user_email, _ = get_user_info(current_user)
+
+        # Verify user has access to room
+        await require_room_access(room_id, user_email, session)
+
+        # Get room information
+        room_result = await session.execute(select(Room).where(Room.id == room_id))
+        room = room_result.scalar_one_or_none()
+
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+
+        # Get all documents for the room
+        docs_result = await session.execute(
+            select(
+                Document.id,
+                Document.status,
+                Document.expires_on,
+                Document.uploaded_by,
+                Document.uploaded_at,
+                Document.notes,
+                DocumentType.code.label("type_code"),
+                DocumentType.name.label("type_name"),
+                DocumentType.required,
+                DocumentType.criticality,
+            )
+            .join(DocumentType, Document.type_id == DocumentType.id)
+            .where(Document.room_id == room_id)
+        )
+
+        documents = []
+        for row in docs_result:
+            doc = DocumentResponse(
+                id=row.id,
+                type_code=row.type_code,
+                type_name=row.type_name,
+                status=row.status,
+                expires_on=row.expires_on,
+                uploaded_by=row.uploaded_by,
+                uploaded_at=row.uploaded_at,
+                notes=row.notes,
+                required=row.required,
+                criticality=row.criticality,
+                criticality_score=0,  # Will be calculated by scorer
+            )
+            documents.append(doc)
+
+        # Calculate progress and get blockers
+        progress_dict = criticality_scorer.calculate_progress(documents)
+        progress = progress_dict.get("progress_percentage", 0.0)
+        blockers = criticality_scorer.get_blockers(documents)
+        expiring_soon = criticality_scorer.get_expiring_soon(documents)
+
+        # Convert to response format
+        blockers_response = []
+        for blocker in blockers:
+            blockers_response.append({
+                "id": str(blocker.id),
+                "type_code": blocker.type_code,
+                "type_name": blocker.type_name,
+                "status": blocker.status,
+                "criticality": blocker.criticality,
+                "criticality_score": blocker.criticality_score,
+                "expires_on": blocker.expires_on,
+                "uploaded_by": blocker.uploaded_by,
+                "uploaded_at": blocker.uploaded_at,
+                "notes": blocker.notes,
+                "required": blocker.required,
+            })
+
+        expiring_response = []
+        for expiring in expiring_soon:
+            expiring_response.append({
+                "id": str(expiring.id),
+                "type_code": expiring.type_code,
+                "type_name": expiring.type_name,
+                "status": expiring.status,
+                "criticality": expiring.criticality,
+                "criticality_score": expiring.criticality_score,
+                "expires_on": expiring.expires_on,
+                "uploaded_by": expiring.uploaded_by,
+                "uploaded_at": expiring.uploaded_at,
+                "notes": expiring.notes,
+                "required": expiring.required,
+            })
+
+        return RoomSummaryResponse(
+            room_id=room.id,
+            title=room.title,
+            location=room.location,
+            sts_eta=room.sts_eta,
+            progress_percentage=progress,
+            total_required_docs=progress_dict.get("total_required_docs", 0),
+            resolved_required_docs=progress_dict.get("resolved_required_docs", 0),
+            blockers=blockers_response,
+            expiring_soon=expiring_response,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting room summary: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.post("/rooms", response_model=RoomResponse)
 async def create_room(
     room_data: CreateRoomRequest,
@@ -141,13 +277,12 @@ async def create_room(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user.email
-        user_role = current_user.role
-        user_name = current_user.name
+        user_email, user_role, user_name = get_user_info(current_user, include_name=True)
 
         # LEVEL 1: AUTHENTICATION - Verify user is authenticated and exists in database
+        # Check User table, not Party (user may not be in any party yet)
         user_result = await session.execute(
-            select(Party).where(Party.email == user_email).limit(1)
+            select(User).where(User.email == user_email).limit(1)
         )
         user_exists = user_result.scalar_one_or_none() is not None
         
@@ -294,8 +429,7 @@ async def update_room(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user.email
-        user_role = current_user.role
+        user_email, user_role = get_user_info(current_user)
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -424,8 +558,7 @@ async def delete_room(
         from app.permission_matrix import PermissionMatrix
         from app.models import DocumentVersion
         
-        user_email = current_user.email
-        user_role = current_user.role
+        user_email, user_role = get_user_info(current_user)
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -614,7 +747,7 @@ async def get_room_parties(
     Get all parties in a room
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Verify user has access to room
         room_result = await session.execute(
@@ -672,8 +805,7 @@ async def add_party_to_room(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user.email
-        user_role = current_user.role
+        user_email, user_role = get_user_info(current_user)
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -820,8 +952,7 @@ async def remove_party_from_room(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user.email
-        user_role = current_user.role
+        user_email, user_role = get_user_info(current_user)
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -924,4 +1055,289 @@ async def remove_party_from_room(
         raise
     except Exception as e:
         logger.error(f"Error removing party from room {room_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ============ ROOM STATUS AND TIMELINE ENDPOINTS ============
+
+class StatusTransitionRequest(BaseModel):
+    new_status: str
+    reason: Optional[str] = None
+
+
+@router.post("/rooms/{room_id}/start")
+async def start_room(
+    room_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Start a room operation (transition to active status).
+    """
+    try:
+        user_email, user_role = get_user_info(current_user)
+
+        # Verify user has access to room
+        room_result = await session.execute(
+            select(Room)
+            .join(Party, Room.id == Party.room_id)
+            .where(Room.id == room_id, Party.email == user_email)
+        )
+        room = room_result.scalar_one_or_none()
+
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found or access denied")
+
+        status_service = RoomStatusService(session)
+        result = await status_service.transition_room_status(
+            room_id=room_id,
+            new_status=RoomStatusService.STATUS_ACTIVE,
+            user_email=user_email,
+            user_role=user_role,
+            reason="Operation started",
+        )
+
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting room {room_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/rooms/{room_id}/complete")
+async def complete_room(
+    room_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Mark a room operation as completed.
+    """
+    try:
+        user_email, user_role = get_user_info(current_user)
+
+        # Verify user has access to room
+        room_result = await session.execute(
+            select(Room)
+            .join(Party, Room.id == Party.room_id)
+            .where(Room.id == room_id, Party.email == user_email)
+        )
+        room = room_result.scalar_one_or_none()
+
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found or access denied")
+
+        status_service = RoomStatusService(session)
+        result = await status_service.transition_room_status(
+            room_id=room_id,
+            new_status=RoomStatusService.STATUS_COMPLETED,
+            user_email=user_email,
+            user_role=user_role,
+            reason="Operation completed",
+        )
+
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error completing room {room_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/rooms/{room_id}/cancel")
+async def cancel_room(
+    room_id: str,
+    reason: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Cancel a room operation.
+    """
+    try:
+        user_email, user_role = get_user_info(current_user)
+
+        # Verify user has access to room
+        room_result = await session.execute(
+            select(Room)
+            .join(Party, Room.id == Party.room_id)
+            .where(Room.id == room_id, Party.email == user_email)
+        )
+        room = room_result.scalar_one_or_none()
+
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found or access denied")
+
+        status_service = RoomStatusService(session)
+        result = await status_service.transition_room_status(
+            room_id=room_id,
+            new_status=RoomStatusService.STATUS_CANCELLED,
+            user_email=user_email,
+            user_role=user_role,
+            reason=reason or "Operation cancelled",
+        )
+
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling room {room_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/rooms/{room_id}/status")
+async def get_room_status(
+    room_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Get comprehensive room status information.
+    """
+    try:
+        user_email, _ = get_user_info(current_user)
+
+        # Verify user has access to room
+        room_result = await session.execute(
+            select(Room)
+            .join(Party, Room.id == Party.room_id)
+            .where(Room.id == room_id, Party.email == user_email)
+        )
+        room = room_result.scalar_one_or_none()
+
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found or access denied")
+
+        status_service = RoomStatusService(session)
+        status_info = await status_service.get_room_status_info(room_id)
+
+        # Get allowed transitions for current user
+        _, user_role = get_user_info(current_user)
+        allowed_transitions = await status_service.get_allowed_transitions(room_id, user_role)
+
+        return {
+            **status_info,
+            "allowed_transitions": allowed_transitions,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting room status {room_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/rooms/{room_id}/status/transition")
+async def transition_room_status(
+    room_id: str,
+    transition_data: StatusTransitionRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Transition room to a new status with validation.
+    """
+    try:
+        user_email, user_role = get_user_info(current_user)
+
+        # Verify user has access to room
+        room_result = await session.execute(
+            select(Room)
+            .join(Party, Room.id == Party.room_id)
+            .where(Room.id == room_id, Party.email == user_email)
+        )
+        room = room_result.scalar_one_or_none()
+
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found or access denied")
+
+        status_service = RoomStatusService(session)
+        result = await status_service.transition_room_status(
+            room_id=room_id,
+            new_status=transition_data.new_status,
+            user_email=user_email,
+            user_role=user_role,
+            reason=transition_data.reason,
+        )
+
+        return result
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error transitioning room status {room_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/rooms/{room_id}/timeline")
+async def get_room_timeline(
+    room_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Get timeline information for a room including phase, status history, and milestones.
+    """
+    try:
+        user_email, _ = get_user_info(current_user)
+
+        # Verify user has access to room
+        room_result = await session.execute(
+            select(Room)
+            .join(Party, Room.id == Party.room_id)
+            .where(Room.id == room_id, Party.email == user_email)
+        )
+        room = room_result.scalar_one_or_none()
+
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found or access denied")
+
+        status_service = RoomStatusService(session)
+
+        # Get current status info
+        status_info = await status_service.get_room_status_info(room_id)
+
+        # Get activity logs for timeline
+        activities_result = await session.execute(
+            select(ActivityLog)
+            .where(ActivityLog.room_id == room_id)
+            .order_by(ActivityLog.created_at.desc())
+            .limit(50)
+        )
+        activities = activities_result.scalars().all()
+
+        timeline_events = []
+        for activity in activities:
+            timeline_events.append({
+                "timestamp": activity.created_at.isoformat() if activity.created_at else None,
+                "type": activity.activity_type,
+                "description": activity.description,
+                "actor": activity.actor,
+            })
+
+        return {
+            "room_id": room_id,
+            "current_status": status_info["status"],
+            "current_phase": status_info["timeline_phase"],
+            "timeline_events": timeline_events,
+            "created_at": room.created_at.isoformat() if room.created_at else None,
+            "updated_at": room.updated_at.isoformat() if room.updated_at else None,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting room timeline {room_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")

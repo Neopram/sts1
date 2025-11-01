@@ -334,3 +334,253 @@ class DemurrageService:
         elif total_exposure > 5000 or delayed_count > 0:
             return "medium"
         return "low"
+
+    # ============ HOURLY DEMURRAGE CALCULATION ============
+
+    async def calculate_demurrage_hourly(
+        self, 
+        room_id: str,
+        daily_rate: float = None
+    ) -> Dict[str, Any]:
+        """
+        Calculate hourly demurrage with progressive rate increases.
+        
+        Formula:
+          - Base: daily_rate / 24 * hours_elapsed
+          - Factor escalation: +5% per 12 hours over threshold (48h)
+          - Max multiplier: 2.0x (capped)
+        
+        Returns:
+          {
+            "hours_elapsed": int,
+            "base_exposure": float,
+            "escalation_factor": float,
+            "total_exposure": float,
+            "breakdown": {
+              "hours_0_12": float,
+              "hours_12_24": float,
+              "hours_24_48": float,
+              "hours_48_plus": float
+            },
+            "next_escalation_at": datetime
+          }
+        """
+        try:
+            # Get room data
+            stmt = select(Room).where(Room.id == room_id)
+            result = await self.session.execute(stmt)
+            room = result.scalar_one_or_none()
+            
+            if not room:
+                return {
+                    "hours_elapsed": 0,
+                    "base_exposure": 0,
+                    "escalation_factor": 1.0,
+                    "total_exposure": 0,
+                    "breakdown": {},
+                    "next_escalation_at": None,
+                }
+            
+            # Get daily rate
+            if daily_rate is None:
+                daily_rate = room.demurrage_rate_per_day or 0.0
+            
+            if daily_rate == 0:
+                return {
+                    "hours_elapsed": 0,
+                    "base_exposure": 0,
+                    "escalation_factor": 1.0,
+                    "total_exposure": 0,
+                    "breakdown": {},
+                    "next_escalation_at": None,
+                }
+            
+            # Calculate hours elapsed
+            hours_elapsed = await self.metrics_service.get_hours_since_creation(room_id)
+            
+            # Calculate hourly rate (daily_rate / 24)
+            hourly_rate = daily_rate / 24
+            
+            # Base exposure (without escalation)
+            base_exposure = hourly_rate * hours_elapsed
+            
+            # Calculate escalation factor
+            # +5% per 12 hours over 48 hours threshold
+            escalation_hours = max(0, hours_elapsed - 48)
+            escalation_periods = escalation_hours / 12
+            escalation_factor = 1.0 + (escalation_periods * 0.05)
+            escalation_factor = min(escalation_factor, 2.0)  # Cap at 2.0x
+            
+            # Total exposure with escalation
+            total_exposure = base_exposure * escalation_factor
+            
+            # Calculate breakdown by period
+            breakdown = {
+                "hours_0_12": hourly_rate * min(hours_elapsed, 12),
+                "hours_12_24": hourly_rate * max(0, min(hours_elapsed - 12, 12)),
+                "hours_24_48": hourly_rate * max(0, min(hours_elapsed - 24, 24)),
+                "hours_48_plus": hourly_rate * max(0, hours_elapsed - 48) * escalation_factor,
+            }
+            
+            # Calculate next escalation
+            if hours_elapsed < 48:
+                next_escalation_hours = 48 - hours_elapsed
+            else:
+                next_escalation_hours = 12 - (escalation_hours % 12)
+                if next_escalation_hours == 12:
+                    next_escalation_hours = 12
+            
+            next_escalation_at = self.now + timedelta(hours=next_escalation_hours)
+            
+            return {
+                "hours_elapsed": hours_elapsed,
+                "base_exposure": round(base_exposure, 2),
+                "escalation_factor": round(escalation_factor, 3),
+                "total_exposure": round(total_exposure, 2),
+                "breakdown": {k: round(v, 2) for k, v in breakdown.items()},
+                "next_escalation_at": next_escalation_at.isoformat(),
+            }
+        
+        except Exception as e:
+            logger.error(f"Error calculating hourly demurrage: {e}")
+            return {
+                "hours_elapsed": 0,
+                "base_exposure": 0,
+                "escalation_factor": 1.0,
+                "total_exposure": 0,
+                "breakdown": {},
+                "next_escalation_at": None,
+                "error": str(e),
+            }
+
+    # ============ DEMURRAGE ESCALATION PREDICTION ============
+
+    async def predict_demurrage_escalation(
+        self,
+        room_id: str,
+        projection_days: int = 7
+    ) -> Dict[str, Any]:
+        """
+        Project demurrage if approvals don't get resolved.
+        
+        Scenarios:
+        - "best_case": resolved in 1 day
+        - "mid_case": resolved in 3 days  
+        - "worst_case": unresolved for 7 days
+        
+        Returns:
+          {
+            "current_exposure": float,
+            "best_case": float,
+            "mid_case": float,
+            "worst_case": float,
+            "recommendation": str,
+            "urgent_actions": List[str]
+          }
+        """
+        try:
+            # Get room data
+            stmt = select(Room).where(Room.id == room_id)
+            result = await self.session.execute(stmt)
+            room = result.scalar_one_or_none()
+            
+            if not room:
+                return {
+                    "current_exposure": 0,
+                    "best_case": 0,
+                    "mid_case": 0,
+                    "worst_case": 0,
+                    "recommendation": "Room not found",
+                    "urgent_actions": [],
+                }
+            
+            daily_rate = room.demurrage_rate_per_day or 0.0
+            if daily_rate == 0:
+                return {
+                    "current_exposure": 0,
+                    "best_case": 0,
+                    "mid_case": 0,
+                    "worst_case": 0,
+                    "recommendation": "No demurrage rate configured",
+                    "urgent_actions": [],
+                }
+            
+            # Get current exposure
+            current_hourly_data = await self.calculate_demurrage_hourly(room_id, daily_rate)
+            current_exposure = current_hourly_data.get("total_exposure", 0)
+            hours_elapsed = current_hourly_data.get("hours_elapsed", 0)
+            
+            # Project scenarios
+            # Best case: 1 day more
+            best_case_hours = hours_elapsed + 24
+            best_case_escalation_hours = max(0, best_case_hours - 48)
+            best_case_periods = best_case_escalation_hours / 12
+            best_case_factor = 1.0 + (best_case_periods * 0.05)
+            best_case_factor = min(best_case_factor, 2.0)
+            hourly_rate = daily_rate / 24
+            best_case = (hourly_rate * best_case_hours * best_case_factor)
+            
+            # Mid case: 3 days more
+            mid_case_hours = hours_elapsed + 72
+            mid_case_escalation_hours = max(0, mid_case_hours - 48)
+            mid_case_periods = mid_case_escalation_hours / 12
+            mid_case_factor = 1.0 + (mid_case_periods * 0.05)
+            mid_case_factor = min(mid_case_factor, 2.0)
+            mid_case = (hourly_rate * mid_case_hours * mid_case_factor)
+            
+            # Worst case: 7 days more
+            worst_case_hours = hours_elapsed + (24 * projection_days)
+            worst_case_escalation_hours = max(0, worst_case_hours - 48)
+            worst_case_periods = worst_case_escalation_hours / 12
+            worst_case_factor = 1.0 + (worst_case_periods * 0.05)
+            worst_case_factor = min(worst_case_factor, 2.0)
+            worst_case = (hourly_rate * worst_case_hours * worst_case_factor)
+            
+            # Determine recommendation
+            if worst_case > 100000:
+                recommendation = "URGENT: Escalate to legal and finance. Demurrage exposure exceeds $100k."
+                urgency = "critical"
+            elif worst_case > 50000:
+                recommendation = "HIGH PRIORITY: Contact counterparties immediately for expedited resolution."
+                urgency = "high"
+            elif worst_case > 20000:
+                recommendation = "MEDIUM PRIORITY: Schedule urgent follow-up on pending approvals."
+                urgency = "medium"
+            else:
+                recommendation = "Monitor situation. Current trajectory manageable."
+                urgency = "low"
+            
+            # Urgent actions
+            urgent_actions = []
+            if urgency in ["critical", "high"]:
+                urgent_actions.append("Escalate to management immediately")
+                urgent_actions.append("Contact all pending approvers")
+                urgent_actions.append("Prepare alternative documentation paths")
+            
+            if urgency in ["critical"]:
+                urgent_actions.append("Notify legal and finance teams")
+                urgent_actions.append("Prepare contingency financial provisions")
+            
+            return {
+                "current_exposure": round(current_exposure, 2),
+                "best_case": round(best_case, 2),
+                "mid_case": round(mid_case, 2),
+                "worst_case": round(worst_case, 2),
+                "difference_best_mid": round(mid_case - best_case, 2),
+                "difference_mid_worst": round(worst_case - mid_case, 2),
+                "recommendation": recommendation,
+                "urgency": urgency,
+                "urgent_actions": urgent_actions,
+            }
+        
+        except Exception as e:
+            logger.error(f"Error predicting demurrage escalation: {e}")
+            return {
+                "current_exposure": 0,
+                "best_case": 0,
+                "mid_case": 0,
+                "worst_case": 0,
+                "recommendation": f"Error: {str(e)}",
+                "urgent_actions": [],
+                "error": str(e),
+            }

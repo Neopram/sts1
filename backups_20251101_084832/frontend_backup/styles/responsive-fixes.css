@@ -1,0 +1,154 @@
+/* Correcciones Responsive Específicas */
+@layer utilities {
+  /* Mobile optimizations */
+  @media (max-width: 640px) {
+    .mobile-stack {
+      @apply flex-col space-y-4 space-x-0;
+    }
+    
+    .mobile-full {
+      @apply w-full;
+    }
+    
+    .mobile-text-sm {
+      @apply text-sm;
+    }
+    
+    .mobile-p-4 {
+      @apply p-4;
+    }
+    
+    .mobile-hidden {
+      @apply hidden;
+    }
+  }
+  
+  /* Tablet optimizations */
+  @media (min-width: 641px) and (max-width: 1024px) {
+    .tablet-grid-2 {
+      @apply grid-cols-2;
+    }
+    
+    .tablet-text-base {
+      @apply text-base;
+    }
+  }
+  
+  /* Desktop optimizations */
+  @media (min-width: 1025px) {
+    .desktop-grid-4 {
+      @apply grid-cols-4;
+    }
+    
+    .desktop-text-lg {
+      @apply text-lg;
+    }
+  }
+  
+  /* Modal responsive fixes */
+  .modal-responsive {
+    @apply w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto;
+  }
+  
+  @media (max-width: 640px) {
+    .modal-responsive {
+      @apply max-w-[95vw] max-h-[95vh] mx-2;
+    }
+  }
+  
+  /* Button responsive fixes */
+  .btn-responsive {
+    @apply px-4 py-2;
+  }
+  
+  @media (max-width: 640px) {
+    .btn-responsive {
+      @apply px-3 py-1.5 text-sm;
+    }
+  }
+  
+  /* Card responsive fixes */
+  .card-responsive {
+    @apply p-6;
+  }
+  
+  @media (max-width: 640px) {
+    .card-responsive {
+      @apply p-4;
+    }
+  }
+  
+  /* Grid responsive fixes */
+  .grid-responsive-2 {
+    @apply grid grid-cols-1 gap-4;
+  }
+  
+  @media (min-width: 768px) {
+    .grid-responsive-2 {
+      @apply grid-cols-2 gap-6;
+    }
+  }
+  
+  .grid-responsive-3 {
+    @apply grid grid-cols-1 gap-4;
+  }
+  
+  @media (min-width: 768px) {
+    .grid-responsive-3 {
+      @apply grid-cols-2 gap-6;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .grid-responsive-3 {
+      @apply grid-cols-3 gap-8;
+    }
+  }
+  
+  .grid-responsive-4 {
+    @apply grid grid-cols-1 gap-4;
+  }
+  
+  @media (min-width: 768px) {
+    .grid-responsive-4 {
+      @apply grid-cols-2 gap-6;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .grid-responsive-4 {
+      @apply grid-cols-4 gap-8;
+    }
+  }
+  
+  /* Text responsive fixes */
+  .text-responsive-xl {
+    @apply text-xl;
+  }
+  
+  @media (max-width: 640px) {
+    .text-responsive-xl {
+      @apply text-lg;
+    }
+  }
+  
+  .text-responsive-2xl {
+    @apply text-2xl;
+  }
+  
+  @media (max-width: 640px) {
+    .text-responsive-2xl {
+      @apply text-xl;
+    }
+  }
+  
+  .text-responsive-3xl {
+    @apply text-3xl;
+  }
+  
+  @media (max-width: 640px) {
+    .text-responsive-3xl {
+      @apply text-2xl;
+    }
+  }
+}

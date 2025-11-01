@@ -13,13 +13,25 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_async_session
-from app.dependencies import get_current_user, require_room_access
-from app.models import Vessel, User
+from app.dependencies import get_current_user, require_room_access, log_activity
+from app.models import Vessel, User, Party, Room
 from app.permission_decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["vessels"])
+
+
+# Helper function to extract user info from current_user (dict or User object)
+def get_user_info(current_user):
+    """Extract email and role from current_user (dict or User object)"""
+    if isinstance(current_user, dict):
+        return (
+            current_user.get("email") or current_user.get("user_email"),
+            current_user.get("role") or current_user.get("user_role")
+        )
+    else:
+        return current_user.email, current_user.role
 
 
 # Request/Response schemas
@@ -79,7 +91,7 @@ async def get_room_vessels(
     Get all vessels for a room, filtered by user's vessel ownership
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -185,8 +197,7 @@ async def create_vessel(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user.email
-        user_role = current_user.role
+        user_email, user_role = get_user_info(current_user)
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -198,8 +209,15 @@ async def create_vessel(
                 detail="User not found in system",
             )
 
-        # LEVEL 2: ROOM ACCESS
-        await require_room_access(room_id, user_email, session)
+        # LEVEL 2: ROOM ACCESS (admins can bypass)
+        if user_role != "admin":
+            await require_room_access(room_id, user_email, session)
+        else:
+            # Admin bypass - verify room exists
+            room_result = await session.execute(select(Room).where(Room.id == room_id))
+            room = room_result.scalar_one_or_none()
+            if not room:
+                raise HTTPException(status_code=404, detail="Room not found")
 
         # LEVEL 3: ROLE-BASED PERMISSION
         if not PermissionMatrix.has_permission(user_role, "vessels", "create"):
@@ -271,7 +289,6 @@ async def create_vessel(
 
         # LEVEL 5: AUDIT LOGGING
         await log_activity(
-            session=session,
             room_id=room_id,
             actor=user_email,
             action="vessel_created",
@@ -322,7 +339,7 @@ async def get_vessel(
     Get specific vessel information
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -404,8 +421,7 @@ async def update_vessel(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user.email
-        user_role = current_user.role
+        user_email, user_role = get_user_info(current_user)
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -417,8 +433,15 @@ async def update_vessel(
                 detail="User not found in system",
             )
 
-        # LEVEL 2: ROOM ACCESS
-        await require_room_access(room_id, user_email, session)
+        # LEVEL 2: ROOM ACCESS (admins can bypass)
+        if user_role != "admin":
+            await require_room_access(room_id, user_email, session)
+        else:
+            # Admin bypass - verify room exists
+            room_result = await session.execute(select(Room).where(Room.id == room_id))
+            room = room_result.scalar_one_or_none()
+            if not room:
+                raise HTTPException(status_code=404, detail="Room not found")
 
         # LEVEL 3: ROLE-BASED PERMISSION
         if not PermissionMatrix.has_permission(user_role, "vessels", "update"):
@@ -538,7 +561,6 @@ async def update_vessel(
 
             # LEVEL 5: AUDIT LOGGING
             await log_activity(
-                session=session,
                 room_id=room_id,
                 actor=user_email,
                 action="vessel_updated",
@@ -598,8 +620,7 @@ async def delete_vessel(
     try:
         from app.permission_matrix import PermissionMatrix
         
-        user_email = current_user.email
-        user_role = current_user.role
+        user_email, user_role = get_user_info(current_user)
 
         # LEVEL 1: AUTHENTICATION
         user_check = await session.execute(
@@ -611,8 +632,15 @@ async def delete_vessel(
                 detail="User not found in system",
             )
 
-        # LEVEL 2: ROOM ACCESS
-        await require_room_access(room_id, user_email, session)
+        # LEVEL 2: ROOM ACCESS (admins can bypass)
+        if user_role != "admin":
+            await require_room_access(room_id, user_email, session)
+        else:
+            # Admin bypass - verify room exists
+            room_result = await session.execute(select(Room).where(Room.id == room_id))
+            room = room_result.scalar_one_or_none()
+            if not room:
+                raise HTTPException(status_code=404, detail="Room not found")
 
         # LEVEL 3: ROLE-BASED PERMISSION - Only admin can delete
         if not PermissionMatrix.has_permission(user_role, "vessels", "delete"):
@@ -643,7 +671,6 @@ async def delete_vessel(
 
         # LEVEL 5: AUDIT LOGGING
         await log_activity(
-            session=session,
             room_id=room_id,
             actor=user_email,
             action="vessel_deleted",

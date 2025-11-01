@@ -1,0 +1,50 @@
+{
+  "common": {
+    "welcome": "Bienvenido",
+    "goodbye": "Adiós",
+    "yes": "Sí",
+    "no": "No",
+    "ok": "OK",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "warning": "Advertencia",
+    "info": "Información"
+  },
+  "nav": {
+    "home": "Inicio",
+    "dashboard": "Panel de Control",
+    "analytics": "Analítica",
+    "settings": "Configuración",
+    "profile": "Perfil",
+    "logout": "Cerrar Sesión"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "register": "Registrarse",
+    "forgotPassword": "¿Olvidó su contraseña?",
+    "resetPassword": "Restablecer Contraseña",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar Contraseña",
+    "loginSuccess": "Inicio de sesión exitoso",
+    "registerSuccess": "Registro exitoso",
+    "invalidCredentials": "Credenciales inválidas"
+  },
+  "sts": {
+    "clearance": "Autorización",
+    "vessel": "Buque",
+    "transfer": "Transferencia",
+    "operations": "Operaciones",
+    "documents": "Documentos",
+    "approval": "Aprobación",
+    "broker": "Corredor",
+    "commission": "Comisión",
+    "demurrage": "Demurrage"
+  }
+}

@@ -34,6 +34,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["documents"])
 
 
+# Helper function to extract user info from current_user (dict or User object)
+def get_user_info(current_user, include_name=False):
+    """Extract email, role, and optionally name from current_user (dict or User object)"""
+    if isinstance(current_user, dict):
+        email = current_user.get("email") or current_user.get("user_email")
+        role = current_user.get("role") or current_user.get("user_role")
+        name = current_user.get("name") or current_user.get("user_name", "")
+        if include_name:
+            return email, role, name
+        return email, role
+    else:
+        if include_name:
+            return current_user.email, current_user.role, current_user.name
+        return current_user.email, current_user.role
+
+
 # Basic documents endpoint (requires authentication)
 @router.get("/documents")
 async def get_documents(
@@ -46,7 +62,8 @@ async def get_documents(
     """
     # This endpoint requires authentication via get_current_user dependency
     # If we reach here, the user is authenticated
-    return {"message": "Documents endpoint - authentication required", "user": current_user.email}
+    user_email, _ = get_user_info(current_user)
+    return {"message": "Documents endpoint - authentication required", "user": user_email}
 
 
 # Request/Response schemas
@@ -87,7 +104,7 @@ async def get_room_documents(
     Get all documents for a room, filtered by user's vessel access
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -116,13 +133,14 @@ async def get_room_documents(
             # This includes all parties in the room, not just brokers
             where_conditions.append(Document.vessel_id.is_(None))
 
-        # Get documents with their document type eagerly loaded
+        # Get documents with their document type eagerly loaded - optimized query
         query = (
             select(Document)
             .join(DocumentType)
             .options(joinedload(Document.document_type))
             .options(joinedload(Document.versions))
             .where(*where_conditions)
+            .order_by(Document.created_at.desc())  # Order for consistency
         )
         
         docs_result = await session.execute(query)
@@ -171,7 +189,7 @@ async def get_document(
     Validates user has access to the specific document
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -229,6 +247,129 @@ async def get_document(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.post("/rooms/{room_id}/documents/upload")
+async def create_and_upload_document(
+    room_id: str,
+    file: UploadFile = File(...),
+    type_id: Optional[str] = Form(None),
+    document_type: Optional[str] = Form(None),  # Support both type_id and document_type code
+    notes: Optional[str] = Form(None),
+    expires_on: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Upload a new document to a room (creates document if it doesn't exist)
+    """
+    try:
+        user_email, _ = get_user_info(current_user)
+        
+        # Verify user has access to room
+        await require_room_access(room_id, user_email, session)
+
+        # Validate file
+        if not file.filename or not file.content_type:
+            raise HTTPException(status_code=400, detail="Invalid file")
+
+        # Get document type - support both type_id and document_type code
+        doc_type = None
+        if type_id:
+            doc_type_result = await session.execute(
+                select(DocumentType).where(DocumentType.id == type_id)
+            )
+            doc_type = doc_type_result.scalar_one_or_none()
+        elif document_type:
+            doc_type_result = await session.execute(
+                select(DocumentType).where(DocumentType.code == document_type)
+            )
+            doc_type = doc_type_result.scalar_one_or_none()
+        
+        if not doc_type:
+            raise HTTPException(status_code=400, detail="Invalid document type - provide type_id or document_type")
+
+        # Parse expiry date if provided
+        expiry_date = None
+        if expires_on:
+            try:
+                expiry_date = datetime.fromisoformat(expires_on.replace("Z", "+00:00"))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid expiry date format")
+
+        # Save file
+        file_path = await file_service.save_file(file, room_id, "documents")
+        file_url = f"/api/v1/files/{file_path}"
+
+        # Check if document already exists for this type in this room
+        existing_doc_result = await session.execute(
+            select(Document).where(
+                Document.room_id == room_id,
+                Document.type_id == doc_type.id
+            )
+        )
+        existing_doc = existing_doc_result.scalar_one_or_none()
+
+        if existing_doc:
+            # Update existing document
+            document = existing_doc
+            document.status = "under_review"
+            document.uploaded_by = user_email
+            document.uploaded_at = datetime.utcnow()
+            document.expires_on = expiry_date
+            if notes:
+                document.notes = notes
+        else:
+            # Create new document
+            document = Document(
+                room_id=room_id,
+                type_id=doc_type.id,
+                status="under_review",
+                expires_on=expiry_date,
+                uploaded_by=user_email,
+                uploaded_at=datetime.utcnow(),
+                notes=notes,
+            )
+            session.add(document)
+
+        await session.flush()  # Get the document ID
+
+        # Create document version
+        import hashlib
+        file_content = await file.read()
+        await file.seek(0)
+        sha256_hash = hashlib.sha256(file_content).hexdigest()
+
+        doc_version = DocumentVersion(
+            document_id=document.id,
+            file_url=file_url,
+            sha256=sha256_hash,
+            size_bytes=len(file_content),
+            mime=file.content_type or "application/octet-stream",
+        )
+        session.add(doc_version)
+
+        await session.commit()
+
+        # Log activity
+        await log_activity(
+            room_id,
+            user_email,
+            "document_uploaded",
+            {"document_id": str(document.id), "filename": file.filename},
+        )
+
+        return {
+            "message": "Document uploaded successfully",
+            "document_id": str(document.id),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading document: {e}")
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.post("/rooms/{room_id}/documents/{document_id}/upload")
 async def upload_document(
     room_id: str,
@@ -243,8 +384,7 @@ async def upload_document(
     Upload a document file
     """
     try:
-        user_email = current_user.email
-        user_name = current_user.name
+        user_email, user_role, user_name = get_user_info(current_user, include_name=True)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -328,7 +468,7 @@ async def update_document(
     Update document information
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -414,7 +554,7 @@ async def approve_document(
     Permission validation is handled by @require_permission decorator
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -464,7 +604,7 @@ async def reject_document(
     Permission validation is handled by @require_permission decorator
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -514,7 +654,7 @@ async def download_document(
     Validates user has access to the specific document
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -610,7 +750,7 @@ async def get_documents_status_summary(
     Filters documents by user's accessible vessels
     """
     try:
-        user_email = current_user.email
+        user_email, _ = get_user_info(current_user)
 
         # Verify user has access to room
         await require_room_access(room_id, user_email, session)
@@ -687,6 +827,249 @@ async def get_documents_status_summary(
         raise
     except Exception as e:
         logger.error(f"Error getting documents status summary: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ============ DOCUMENT VERSIONS ENDPOINTS ============
+
+class DocumentVersionResponse(BaseModel):
+    id: str
+    document_id: str
+    file_url: str
+    sha256: str
+    created_at: datetime
+    size_bytes: int
+    mime: str
+
+
+@router.get("/documents/{document_id}/versions", response_model=List[DocumentVersionResponse])
+async def get_document_versions(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Get all versions of a document.
+    """
+    try:
+        user_email, _ = get_user_info(current_user)
+
+        # Get document and verify access
+        doc_result = await session.execute(
+            select(Document).where(Document.id == document_id)
+        )
+        document = doc_result.scalar_one_or_none()
+
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        # Verify user has access to room
+        await require_room_access(str(document.room_id), user_email, session)
+
+        # Get all versions
+        versions_result = await session.execute(
+            select(DocumentVersion)
+            .where(DocumentVersion.document_id == document_id)
+            .order_by(desc(DocumentVersion.created_at))
+        )
+        versions = versions_result.scalars().all()
+
+        return [
+            DocumentVersionResponse(
+                id=str(v.id),
+                document_id=str(v.document_id),
+                file_url=v.file_url,
+                sha256=v.sha256,
+                created_at=v.created_at,
+                size_bytes=v.size_bytes,
+                mime=v.mime,
+            )
+            for v in versions
+        ]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting document versions {document_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/documents/{document_id}/versions")
+async def create_document_version(
+    document_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Create a new version of an existing document.
+    """
+    try:
+        user_email, _ = get_user_info(current_user)
+
+        # Get document and verify access
+        doc_result = await session.execute(
+            select(Document).where(Document.id == document_id)
+        )
+        document = doc_result.scalar_one_or_none()
+
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        # Verify user has access to room
+        await require_room_access(str(document.room_id), user_email, session)
+
+        # Upload file and create version
+        file_path = await file_service.save_file(file, str(document.room_id))
+        
+        import hashlib
+        file_content = await file.read()
+        await file.seek(0)
+        sha256_hash = hashlib.sha256(file_content).hexdigest()
+
+        # Create new version
+        new_version = DocumentVersion(
+            document_id=document_id,
+            file_url=file_path,
+            sha256=sha256_hash,
+            size_bytes=len(file_content),
+            mime=file.content_type or "application/octet-stream",
+        )
+
+        session.add(new_version)
+        
+        # Update document metadata
+        document.uploaded_by = user_email
+        document.uploaded_at = datetime.utcnow()
+        
+        await session.commit()
+        await session.refresh(new_version)
+
+        logger.info(f"Created new version for document {document_id} by {user_email}")
+
+        return DocumentVersionResponse(
+            id=str(new_version.id),
+            document_id=str(new_version.document_id),
+            file_url=new_version.file_url,
+            sha256=new_version.sha256,
+            created_at=new_version.created_at,
+            size_bytes=new_version.size_bytes,
+            mime=new_version.mime,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating document version {document_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ============ DOCUMENT QUERY ENDPOINTS ============
+
+@router.get("/documents/expiring-soon")
+async def get_expiring_documents(
+    days: int = 7,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Get documents that are expiring within the specified number of days.
+    """
+    try:
+        user_email, _ = get_user_info(current_user)
+        from datetime import timedelta
+
+        # Calculate expiry threshold
+        threshold_date = datetime.utcnow() + timedelta(days=days)
+
+        # Get user's rooms
+        user_rooms_result = await session.execute(
+            select(Room.id)
+            .join(Party, Room.id == Party.room_id)
+            .where(Party.email == user_email)
+        )
+        user_room_ids = [str(r[0]) for r in user_rooms_result.all()]
+
+        if not user_room_ids:
+            return []
+
+        # Get expiring documents
+        expiring_docs_result = await session.execute(
+            select(Document, DocumentType)
+            .join(DocumentType)
+            .where(
+                Document.room_id.in_(user_room_ids),
+                Document.expires_on.isnot(None),
+                Document.expires_on <= threshold_date,
+                Document.status != "expired",
+            )
+            .order_by(Document.expires_on.asc())
+        )
+        expiring_docs = expiring_docs_result.all()
+
+        return [
+            {
+                "id": str(doc.id),
+                "room_id": str(doc.room_id),
+                "type_code": doc_type.code,
+                "type_name": doc_type.name,
+                "status": doc.status,
+                "expires_on": doc.expires_on.isoformat() if doc.expires_on else None,
+                "days_until_expiry": (doc.expires_on - datetime.utcnow()).days if doc.expires_on else None,
+            }
+            for doc, doc_type in expiring_docs
+        ]
+
+    except Exception as e:
+        logger.error(f"Error getting expiring documents: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/documents/critical-path/{room_id}")
+async def get_critical_path_documents(
+    room_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Get all critical path documents for a room.
+    """
+    try:
+        user_email, _ = get_user_info(current_user)
+
+        # Verify user has access to room
+        await require_room_access(room_id, user_email, session)
+
+        # Get critical path documents
+        critical_docs_result = await session.execute(
+            select(Document, DocumentType)
+            .join(DocumentType)
+            .where(
+                Document.room_id == room_id,
+                Document.critical_path == True,  # noqa: E712
+            )
+            .order_by(DocumentType.criticality.desc())
+        )
+        critical_docs = critical_docs_result.all()
+
+        return [
+            {
+                "id": str(doc.id),
+                "room_id": str(doc.room_id),
+                "type_code": doc_type.code,
+                "type_name": doc_type.name,
+                "status": doc.status,
+                "priority": doc.priority,
+                "expires_on": doc.expires_on.isoformat() if doc.expires_on else None,
+                "criticality": doc_type.criticality,
+            }
+            for doc, doc_type in critical_docs
+        ]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting critical path documents for room {room_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

@@ -4,10 +4,12 @@ Handles user management operations
 """
 
 import logging
+import uuid
 from typing import List, Optional
 
+from passlib.context import CryptContext
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +25,14 @@ permission_manager = PermissionManager()
 router = APIRouter(prefix="/api/v1", tags=["users"])
 
 
-# Response schemas
+# Request/Response schemas
+class CreateUserRequest(BaseModel):
+    email: EmailStr
+    name: str
+    password: str
+    role: str = "user"
+
+
 class UserResponse(BaseModel):
     id: str
     email: str
@@ -35,6 +44,95 @@ class UserResponse(BaseModel):
 class UpdateUserRequest(BaseModel):
     name: Optional[str] = None
     role: Optional[str] = None
+
+
+@router.post("/users", response_model=UserResponse, status_code=201)
+@require_role("admin")
+async def create_user(
+    user_data: CreateUserRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Create a new user (admin only)
+    
+    Permission validation is handled by @require_role decorator
+    """
+    try:
+        from app.permission_matrix import PermissionMatrix
+        
+        # Handle both dict and User object
+        if isinstance(current_user, dict):
+            user_role = current_user.get("role") or current_user.get("user_role")
+            user_email = current_user.get("email") or current_user.get("user_email")
+        else:
+            user_role = current_user.role
+            user_email = current_user.email
+        
+        # Additional permission check (redundant but safe)
+        if not PermissionMatrix.has_permission(user_role, "users", "create"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can create users",
+            )
+        
+        # Validate role
+        valid_roles = ["owner", "seller", "buyer", "charterer", "broker", "admin", "user", "viewer"]
+        if user_data.role not in valid_roles:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}",
+            )
+        
+        # Check if user already exists
+        result = await session.execute(
+            select(User).where(User.email == user_data.email).limit(1)
+        )
+        existing_user = result.scalar_one_or_none()
+        
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User with this email already exists",
+            )
+        
+        # Hash password
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        hashed_password = pwd_context.hash(user_data.password)
+        
+        # Create user
+        user = User(
+            id=str(uuid.uuid4()),
+            email=user_data.email.lower(),  # Normalize email
+            name=user_data.name,
+            role=user_data.role,
+            password_hash=hashed_password,  # Already a string
+            is_active=True
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        
+        logger.info(f"Admin {user_email} created user {user_data.email} with role {user_data.role}")
+        
+        # Get created_at from database if not in object
+        if not hasattr(user, 'created_at') or not user.created_at:
+            await session.refresh(user, ['created_at'])
+        
+        return UserResponse(
+            id=str(user.id),
+            email=user.email,
+            name=user.name,
+            role=user.role,
+            created_at=user.created_at.isoformat() if user.created_at else "",
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating user: {e}")
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/users", response_model=List[UserResponse])
@@ -49,7 +147,11 @@ async def get_users(
     Get all users (admin and owner only)
     """
     try:
-        user_role = current_user.role
+        # Handle both dict and User object
+        if isinstance(current_user, dict):
+            user_role = current_user.get("role") or current_user.get("user_role")
+        else:
+            user_role = current_user.role
 
         # Check permissions
         if user_role not in ["admin", "owner"]:
@@ -97,8 +199,13 @@ async def get_user(
     Get user by ID (admin, owner, or self only)
     """
     try:
-        user_role = current_user.role
-        user_email = current_user.email
+        # Handle both dict and User object
+        if isinstance(current_user, dict):
+            user_role = current_user.get("role") or current_user.get("user_role")
+            user_email = current_user.get("email") or current_user.get("user_email")
+        else:
+            user_role = current_user.role
+            user_email = current_user.email
 
         # Get target user
         result = await session.execute(select(User).where(User.id == user_id))
@@ -145,8 +252,13 @@ async def update_user(
     - Role changes: Requires admin/owner permission
     """
     try:
-        user_role = current_user.role
-        user_email = current_user.email
+        # Handle both dict and User object
+        if isinstance(current_user, dict):
+            user_role = current_user.get("role") or current_user.get("user_role")
+            user_email = current_user.get("email") or current_user.get("user_email")
+        else:
+            user_role = current_user.role
+            user_email = current_user.email
 
         # Get target user
         result = await session.execute(select(User).where(User.id == user_id))
@@ -228,8 +340,13 @@ async def delete_user(
     Permission validation is handled by @require_role decorator
     """
     try:
-        user_role = current_user.role
-        user_email = current_user.email
+        # Handle both dict and User object
+        if isinstance(current_user, dict):
+            user_role = current_user.get("role") or current_user.get("user_role")
+            user_email = current_user.get("email") or current_user.get("user_email")
+        else:
+            user_role = current_user.role
+            user_email = current_user.email
 
         # Get target user
         result = await session.execute(select(User).where(User.id == user_id))

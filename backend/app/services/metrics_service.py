@@ -347,3 +347,54 @@ class MetricsService:
             self.session.add(metric)
 
         await self.session.commit()
+
+
+# ============ PERFORMANCE METRICS SERVICE (STUB) ============
+# Used by snapshots.py for monitoring metrics
+# TODO: Implement full performance monitoring system
+
+class PerformanceMetricsService:
+    """Stub service for performance monitoring and telemetry"""
+
+    def __init__(self):
+        self._api_requests = []
+        self._pdf_generations = []
+
+    def get_summary(self, hours: int = 24) -> Dict:
+        """Get performance summary for the last N hours"""
+        return {
+            "total_requests": 0,
+            "total_pdfs": 0,
+            "avg_request_time": 0.0,
+            "avg_pdf_time": 0.0,
+        }
+
+    def get_pdf_generation_stats(self, hours: int = 24) -> Dict:
+        """Get PDF generation performance statistics"""
+        return {
+            "total_pdfs": 0,
+            "avg_generation_time": 0.0,
+            "min_generation_time": 0.0,
+            "max_generation_time": 0.0,
+        }
+
+    def get_api_performance(self, hours: int = 24) -> Dict:
+        """Get API performance statistics"""
+        return {
+            "total_requests": 0,
+            "avg_response_time": 0.0,
+            "min_response_time": 0.0,
+            "max_response_time": 0.0,
+        }
+
+    def record_api_request(self, endpoint: str, method: str, duration_ms: float, status_code: int) -> None:
+        """Record an API request for telemetry"""
+        pass  # TODO: Store in database or cache
+
+    def record_pdf_generation(self, room_id: str, duration_ms: float, file_size: int) -> None:
+        """Record a PDF generation event for telemetry"""
+        pass  # TODO: Store in database or cache
+
+
+# Module-level instance for use by other modules
+metrics_service = PerformanceMetricsService()
