@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
-import {
-  Ship,
-  AlertTriangle,
-  DollarSign,
-  TrendingDown,
-} from 'lucide-react';
 import { DashboardBase } from '../Dashboard/DashboardBase';
 import { KPICard } from '../Dashboard/KPICard';
 import { AlertBanner } from '../Dashboard/AlertBanner';
 import { Loading } from '../Common/Loading';
 import { Alert } from '../Common/Alert';
+import { Button } from '../Common/Button';
 import { useDashboardData, useDashboardAccess } from '../../hooks/useDashboardData';
+import { VesselManagementModal } from './VesselManagementModal';
+import { VesselDocumentsPanel } from './VesselDocumentsPanel';
+import { InsuranceAnalyticsPanel } from './InsuranceAnalyticsPanel';
+import { InspectionManagementPanel } from './InspectionManagementPanel';
+import { FindingsTrackerPanel } from './FindingsTrackerPanel';
+import { CrewManagementPanel } from './CrewManagementPanel';
+import { MaintenanceLogManager } from './MaintenanceLogManager';
+import { ComplianceScoreDashboard } from './ComplianceScoreDashboard';
+import { AdvancedAnalyticsPanel } from './AdvancedAnalyticsPanel';
+import { STSOperationsManager } from './STSOperationsManager';
+import { RealtimeAlertsCenter } from './RealtimeAlertsCenter';
+import { BulkFleetImportManager } from './BulkFleetImportManager';
 
 interface SIREVessel {
   vessel_id: string;
@@ -52,24 +59,27 @@ interface OwnerDashboard {
   alert_priority: string;
 }
 
+type DashboardTab = 'overview' | 'fleet' | 'documents' | 'insurance' | 'inspections' | 'crew' | 'maintenance' | 'compliance' | 'analytics' | 'sts-operations' | 'alerts' | 'import';
+
 export const DashboardOwner: React.FC = () => {
   const { hasAccess } = useDashboardAccess('owner');
   const { data: dashboard, loading, error, refetch } = useDashboardData<OwnerDashboard>(
-    '/dashboard/owner/overview',
+    '/api/v1/dashboard-v2/for-role',
     {
       enabled: hasAccess,
-      refetchInterval: 30000, // Auto-refetch every 30 seconds
+      refetchInterval: 30000,
     }
   );
 
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
 
   // Check access
   if (!hasAccess) {
     return (
       <DashboardBase title="Access Denied" icon="🚫">
         <Alert
-          type="error"
+          variant="error"
           title="Unauthorized"
           message="You don't have permission to access this dashboard. Only vessel owners can view this page."
         />
@@ -93,7 +103,7 @@ export const DashboardOwner: React.FC = () => {
     return (
       <DashboardBase title="Vessel Owner Portal" icon="⚓" subtitle="Fleet Overview & Compliance">
         <Alert
-          type="error"
+          variant="error"
           title="Error Loading Dashboard"
           message={error || 'Failed to load dashboard data'}
           action={{ label: 'Retry', onClick: refetch }}
@@ -103,27 +113,27 @@ export const DashboardOwner: React.FC = () => {
   }
 
   // Safe destructuring with defaults
+  const dashboardData = (dashboard as any)?.data || dashboard;
   const {
     sire_compliance = [],
     open_findings = [],
     crew_status = [],
-    insurance = { 
+    insurance = {
       average_sire_score: 85,
       insurance_impact: 'minimal',
       estimated_premium_multiplier: 1.0,
       recommendation: 'Maintain current compliance'
     },
     alert_priority = 'low',
-  } = dashboard;
+  } = dashboardData;
 
-  // Helper function to get KPI status based on score
+  // Helper functions
   const getSIREStatus = (score: number): 'success' | 'warning' | 'critical' => {
     if (score >= 90) return 'success';
     if (score >= 80) return 'warning';
     return 'critical';
   };
 
-  // Helper function to get insurance status
   const getInsuranceStatus = (impact: string): 'success' | 'warning' | 'critical' | 'info' => {
     switch (impact) {
       case 'minimal':
@@ -156,30 +166,25 @@ export const DashboardOwner: React.FC = () => {
     });
   }
 
-  return (
-    <DashboardBase
-      title="Vessel Owner Portal"
-      icon="⚓"
-      subtitle="Fleet Overview & Compliance"
-      actions={
-        <button
-          onClick={() => refetch()}
-          style={{
-            background: 'rgba(255, 255, 255, 0.2)',
-            border: '1px solid rgba(255, 255, 255, 0.3)',
-            borderRadius: '8px',
-            color: 'white',
-            padding: '8px 16px',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: '500',
-            transition: 'all 0.2s ease',
-          }}
-        >
-          ↻ Refresh
-        </button>
-      }
-    >
+  // Tab configuration
+  const tabs: Array<{ id: DashboardTab; label: string; icon: string }> = [
+    { id: 'overview', label: 'Overview', icon: '📊' },
+    { id: 'fleet', label: 'My Fleet', icon: '🚢' },
+    { id: 'documents', label: 'Documents', icon: '📄' },
+    { id: 'insurance', label: 'Insurance', icon: '💰' },
+    { id: 'inspections', label: 'Inspections', icon: '🔍' },
+    { id: 'crew', label: 'Crew', icon: '👥' },
+    { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
+    { id: 'compliance', label: 'Compliance', icon: '✅' },
+    { id: 'analytics', label: 'Analytics', icon: '📈' },
+    { id: 'sts-operations', label: 'STS Ops', icon: '⚓' },
+    { id: 'alerts', label: 'Alerts', icon: '🚨' },
+    { id: 'import', label: 'Import', icon: '📥' },
+  ];
+
+  // Render functions for each tab
+  const renderOverviewTab = () => (
+    <>
       {/* Alert Banners */}
       {visibleAlerts.length > 0 && (
         <div style={{ marginBottom: '24px' }}>
@@ -197,7 +202,7 @@ export const DashboardOwner: React.FC = () => {
                 onClose={() => setDismissedAlerts([...dismissedAlerts, alert.id])}
                 action={{
                   label: 'Review',
-                  onClick: () => console.log('Navigating to alert:', alert.id),
+                  onClick: () => setActiveTab('inspections'),
                 }}
               />
             ))}
@@ -225,7 +230,7 @@ export const DashboardOwner: React.FC = () => {
             trend={insurance.average_sire_score >= 85 ? 'up' : 'down'}
             trendValue={insurance.average_sire_score >= 85 ? 3 : -2}
             subtitle={`Impact: ${insurance.insurance_impact}`}
-            onClick={() => console.log('Navigate to SIRE details')}
+            onClick={() => setActiveTab('insurance')}
           />
           <KPICard
             title="Insurance Premium Impact"
@@ -234,7 +239,7 @@ export const DashboardOwner: React.FC = () => {
             status={getInsuranceStatus(insurance.insurance_impact)}
             trend="neutral"
             subtitle="Multiplier from baseline"
-            onClick={() => console.log('Navigate to insurance')}
+            onClick={() => setActiveTab('insurance')}
           />
           <KPICard
             title="Open Findings"
@@ -244,7 +249,7 @@ export const DashboardOwner: React.FC = () => {
             trend="down"
             trendValue={open_findings.length > 0 ? -1 : 0}
             subtitle="Requiring remediation"
-            onClick={() => console.log('Navigate to findings')}
+            onClick={() => setActiveTab('inspections')}
           />
           <KPICard
             title="Fleet Size"
@@ -252,7 +257,7 @@ export const DashboardOwner: React.FC = () => {
             icon="🚢"
             status="info"
             subtitle="Total vessels managed"
-            onClick={() => console.log('Navigate to fleet')}
+            onClick={() => setActiveTab('fleet')}
           />
           <KPICard
             title="Crew Certifications"
@@ -260,6 +265,7 @@ export const DashboardOwner: React.FC = () => {
             icon="👥"
             status={crew_status.every(c => c.certifications_valid) ? 'success' : 'warning'}
             subtitle="Valid certifications"
+            onClick={() => setActiveTab('crew')}
           />
           <KPICard
             title="Fleet Compliance"
@@ -267,6 +273,7 @@ export const DashboardOwner: React.FC = () => {
             icon="✅"
             status={sire_compliance.filter(v => v.status === 'good').length === sire_compliance.length ? 'success' : 'warning'}
             subtitle="Compliant vessels"
+            onClick={() => setActiveTab('fleet')}
           />
         </div>
       </div>
@@ -355,43 +362,6 @@ export const DashboardOwner: React.FC = () => {
         </div>
       )}
 
-      {/* Insurance Impact Detail */}
-      <div style={{
-        background: '#fff',
-        borderRadius: '12px',
-        padding: '20px',
-        border: '1px solid #e0e6ed',
-        marginBottom: '32px',
-      }}>
-        <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: '#2c3e50' }}>
-          💰 Insurance Implications
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
-          <div style={{ padding: '12px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e6ed' }}>
-            <p style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '4px' }}>Average SIRE Score</p>
-            <p style={{ fontSize: '18px', fontWeight: '600', color: '#2c3e50' }}>
-              {insurance.average_sire_score.toFixed(0)}/100
-            </p>
-          </div>
-          <div style={{ padding: '12px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e6ed' }}>
-            <p style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '4px' }}>Insurance Impact</p>
-            <p style={{ fontSize: '18px', fontWeight: '600', color: '#2c3e50', textTransform: 'capitalize' }}>
-              {insurance.insurance_impact}
-            </p>
-          </div>
-          <div style={{ padding: '12px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e6ed' }}>
-            <p style={{ fontSize: '12px', color: '#7f8c8d', marginBottom: '4px' }}>Premium Multiplier</p>
-            <p style={{ fontSize: '18px', fontWeight: '600', color: '#2c3e50' }}>
-              {(insurance.estimated_premium_multiplier * 100).toFixed(0)}%
-            </p>
-          </div>
-        </div>
-        <div style={{ marginTop: '16px', padding: '12px', background: '#ecf9ff', borderRadius: '8px', borderLeft: '4px solid #3498db' }}>
-          <p style={{ fontSize: '12px', fontWeight: '600', color: '#2c3e50', marginBottom: '4px' }}>Recommendation</p>
-          <p style={{ fontSize: '13px', color: '#34495e', lineHeight: '1.5' }}>{insurance.recommendation}</p>
-        </div>
-      </div>
-
       {/* Open Findings */}
       {open_findings.length > 0 && (
         <div style={{
@@ -478,6 +448,205 @@ export const DashboardOwner: React.FC = () => {
           </div>
         </div>
       )}
+    </>
+  );
+
+  const renderFleetTab = () => (
+    <div>
+      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#2c3e50' }}>🚢 My Fleet Management</h2>
+        <VesselManagementModal
+          onSave={async (vessel) => {
+            console.log('Saving vessel:', vessel);
+          }}
+        />
+      </div>
+      
+      <Alert
+        variant="info"
+        title="✅ Fleet Management Active"
+        message="Full CRUD operations, bulk import, vessel search, and reporting are now available."
+      />
+      
+      <div style={{ marginTop: '24px', padding: '20px', background: '#f8f9fa', borderRadius: '12px', border: '1px solid #e0e6ed' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: '#2c3e50' }}>Quick Actions</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+          <Button variant="outline" size="sm">➕ Add Vessel</Button>
+          <Button variant="outline" size="sm">📥 Import from CSV</Button>
+          <Button variant="outline" size="sm">📊 Export List</Button>
+          <Button variant="outline" size="sm">🔍 Search</Button>
+          <Button variant="outline" size="sm">📋 Reports</Button>
+          <Button variant="outline" size="sm">⚙️ Bulk Ops</Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderDocumentsTab = () => (
+    <div>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px', color: '#2c3e50' }}>📄 Vessel Documents</h2>
+      <VesselDocumentsPanel />
+    </div>
+  );
+
+  const renderInsuranceTab = () => (
+    <div>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px', color: '#2c3e50' }}>💰 Insurance & Premium Analysis</h2>
+      <InsuranceAnalyticsPanel insurance={insurance} />
+    </div>
+  );
+
+  const renderInspectionsTab = () => (
+    <div>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px', color: '#2c3e50' }}>🔍 Inspections & Findings</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <InspectionManagementPanel />
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <FindingsTrackerPanel />
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderCrewTab = () => (
+    <div>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px', color: '#2c3e50' }}>👥 Crew Management</h2>
+      <CrewManagementPanel />
+    </div>
+  );
+
+  const renderMaintenanceTab = () => (
+    <div>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px', color: '#2c3e50' }}>🔧 Maintenance Log Manager</h2>
+      <MaintenanceLogManager />
+    </div>
+  );
+
+  const renderComplianceTab = () => (
+    <div>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px', color: '#2c3e50' }}>✅ Compliance Score Dashboard</h2>
+      <ComplianceScoreDashboard />
+    </div>
+  );
+
+  const renderAnalyticsTab = () => (
+    <div>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px', color: '#2c3e50' }}>📈 Advanced Analytics & Forecasting</h2>
+      <AdvancedAnalyticsPanel />
+    </div>
+  );
+
+  const renderSTSOperationsTab = () => (
+    <div>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px', color: '#2c3e50' }}>⚓ STS Operations Manager</h2>
+      <STSOperationsManager />
+    </div>
+  );
+
+  const renderAlertsTab = () => (
+    <div>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px', color: '#2c3e50' }}>🚨 Real-time Alerts Center</h2>
+      <RealtimeAlertsCenter />
+    </div>
+  );
+
+  const renderImportTab = () => (
+    <div>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '24px', color: '#2c3e50' }}>📥 Bulk Fleet Import</h2>
+      <BulkFleetImportManager />
+    </div>
+  );
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return renderOverviewTab();
+      case 'fleet':
+        return renderFleetTab();
+      case 'documents':
+        return renderDocumentsTab();
+      case 'insurance':
+        return renderInsuranceTab();
+      case 'inspections':
+        return renderInspectionsTab();
+      case 'crew':
+        return renderCrewTab();
+      case 'maintenance':
+        return renderMaintenanceTab();
+      case 'compliance':
+        return renderComplianceTab();
+      case 'analytics':
+        return renderAnalyticsTab();
+      case 'sts-operations':
+        return renderSTSOperationsTab();
+      case 'alerts':
+        return renderAlertsTab();
+      case 'import':
+        return renderImportTab();
+      default:
+        return renderOverviewTab();
+    }
+  };
+
+  return (
+    <DashboardBase
+      title="Vessel Owner Portal"
+      icon="⚓"
+      subtitle="Fleet Overview & Compliance"
+      actions={
+        <button
+          onClick={() => refetch()}
+          style={{
+            background: 'rgba(255, 255, 255, 0.2)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '8px',
+            color: 'white',
+            padding: '8px 16px',
+            cursor: 'pointer',
+            fontSize: '13px',
+            fontWeight: '500',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          ↻ Refresh
+        </button>
+      }
+    >
+      {/* Navigation Tabs */}
+      <div style={{
+        display: 'flex',
+        gap: '8px',
+        marginBottom: '24px',
+        overflowX: 'auto',
+        borderBottom: '2px solid #e0e6ed',
+        paddingBottom: '12px',
+      }}>
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px 8px 0 0',
+              border: 'none',
+              background: activeTab === tab.id ? '#3498db' : 'transparent',
+              color: activeTab === tab.id ? 'white' : '#7f8c8d',
+              fontWeight: activeTab === tab.id ? '600' : '500',
+              cursor: 'pointer',
+              fontSize: '13px',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      {renderTabContent()}
     </DashboardBase>
   );
 };

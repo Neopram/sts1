@@ -664,3 +664,114 @@ class BackupMetadata(Base):
 
     schedule = relationship("BackupSchedule", back_populates="backups")
     user = relationship("User", backref="backups")
+
+
+# ============ PHASE 1: STS OPERATIONS MODELS ============
+
+class StsOperationSession(Base):
+    """
+    Main STS Operation Session record
+    Represents a complete STS operation between trading company and shipowner.
+    """
+    __tablename__ = "sts_operation_sessions"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    title = Column(String(500), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    location = Column(String(255), nullable=False, index=True)
+    region = Column(String(100), nullable=True)
+    
+    scheduled_start_date = Column(DateTime(timezone=True), nullable=False)
+    scheduled_end_date = Column(DateTime(timezone=True), nullable=True)
+    actual_start_date = Column(DateTime(timezone=True), nullable=True)
+    actual_end_date = Column(DateTime(timezone=True), nullable=True)
+    
+    sts_operation_code = Column(String(50), unique=True, nullable=False, index=True)
+    code_generated_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    q88_enabled = Column(Boolean, default=False)
+    q88_operation_id = Column(String(100), nullable=True)
+    q88_last_sync = Column(DateTime(timezone=True), nullable=True)
+    
+    status = Column(String(50), default="draft", index=True)
+    created_by = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    participants = relationship("OperationParticipant", back_populates="operation", cascade="all, delete-orphan")
+    vessels = relationship("OperationVessel", back_populates="operation", cascade="all, delete-orphan")
+    operation_codes = relationship("StsOperationCode", back_populates="operation")
+
+
+class OperationParticipant(Base):
+    """STS Operation Participant"""
+    __tablename__ = "operation_participants"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    operation_id = Column(UUIDType, ForeignKey("sts_operation_sessions.id"), nullable=False, index=True)
+    
+    participant_type = Column(String(50), nullable=False, index=True)
+    role = Column(String(50), nullable=False)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False, index=True)
+    phone = Column(String(50), nullable=True)
+    organization = Column(String(255), nullable=True)
+    position = Column(String(100), nullable=True)
+    
+    status = Column(String(50), default="invited")
+    invitation_sent_at = Column(DateTime(timezone=True), nullable=True)
+    acceptance_date = Column(DateTime(timezone=True), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    operation = relationship("StsOperationSession", back_populates="participants")
+
+
+class OperationVessel(Base):
+    """Operation Vessel Assignment"""
+    __tablename__ = "operation_vessels"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    operation_id = Column(UUIDType, ForeignKey("sts_operation_sessions.id"), nullable=False, index=True)
+    vessel_id = Column(UUIDType, ForeignKey("vessels.id"), nullable=True)
+    
+    vessel_name = Column(String(255), nullable=False, index=True)
+    vessel_imo = Column(String(20), unique=True, nullable=False, index=True)
+    mmsi = Column(String(20), nullable=True)
+    vessel_type = Column(String(50), nullable=True)
+    flag = Column(String(50), nullable=True)
+    gross_tonnage = Column(Float, nullable=True)
+    
+    vessel_role = Column(String(50), nullable=False)
+    assigned_to_party = Column(String(100), nullable=True)
+    assigned_to_email = Column(String(255), nullable=True)
+    
+    status = Column(String(50), default="assigned")
+    documents_status = Column(String(50), default="pending")
+    documents_required = Column(JSON, default=dict)
+    documents_submitted = Column(JSON, default=dict)
+    documents_approved = Column(JSON, default=dict)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    operation = relationship("StsOperationSession", back_populates="vessels")
+
+
+class StsOperationCode(Base):
+    """STS Operation Code Record"""
+    __tablename__ = "sts_operation_codes"
+
+    id = Column(UUIDType, primary_key=True, default=uuid_default)
+    operation_id = Column(UUIDType, ForeignKey("sts_operation_sessions.id"), nullable=False, index=True)
+    
+    code = Column(String(50), unique=True, nullable=False, index=True)
+    generated_by = Column(String(255), nullable=True)
+    generated_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_active = Column(Boolean, default=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    format_version = Column(String(20), default="1.0")
+    notes = Column(Text, nullable=True)
+    
+    operation = relationship("StsOperationSession", back_populates="operation_codes")

@@ -29,7 +29,7 @@ from app.routers import (activities, approval_matrix, approvals, auth, cache_man
                          documents, files, historical_access, messages, notifications, profile, regional_operations, rooms,
                          search, settings, snapshots, stats, users, vessels, weather, vessel_sessions, websocket,
                          sanctions, vessel_integrations, missing_documents, email_settings, totp_settings, 
-                         login_tracking, backup_settings, advanced_export, dashboard,
+                         login_tracking, backup_settings, advanced_export, dashboard, operations, sts_operations,
                          demurrage_api, commission_api, compliance_api, notifications_api_v2, documents_api_v2, dashboard_api_v2)
 
 # Configure logging
@@ -86,6 +86,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Include routers
 # app.include_router(cockpit.router)  # Cockpit removed
 app.include_router(auth.router)
+app.include_router(operations.router)  # PHASE 0: New unified operations router
+app.include_router(sts_operations.router)  # PHASE 1: STS operations (create, wizard, etc.)
 app.include_router(dashboard.router)
 app.include_router(rooms.router)
 app.include_router(documents.router)

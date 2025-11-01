@@ -151,17 +151,17 @@ export const DashboardCharterer: React.FC = () => {
       });
     }
 
-    return alerts;
-  }, [alert_priority, demurrage.urgency, demurrage.total_exposure, margin_impact.margin_at_risk, margin_impact.operations_delayed]);
+    if (urgent_approvals.length > 0) {
+      alerts.push({
+        id: 'approvals-alert',
+        type: 'warning',
+        title: 'Pending Approvals',
+        message: `${urgent_approvals.length} urgent approvals pending. Review immediately to avoid delays.`,
+      });
+    }
 
-  if (urgent_approvals.length > 0) {
-    visibleAlerts.push({
-      id: 'approvals-alert',
-      type: 'warning',
-      title: 'Pending Approvals',
-      message: `${urgent_approvals.length} urgent approvals pending. Review immediately to avoid delays.`,
-    });
-  }
+    return alerts;
+  }, [alert_priority, demurrage.urgency, demurrage.total_exposure, margin_impact.margin_at_risk, margin_impact.operations_delayed, urgent_approvals.length]);
 
   return (
     <DashboardBase

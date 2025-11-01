@@ -1,385 +1,386 @@
 """
-Email Service - Phase 2 Implementation
-Handles SMTP configuration, email templates, and queue management
+Email Service - Production Ready
+Handles all email notifications for STS operations and system events
 """
-
 import smtplib
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from typing import List, Optional, Dict
 from datetime import datetime
-import os
-from typing import Optional, Dict, List
 import logging
-from jinja2 import Template
 
 logger = logging.getLogger(__name__)
 
 
-class EmailConfig:
-    """SMTP Configuration"""
-    SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-    SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-    SMTP_USER = os.getenv("SMTP_USER", "")
-    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-    SENDER_EMAIL = os.getenv("SENDER_EMAIL", "noreply@stsclearance.com")
-    SENDER_NAME = os.getenv("SENDER_NAME", "STS Clearance Hub")
-    
-    # Rate limiting
-    MAX_EMAILS_PER_HOUR = 100
-    MAX_EMAILS_PER_DAY = 1000
+class EmailTemplates:
+    """Email template factory"""
 
+    @staticmethod
+    def operation_created(operation_title: str, operation_code: str, recipient_name: str) -> tuple:
+        """
+        Email template for operation creation
+        Returns: (subject, html_body)
+        """
+        subject = f"🚢 New STS Operation Created: {operation_title}"
+        html_body = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; border-radius: 8px;">
+                    <h2 style="color: #0066cc;">✅ Operation Successfully Created</h2>
+                    
+                    <p>Hi {recipient_name},</p>
+                    
+                    <p>A new Ship-to-Ship (STS) operation has been created and is ready for setup.</p>
+                    
+                    <div style="background-color: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #0066cc;">
+                        <p><strong>Operation Details:</strong></p>
+                        <ul style="margin: 10px 0;">
+                            <li><strong>Title:</strong> {operation_title}</li>
+                            <li><strong>Operation Code:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">{operation_code}</code></li>
+                            <li><strong>Status:</strong> <span style="background-color: #fff3cd; padding: 2px 6px; border-radius: 3px; font-weight: bold;">DRAFT</span></li>
+                            <li><strong>Created:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #e8f4f8; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                        <p><strong>Next Steps:</strong></p>
+                        <ol>
+                            <li>Add Trading Company participants</li>
+                            <li>Add Broker participants</li>
+                            <li>Add Shipowner participants</li>
+                            <li>Assign vessels to the operation</li>
+                            <li>Finalize and activate the operation</li>
+                        </ol>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 12px;">
+                        This is an automated message. Please do not reply to this email.
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+        return subject, html_body
 
-class EmailTemplate:
-    """Email templates for different scenarios"""
-    
-    WELCOME = """
-    <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2>Welcome to STS Clearance Hub, {{name}}!</h2>
-            <p>Your account has been created successfully.</p>
-            <p><strong>Username:</strong> {{email}}</p>
-            <p><strong>Company:</strong> {{company}}</p>
-            <p>You can now log in and start managing your STS clearances.</p>
-            <a href="{{login_url}}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Log In</a>
-            <p style="font-size: 12px; color: #666; margin-top: 20px;">
-                If you didn't create this account, please contact our support team.
-            </p>
-        </body>
-    </html>
-    """
-    
-    PASSWORD_RESET = """
-    <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2>Password Reset Request</h2>
-            <p>Hi {{name}},</p>
-            <p>We received a password reset request for your account.</p>
-            <p>Click the button below to reset your password:</p>
-            <a href="{{reset_url}}" style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
-            <p style="font-size: 12px; color: #666; margin-top: 20px;">
-                This link expires in 1 hour. If you didn't request this, please ignore this email.
-            </p>
-        </body>
-    </html>
-    """
-    
-    DOCUMENT_APPROVAL = """
-    <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2>Document Approval Request</h2>
-            <p>Hi {{name}},</p>
-            <p>A new document requires your approval:</p>
-            <p><strong>Document:</strong> {{document_name}}</p>
-            <p><strong>From:</strong> {{from_user}}</p>
-            <p><strong>Date:</strong> {{date}}</p>
-            <a href="{{document_url}}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Review Document</a>
-        </body>
-    </html>
-    """
-    
-    SECURITY_ALERT = """
-    <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2>Security Alert</h2>
-            <p>Hi {{name}},</p>
-            <p><strong>Alert:</strong> {{alert_message}}</p>
-            <p><strong>Time:</strong> {{timestamp}}</p>
-            <p><strong>Location:</strong> {{location}}</p>
-            <p>If this wasn't you, please secure your account immediately.</p>
-            <a href="{{security_url}}" style="background-color: #dc3545; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Secure Account</a>
-        </body>
-    </html>
-    """
-    
-    TOTP_CODE = """
-    <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2>Two-Factor Authentication</h2>
-            <p>Hi {{name}},</p>
-            <p>Your verification code is:</p>
-            <h1 style="font-size: 32px; letter-spacing: 5px; color: #007bff;">{{code}}</h1>
-            <p>This code expires in 10 minutes.</p>
-            <p style="font-size: 12px; color: #666;">
-                If you didn't request this, please ignore this email.
-            </p>
-        </body>
-    </html>
-    """
-    
-    WEEKLY_DIGEST = """
-    <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2>Weekly Digest</h2>
-            <p>Hi {{name}},</p>
-            <p>Here's your weekly summary:</p>
-            <ul>
-                <li><strong>New Documents:</strong> {{new_documents}}</li>
-                <li><strong>Pending Approvals:</strong> {{pending_approvals}}</li>
-                <li><strong>Completed Tasks:</strong> {{completed_tasks}}</li>
-                <li><strong>Messages:</strong> {{unread_messages}}</li>
-            </ul>
-            <a href="{{dashboard_url}}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Dashboard</a>
-        </body>
-    </html>
-    """
+    @staticmethod
+    def participant_invited(
+        operation_title: str,
+        operation_code: str,
+        recipient_name: str,
+        participant_type: str,
+        role: str,
+        invitation_token: str = ""
+    ) -> tuple:
+        """
+        Email template for participant invitation
+        Returns: (subject, html_body)
+        """
+        subject = f"📋 Invitation: {participant_type} Participant Needed for {operation_title}"
+        html_body = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; border-radius: 8px;">
+                    <h2 style="color: #0066cc;">📧 You're Invited to Participate</h2>
+                    
+                    <p>Hi {recipient_name},</p>
+                    
+                    <p>You have been invited to participate in a Ship-to-Ship (STS) operation as a <strong>{participant_type}</strong>.</p>
+                    
+                    <div style="background-color: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #0066cc;">
+                        <p><strong>Operation Details:</strong></p>
+                        <ul style="margin: 10px 0;">
+                            <li><strong>Operation:</strong> {operation_title}</li>
+                            <li><strong>Code:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">{operation_code}</code></li>
+                            <li><strong>Your Role:</strong> {role}</li>
+                            <li><strong>Party Type:</strong> {participant_type}</li>
+                            <li><strong>Invited:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+                        <p><strong>What You Need To Do:</strong></p>
+                        <ol>
+                            <li>Log in to the STS Clearance Hub</li>
+                            <li>Review the operation details</li>
+                            <li>Submit required documents</li>
+                            <li>Accept or decline the invitation</li>
+                        </ol>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{invitation_token if invitation_token else '#'}" 
+                           style="background-color: #0066cc; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                            View Operation Details
+                        </a>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 12px;">
+                        This is an automated message. Please do not reply to this email.
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+        return subject, html_body
+
+    @staticmethod
+    def vessel_assigned(
+        operation_title: str,
+        vessel_name: str,
+        vessel_imo: str,
+        recipient_name: str
+    ) -> tuple:
+        """
+        Email template for vessel assignment
+        Returns: (subject, html_body)
+        """
+        subject = f"🚢 Vessel Assigned: {vessel_name} to {operation_title}"
+        html_body = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; border-radius: 8px;">
+                    <h2 style="color: #0066cc;">✅ Vessel Successfully Assigned</h2>
+                    
+                    <p>Hi {recipient_name},</p>
+                    
+                    <p>A vessel has been assigned to the operation.</p>
+                    
+                    <div style="background-color: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #0066cc;">
+                        <p><strong>Vessel Details:</strong></p>
+                        <ul style="margin: 10px 0;">
+                            <li><strong>Vessel Name:</strong> {vessel_name}</li>
+                            <li><strong>IMO:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">{vessel_imo}</code></li>
+                            <li><strong>Operation:</strong> {operation_title}</li>
+                            <li><strong>Assigned:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                        </ul>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 12px;">
+                        This is an automated message. Please do not reply to this email.
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+        return subject, html_body
+
+    @staticmethod
+    def operation_started(
+        operation_title: str,
+        operation_code: str,
+        recipient_name: str,
+        start_time: str = ""
+    ) -> tuple:
+        """
+        Email template for operation start
+        Returns: (subject, html_body)
+        """
+        subject = f"🟢 Operation Started: {operation_title}"
+        html_body = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; border-radius: 8px;">
+                    <h2 style="color: #28a745;">🟢 Operation Started</h2>
+                    
+                    <p>Hi {recipient_name},</p>
+                    
+                    <p>The STS operation has started and is now active.</p>
+                    
+                    <div style="background-color: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+                        <p><strong>Operation Details:</strong></p>
+                        <ul style="margin: 10px 0;">
+                            <li><strong>Operation:</strong> {operation_title}</li>
+                            <li><strong>Code:</strong> <code style="background-color: #f0f0f0; padding: 2px 6px; border-radius: 3px;">{operation_code}</code></li>
+                            <li><strong>Status:</strong> <span style="background-color: #d4edda; padding: 2px 6px; border-radius: 3px; font-weight: bold;">ACTIVE</span></li>
+                            <li><strong>Started:</strong> {start_time or datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                        </ul>
+                    </div>
+                    
+                    <p style="color: #666; font-size: 12px;">
+                        This is an automated message. Please do not reply to this email.
+                    </p>
+                </div>
+            </body>
+        </html>
+        """
+        return subject, html_body
 
 
 class EmailService:
-    """Main email service class"""
-    
-    def __init__(self, config: EmailConfig = None):
-        self.config = config or EmailConfig()
-        self.email_queue: List[Dict] = []
-        
+    """Main email service for sending notifications"""
+
+    def __init__(self):
+        self.smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+        self.smtp_port = int(os.getenv('SMTP_PORT', '587'))
+        self.sender_email = os.getenv('SENDER_EMAIL', 'noreply@stsclearancehub.com')
+        self.sender_password = os.getenv('SENDER_PASSWORD', '')
+        self.sender_name = os.getenv('SENDER_NAME', 'STS Clearance Hub')
+        self.enabled = os.getenv('EMAIL_ENABLED', 'false').lower() == 'true'
+
     def send_email(
         self,
         to_email: str,
         subject: str,
-        template_name: str,
-        context: Dict,
-        to_name: Optional[str] = None,
-        is_html: bool = True,
-        priority: str = "normal"
-    ) -> Dict:
+        html_body: str,
+        cc: Optional[List[str]] = None,
+        bcc: Optional[List[str]] = None
+    ) -> bool:
         """
-        Send email using template
+        Send an email
         
         Args:
-            to_email: Recipient email address
+            to_email: Recipient email
             subject: Email subject
-            template_name: Template name (e.g., 'WELCOME', 'PASSWORD_RESET')
-            context: Template variables
-            to_name: Recipient name
-            is_html: Whether email is HTML
-            priority: 'high', 'normal', or 'low'
+            html_body: Email body (HTML)
+            cc: Carbon copy recipients
+            bcc: Blind carbon copy recipients
             
         Returns:
-            Dict with status and message
+            bool: True if successful, False otherwise
         """
-        try:
-            # Get template
-            template = self._get_template(template_name)
-            if not template:
-                return {"success": False, "error": f"Template {template_name} not found"}
-            
-            # Render template
-            body = self._render_template(template, context)
-            
-            # Add to queue
-            self.email_queue.append({
-                "to_email": to_email,
-                "to_name": to_name or to_email,
-                "subject": subject,
-                "body": body,
-                "is_html": is_html,
-                "priority": priority,
-                "timestamp": datetime.utcnow(),
-                "retries": 0,
-                "max_retries": 3
-            })
-            
-            logger.info(f"Email queued for {to_email}: {subject}")
-            return {"success": True, "message": "Email queued successfully"}
-            
-        except Exception as e:
-            logger.error(f"Error sending email: {str(e)}")
-            return {"success": False, "error": str(e)}
-    
-    def send_welcome_email(self, user_email: str, user_name: str, company: str) -> Dict:
-        """Send welcome email"""
-        return self.send_email(
-            to_email=user_email,
-            subject="Welcome to STS Clearance Hub",
-            template_name="WELCOME",
-            context={
-                "name": user_name,
-                "email": user_email,
-                "company": company,
-                "login_url": "https://stsclearance.com/login"
-            },
-            to_name=user_name
-        )
-    
-    def send_password_reset_email(self, user_email: str, user_name: str, reset_token: str) -> Dict:
-        """Send password reset email"""
-        return self.send_email(
-            to_email=user_email,
-            subject="Password Reset Request",
-            template_name="PASSWORD_RESET",
-            context={
-                "name": user_name,
-                "reset_url": f"https://stsclearance.com/reset-password?token={reset_token}"
-            },
-            to_name=user_name
-        )
-    
-    def send_approval_request_email(
-        self,
-        user_email: str,
-        user_name: str,
-        document_name: str,
-        from_user: str,
-        document_id: str
-    ) -> Dict:
-        """Send document approval request email"""
-        return self.send_email(
-            to_email=user_email,
-            subject=f"Approval Request: {document_name}",
-            template_name="DOCUMENT_APPROVAL",
-            context={
-                "name": user_name,
-                "document_name": document_name,
-                "from_user": from_user,
-                "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "document_url": f"https://stsclearance.com/documents/{document_id}"
-            },
-            to_name=user_name
-        )
-    
-    def send_security_alert(
-        self,
-        user_email: str,
-        user_name: str,
-        alert_message: str,
-        location: str = "Unknown"
-    ) -> Dict:
-        """Send security alert email"""
-        return self.send_email(
-            to_email=user_email,
-            subject="Security Alert - Action Required",
-            template_name="SECURITY_ALERT",
-            context={
-                "name": user_name,
-                "alert_message": alert_message,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "location": location,
-                "security_url": "https://stsclearance.com/settings/security"
-            },
-            to_name=user_name,
-            priority="high"
-        )
-    
-    def send_2fa_code(self, user_email: str, user_name: str, code: str) -> Dict:
-        """Send 2FA verification code"""
-        return self.send_email(
-            to_email=user_email,
-            subject="Your 2FA Verification Code",
-            template_name="TOTP_CODE",
-            context={
-                "name": user_name,
-                "code": code
-            },
-            to_name=user_name,
-            priority="high"
-        )
-    
-    def send_weekly_digest(
-        self,
-        user_email: str,
-        user_name: str,
-        stats: Dict
-    ) -> Dict:
-        """Send weekly digest email"""
-        return self.send_email(
-            to_email=user_email,
-            subject="Your Weekly Digest",
-            template_name="WEEKLY_DIGEST",
-            context={
-                "name": user_name,
-                "new_documents": stats.get("new_documents", 0),
-                "pending_approvals": stats.get("pending_approvals", 0),
-                "completed_tasks": stats.get("completed_tasks", 0),
-                "unread_messages": stats.get("unread_messages", 0),
-                "dashboard_url": "https://stsclearance.com/dashboard"
-            },
-            to_name=user_name
-        )
-    
-    def process_queue(self) -> Dict:
-        """Process email queue and send all pending emails"""
-        sent = 0
-        failed = 0
-        
-        for email in self.email_queue[:]:  # Iterate over copy
-            try:
-                if self._send_smtp(email):
-                    sent += 1
-                    self.email_queue.remove(email)
-                else:
-                    email["retries"] += 1
-                    if email["retries"] >= email["max_retries"]:
-                        failed += 1
-                        self.email_queue.remove(email)
-            except Exception as e:
-                logger.error(f"Error processing email queue: {str(e)}")
-                email["retries"] += 1
-                if email["retries"] >= email["max_retries"]:
-                    failed += 1
-                    self.email_queue.remove(email)
-        
-        return {
-            "sent": sent,
-            "failed": failed,
-            "pending": len(self.email_queue)
-        }
-    
-    def _send_smtp(self, email_data: Dict) -> bool:
-        """Send email via SMTP"""
+        if not self.enabled:
+            logger.info(f"Email service disabled. Would send to {to_email}: {subject}")
+            return True
+
         try:
             # Create message
-            message = MIMEMultipart("alternative")
-            message["Subject"] = email_data["subject"]
-            message["From"] = f"{self.config.SENDER_NAME} <{self.config.SENDER_EMAIL}>"
-            message["To"] = f"{email_data['to_name']} <{email_data['to_email']}>"
-            
-            # Add body
-            if email_data["is_html"]:
-                message.attach(MIMEText(email_data["body"], "html"))
-            else:
-                message.attach(MIMEText(email_data["body"], "plain"))
-            
-            # Connect to SMTP server
-            with smtplib.SMTP(self.config.SMTP_SERVER, self.config.SMTP_PORT) as server:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = f"{self.sender_name} <{self.sender_email}>"
+            msg['To'] = to_email
+
+            if cc:
+                msg['Cc'] = ', '.join(cc)
+
+            # Attach HTML content
+            html_part = MIMEText(html_body, 'html')
+            msg.attach(html_part)
+
+            # Send email
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()
-                server.login(self.config.SMTP_USER, self.config.SMTP_PASSWORD)
-                server.send_message(message)
-            
-            logger.info(f"Email sent to {email_data['to_email']}")
+                server.login(self.sender_email, self.sender_password)
+
+                recipients = [to_email]
+                if cc:
+                    recipients.extend(cc)
+                if bcc:
+                    recipients.extend(bcc)
+
+                server.sendmail(self.sender_email, recipients, msg.as_string())
+
+            logger.info(f"✅ Email sent to {to_email}: {subject}")
             return True
-            
+
         except Exception as e:
-            logger.error(f"SMTP error: {str(e)}")
+            logger.error(f"❌ Failed to send email to {to_email}: {str(e)}")
             return False
-    
-    def _get_template(self, template_name: str) -> Optional[str]:
-        """Get email template by name"""
-        templates = {
-            "WELCOME": EmailTemplate.WELCOME,
-            "PASSWORD_RESET": EmailTemplate.PASSWORD_RESET,
-            "DOCUMENT_APPROVAL": EmailTemplate.DOCUMENT_APPROVAL,
-            "SECURITY_ALERT": EmailTemplate.SECURITY_ALERT,
-            "TOTP_CODE": EmailTemplate.TOTP_CODE,
-            "WEEKLY_DIGEST": EmailTemplate.WEEKLY_DIGEST,
-        }
-        return templates.get(template_name)
-    
-    def _render_template(self, template: str, context: Dict) -> str:
-        """Render Jinja2 template"""
-        try:
-            tmpl = Template(template)
-            return tmpl.render(**context)
-        except Exception as e:
-            logger.error(f"Template rendering error: {str(e)}")
-            return template
+
+    def send_operation_created(
+        self,
+        to_email: str,
+        operation_title: str,
+        operation_code: str,
+        recipient_name: str = "User"
+    ) -> bool:
+        """Send operation creation email"""
+        subject, html_body = EmailTemplates.operation_created(
+            operation_title, operation_code, recipient_name
+        )
+        return self.send_email(to_email, subject, html_body)
+
+    def send_participant_invited(
+        self,
+        to_email: str,
+        operation_title: str,
+        operation_code: str,
+        recipient_name: str,
+        participant_type: str,
+        role: str,
+        invitation_token: str = ""
+    ) -> bool:
+        """Send participant invitation email"""
+        subject, html_body = EmailTemplates.participant_invited(
+            operation_title,
+            operation_code,
+            recipient_name,
+            participant_type,
+            role,
+            invitation_token
+        )
+        return self.send_email(to_email, subject, html_body)
+
+    def send_vessel_assigned(
+        self,
+        to_email: str,
+        operation_title: str,
+        vessel_name: str,
+        vessel_imo: str,
+        recipient_name: str = "User"
+    ) -> bool:
+        """Send vessel assignment email"""
+        subject, html_body = EmailTemplates.vessel_assigned(
+            operation_title, vessel_name, vessel_imo, recipient_name
+        )
+        return self.send_email(to_email, subject, html_body)
+
+    def send_operation_started(
+        self,
+        to_email: str,
+        operation_title: str,
+        operation_code: str,
+        recipient_name: str = "User",
+        start_time: str = ""
+    ) -> bool:
+        """Send operation start email"""
+        subject, html_body = EmailTemplates.operation_started(
+            operation_title, operation_code, recipient_name, start_time
+        )
+        return self.send_email(to_email, subject, html_body)
+
+    def send_bulk_emails(
+        self,
+        recipients: List[Dict[str, str]],
+        email_type: str,
+        **kwargs
+    ) -> Dict[str, bool]:
+        """
+        Send emails to multiple recipients
+        
+        Args:
+            recipients: List of dicts with 'email' and 'name' keys
+            email_type: Type of email ('operation_created', 'participant_invited', etc.)
+            **kwargs: Additional parameters for the email template
+            
+        Returns:
+            Dict mapping email addresses to send success
+        """
+        results = {}
+
+        for recipient in recipients:
+            email = recipient.get('email')
+            name = recipient.get('name', 'User')
+
+            if email_type == 'operation_created':
+                results[email] = self.send_operation_created(
+                    email, name=name, **kwargs
+                )
+            elif email_type == 'participant_invited':
+                results[email] = self.send_participant_invited(
+                    email, recipient_name=name, **kwargs
+                )
+            elif email_type == 'vessel_assigned':
+                results[email] = self.send_vessel_assigned(
+                    email, recipient_name=name, **kwargs
+                )
+            elif email_type == 'operation_started':
+                results[email] = self.send_operation_started(
+                    email, recipient_name=name, **kwargs
+                )
+
+        return results
 
 
-# Singleton instance
-_email_service = None
-
-
-def get_email_service() -> EmailService:
-    """Get or create email service instance"""
-    global _email_service
-    if _email_service is None:
-        _email_service = EmailService()
-    return _email_service
+# Global instance
+email_service = EmailService()

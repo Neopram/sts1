@@ -4,6 +4,7 @@ import { useApp } from './src/contexts/AppContext';
 import Header from './src/components/Layout/Header';
 import { TabNavigation } from './src/components/Layout/TabNavigation';
 import { OverviewPage } from './src/components/Pages/OverviewPage';
+import { DashboardContainer } from './src/components/Pages/DashboardContainer'; // PHASE 0: Unified dashboard
 import { DocumentsPage } from './src/components/Pages/DocumentsPage';
 import { ApprovalPage } from './src/components/Pages/ApprovalPage';
 import { ActivityPage } from './src/components/Pages/ActivityPage';
@@ -11,6 +12,7 @@ import { HistoryPage } from './src/components/Pages/HistoryPage';
 import { MessagesPage } from './src/components/Pages/MessagesPage';
 import { MissingDocumentsPage } from './src/components/Pages/MissingDocumentsPage';
 import { UploadModal } from './src/components/Modals/UploadModal';
+import { StsOperationWizard } from './src/components/Modals/StsOperationWizard'; // PHASE 1: STS Operations wizard
 import LoginPage from './src/components/Pages/LoginPage';
 import ApiService from './src/api';
 
@@ -34,6 +36,7 @@ const STSClearanceApp: React.FC = () => {
   });
   
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showStsWizard, setShowStsWizard] = useState(false); // PHASE 1: STS Wizard state
   const [documentRefreshTrigger, setDocumentRefreshTrigger] = useState(0);
   const [cockpitData, setCockpitData] = useState<any>(null);
   const [vessels, setVessels] = useState<any[]>([]);
@@ -304,9 +307,13 @@ const STSClearanceApp: React.FC = () => {
     switch (activeTab) {
       case 'overview':
         return (
-          <OverviewPage
+          <DashboardContainer // PHASE 0: Use unified dashboard
             cockpitData={cockpitData}
             vessels={vessels}
+            onRefresh={() => {
+              fetchCockpitData();
+              fetchVessels();
+            }}
           />
         );
       case 'documents':
@@ -397,6 +404,20 @@ const STSClearanceApp: React.FC = () => {
             // Trigger DocumentsPage to refresh its list
             setDocumentRefreshTrigger(prev => prev + 1);
             setShowUploadModal(false);
+          }}
+        />
+      )}
+
+      {/* PHASE 1: STS Operation Wizard */}
+      {showStsWizard && (
+        <StsOperationWizard
+          isOpen={showStsWizard}
+          onClose={() => setShowStsWizard(false)}
+          onComplete={(operation) => {
+            console.log('✅ Operation created:', operation);
+            setShowStsWizard(false);
+            // Show success notification
+            // Optionally refresh operations list
           }}
         />
       )}

@@ -175,7 +175,22 @@ class ApiService {
     }
   }
 
-  // Get room summary
+  // PHASE 0: Get operation dashboard (unified, role-based)
+  // NEW: Replaces getRoomSummary + role-specific dashboard endpoints
+  static async getOperationDashboard(operationId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/operations/${operationId}/dashboard`);
+      console.log('getOperationDashboard response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in getOperationDashboard:', error);
+      // Fallback to old endpoint
+      return ApiService.getRoomSummary(operationId);
+    }
+  }
+
+  // Get room summary (PHASE 0: Migrate to getOperationDashboard)
   static async getRoomSummary(roomId: string): Promise<RoomSummary> {
     try {
       const service = new ApiService();
@@ -184,6 +199,19 @@ class ApiService {
       return response as RoomSummary;
     } catch (error) {
       console.error('Error in getRoomSummary:', error);
+      throw error;
+    }
+  }
+
+  // PHASE 0: Get operation summary (generic endpoint)
+  static async getOperationSummary(operationId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/operations/${operationId}/summary`);
+      console.log('getOperationSummary response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in getOperationSummary:', error);
       throw error;
     }
   }
@@ -2018,6 +2046,127 @@ class ApiService {
       return response;
     } catch (error) {
       console.error('Error in markAllNotificationsAsRead:', error);
+      throw error;
+    }
+  }
+
+  // ===== STS OPERATIONS (Phase 1) =====
+
+  // Create STS operation
+  static async createStsOperation(data: any): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request('/api/v1/sts-operations', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      console.log('createStsOperation response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in createStsOperation:', error);
+      throw error;
+    }
+  }
+
+  // Get STS operation
+  static async getStsOperation(operationId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/sts-operations/${operationId}`);
+      console.log('getStsOperation response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in getStsOperation:', error);
+      throw error;
+    }
+  }
+
+  // List STS operations
+  static async listStsOperations(skip: number = 0, limit: number = 50): Promise<any[]> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/sts-operations?skip=${skip}&limit=${limit}`);
+      console.log('listStsOperations response:', response);
+      return Array.isArray(response) ? response : response.items || [];
+    } catch (error) {
+      console.error('Error in listStsOperations:', error);
+      throw error;
+    }
+  }
+
+  // Add participant to operation
+  static async addParticipantToOperation(operationId: string, data: any): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/sts-operations/${operationId}/participants`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      console.log('addParticipantToOperation response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in addParticipantToOperation:', error);
+      throw error;
+    }
+  }
+
+  // Add vessel to operation
+  static async addVesselToOperation(operationId: string, data: any): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/sts-operations/${operationId}/vessels`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+      console.log('addVesselToOperation response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in addVesselToOperation:', error);
+      throw error;
+    }
+  }
+
+  // Finalize operation
+  static async finalizeOperation(operationId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/sts-operations/${operationId}/finalize`, {
+        method: 'POST'
+      });
+      console.log('finalizeOperation response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in finalizeOperation:', error);
+      throw error;
+    }
+  }
+
+  // Start operation
+  static async startOperation(operationId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/sts-operations/${operationId}/start`, {
+        method: 'POST'
+      });
+      console.log('startOperation response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in startOperation:', error);
+      throw error;
+    }
+  }
+
+  // Complete operation
+  static async completeOperation(operationId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/sts-operations/${operationId}/complete`, {
+        method: 'POST'
+      });
+      console.log('completeOperation response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in completeOperation:', error);
       throw error;
     }
   }

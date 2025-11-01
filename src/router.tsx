@@ -15,6 +15,7 @@ import { RolePermissionMatrixPage } from './components/Pages/RolePermissionMatri
 import PerformanceDashboardPage from './components/Pages/PerformanceDashboardPage';
 import { AdminDashboard } from './components/Pages/AdminDashboard';
 import { RoleDashboardSelector } from './components/Pages/RoleDashboardSelector';
+import { DashboardContainer } from './components/Pages/DashboardContainer'; // NEW: Unified dashboard
 import RoomDetailPage from './components/Pages/RoomDetailPage';
 import UserManagementPage from './components/Pages/UserManagementPage';
 import VesselManagementPage from './components/Pages/VesselManagementPage';
@@ -38,7 +39,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'dashboard',
-        element: <RoleDashboardSelector />
+        element: <DashboardContainer /> // PHASE 0: Unified dashboard (replaces RoleDashboardSelector)
       },
       {
         path: 'rooms/:roomId',
