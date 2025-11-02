@@ -192,31 +192,44 @@ async def startup_event():
         await init_db()
         logging.info("Database initialized successfully")
 
-        # Initialize sample data
-        try:
-            await init_data()
-            logging.info("Sample data initialized successfully")
-        except Exception as e:
-            logging.warning(f"Could not initialize sample data: {e}")
+        # Initialize sample data (disabled due to schema issues - can be re-enabled)
+        # try:
+        #     await init_data()
+        #     logging.info("Sample data initialized successfully")
+        # except Exception as e:
+        #     logging.warning(f"Could not initialize sample data: {e}")
 
-        # Initialize Redis connection
-        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-        redis_client = redis.from_url(redis_url, decode_responses=True)
-        await redis_client.ping()
-        logging.info("Redis connection established")
+        # Initialize Redis connection (optional, graceful degradation)
+        try:
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            redis_client = redis.from_url(redis_url, decode_responses=True)
+            await redis_client.ping()
+            logging.info("Redis connection established")
+        except Exception as e:
+            logging.warning(f"Redis connection failed (caching disabled): {e}")
+            redis_client = None
 
         # Initialize session factory
         session_factory = get_async_session_factory()
 
         # Initialize database optimizer
-        db_optimizer = DatabaseOptimizer(session_factory)
-        await db_optimizer.create_strategic_indexes()
-        logging.info("Database optimization completed")
+        try:
+            db_optimizer = DatabaseOptimizer(session_factory)
+            await db_optimizer.create_strategic_indexes()
+            logging.info("Database optimization completed")
+        except Exception as e:
+            logging.warning(f"Database optimization skipped: {e}")
 
-        # Initialize performance monitoring
-        performance_monitor = PerformanceMonitor(redis_client, session_factory)
-        health_checker = HealthChecker(redis_client, session_factory)
-        logging.info("Performance monitoring initialized")
+        # Initialize performance monitoring (only if Redis available)
+        if redis_client:
+            try:
+                performance_monitor = PerformanceMonitor(redis_client, session_factory)
+                health_checker = HealthChecker(redis_client, session_factory)
+                logging.info("Performance monitoring initialized")
+            except Exception as e:
+                logging.warning(f"Performance monitoring initialization failed: {e}")
+        else:
+            logging.info("Performance monitoring disabled (Redis unavailable)")
 
         # Add security middleware for production
         # if os.getenv("ENVIRONMENT", "development") == "production":

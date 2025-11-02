@@ -18,7 +18,7 @@ from typing import List, Dict, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
-from app.models.sts_operations import (
+from app.models import (
     StsOperationSession,
     OperationParticipant,
     OperationVessel,

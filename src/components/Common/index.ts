@@ -8,4 +8,5 @@ export { Alert } from './Alert';
 export { Loading } from './Loading';
 export { Empty } from './Empty';
 export { Table } from './Table';
+export { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './Dialog';
 export type { TableColumn, TableAction } from './Table';
