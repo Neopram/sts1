@@ -18,6 +18,8 @@ interface Room {
   status?: 'active' | 'completed' | 'scheduled';
   created_by?: string;
   description?: string;
+  type?: 'room' | 'sts_operation';  // ARMONÍA ABSOLUTA: Tipo de operación
+  sts_code?: string;  // ARMONÍA ABSOLUTA: Código STS (solo para STS Operations)
 }
 
 // Permission matrix for role-based access
@@ -117,16 +119,24 @@ interface AppProviderProps {
   children: ReactNode;
 }
 
+// Valid language values
+const VALID_LANGUAGES: Language[] = ['en', 'es'];
+
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // FIX: Validate language from localStorage (prevent invalid states)
   const [language, setLanguage] = useState<Language>(() => {
-    // Load language from localStorage or default to English
     const savedLang = localStorage.getItem('app-language');
-    return (savedLang as Language) || 'en';
+    // Only use saved language if it's in VALID_LANGUAGES
+    if (savedLang && VALID_LANGUAGES.includes(savedLang as Language)) {
+      return savedLang as Language;
+    }
+    return 'en'; // Safe default
   });
 
   const login = async (email: string, password: string) => {
@@ -134,23 +144,31 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setError(null);
     
     try {
+      console.log(`[LOGIN] Attempting login for ${email}`);
+      
       // Use ApiService for authentication
       const userData = await ApiService.login(email, password);
+      console.log(`[LOGIN] Authentication successful for ${userData.email}, role: ${userData.role}`);
+      
       setUser(userData);
       
       // Store authentication token if provided
       if (userData.token) {
         localStorage.setItem('auth-token', userData.token);
         ApiService.setToken(userData.token);
+        console.log('[LOGIN] Token stored in localStorage');
       }
 
-      // Load rooms after successful login
+      // Load rooms after successful login - WAIT for completion
+      console.log('[LOGIN] Loading rooms...');
       await loadRooms();
+      console.log('[LOGIN] Rooms loaded, ready to navigate');
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
       setError(errorMessage);
-      console.error('Login error:', err);
+      console.error('[LOGIN] Error:', err);
+      throw err;  // Re-throw to let component handle it
     } finally {
       setLoading(false);
     }
@@ -196,20 +214,80 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       
-      // Try to get rooms from backend
-      const roomsData = await ApiService.getRooms();
-      if (Array.isArray(roomsData)) {
-        setRooms(roomsData);
+      // ARMONÍA ABSOLUTA: Use unified endpoint that returns both Rooms and STS Operations
+      try {
+        const operationsData = await ApiService.getUnifiedOperations(true, 0, 100);
         
-        // Set first room as current if available and no room is selected
-        if (roomsData.length > 0 && !currentRoomId) {
-          setCurrentRoomId(roomsData[0].id);
+        if (Array.isArray(operationsData)) {
+          console.log(`[ROOMS] Loaded ${operationsData.length} operations from backend`);
+          
+          // Map unified operations to Room interface format
+          const mappedRooms: Room[] = operationsData.map((op: any) => ({
+            id: op.id,
+            title: op.title,
+            location: op.location,
+            sts_eta: op.sts_eta ? (typeof op.sts_eta === 'string' ? op.sts_eta : op.sts_eta.toString()) : '',
+            status: op.status || 'active',
+            created_by: op.created_by,
+            description: op.description,
+            type: op.type || 'room',  // 'room' or 'sts_operation'
+            sts_code: op.sts_code || undefined,
+          }));
+          
+          setRooms(mappedRooms);
+          
+          // FIX: Avoid race condition - determine room to select before setState
+          const savedRoomId = localStorage.getItem('current-room');
+          let roomToSelect: string | null = null;
+          
+          if (savedRoomId && mappedRooms.find(r => r.id === savedRoomId)) {
+            roomToSelect = savedRoomId;
+            console.log(`[ROOMS] Will restore saved room: ${savedRoomId}`);
+          } else if (mappedRooms.length > 0) {
+            roomToSelect = mappedRooms[0].id;
+            console.log(`[ROOMS] Will auto-select first room: ${mappedRooms[0].title} (${roomToSelect})`);
+          }
+          
+          // Only setCurrentRoomId if we determined one AND it's different from current
+          if (roomToSelect) {
+            setCurrentRoomId(roomToSelect);
+            localStorage.setItem('current-room', roomToSelect);
+          }
+        }
+      } catch (unifiedError) {
+        // Fallback to legacy endpoint if unified fails
+        console.warn('[ROOMS] Unified operations endpoint failed, falling back to legacy:', unifiedError);
+        const roomsData = await ApiService.getRooms();
+        if (Array.isArray(roomsData)) {
+          console.log(`[ROOMS] Loaded ${roomsData.length} rooms from legacy endpoint`);
+          
+          const mappedRooms: Room[] = roomsData.map((room: any) => ({
+            ...room,
+            type: 'room' as const,  // Legacy rooms are always type 'room'
+          }));
+          setRooms(mappedRooms);
+          
+          // FIX: Same race condition fix for fallback
+          if (mappedRooms.length > 0) {
+            const savedRoomId = localStorage.getItem('current-room');
+            let roomToSelect: string | null = null;
+            
+            if (savedRoomId && mappedRooms.find(r => r.id === savedRoomId)) {
+              roomToSelect = savedRoomId;
+            } else {
+              roomToSelect = mappedRooms[0].id;
+            }
+            
+            setCurrentRoomId(roomToSelect);
+            localStorage.setItem('current-room', roomToSelect);
+            console.log(`[ROOMS] Auto-selected first room (legacy): ${mappedRooms[0].title}`);
+          }
         }
       }
       
     } catch (err) {
-      console.error('Error loading rooms:', err);
-      setError('Failed to load rooms');
+      console.error('[ROOMS] Error loading operations:', err);
+      setError('Failed to load operations');
       
       // Set empty rooms on error
       setRooms([]);
@@ -240,48 +318,51 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     localStorage.setItem('app-language', lang);
   };
 
+  /**
+   * FIX: Improved hasPermission with better validation and clarity
+   * Maps resource:action combinations to permission matrix keys
+   */
   const hasPermission = (resource: string, action: string): boolean => {
     if (!user) return false;
     
-    // Admin has all permissions
+    // Admin has all permissions (fast path)
     if (user.role === 'admin') return true;
     
-    // Check permission matrix for legacy permissions
+    // Validate role exists in permission matrix
     const rolePermissions = PERMISSION_MATRIX[user.role as keyof typeof PERMISSION_MATRIX];
+    if (!rolePermissions) {
+      console.warn(`[AUTH] Unknown role: ${user.role}`);
+      return false; // Default deny for unknown roles
+    }
     
-    // Map resource:action to legacy permission names
+    // Map "resource:action" → "permission_key"
     const permissionMap: Record<string, keyof typeof PERMISSION_MATRIX['admin']> = {
       'rooms:create': 'create_operation',
       'rooms:read': 'view_all_operations',
       'rooms:update': 'edit_operation',
       'rooms:delete': 'delete_operation',
       'documents:approve': 'approve_documents',
+      'documents:read': 'view_all_operations',
+      'documents:upload': 'view_all_operations',
       'users:create': 'manage_users',
       'users:read': 'manage_users',
       'users:update': 'manage_users',
       'users:delete': 'manage_users',
       'analytics:read': 'view_analytics',
+      'vessels:read': 'view_all_operations',
     };
     
-    const legacyAction = permissionMap[`${resource}:${action}`];
-    if (legacyAction && rolePermissions) {
-      return rolePermissions[legacyAction] || false;
+    // Look up permission in map
+    const permissionKey = permissionMap[`${resource}:${action}`];
+    
+    if (permissionKey) {
+      return rolePermissions[permissionKey] || false;
     }
     
-    // Default permission matrix lookup (backward compatibility)
-    if (rolePermissions && (action in rolePermissions || resource in rolePermissions)) {
-      return true;
-    }
+    // Log unknown permissions for debugging
+    console.warn(`[AUTH] Unknown permission: ${resource}:${action}`);
     
-    // Specific resource:action checks
-    if (resource === 'vessels' && (user.role === 'broker' || user.role === 'owner' || user.role === 'admin')) {
-      return true;
-    }
-    
-    if (resource === 'documents' && user.role !== 'viewer') {
-      return action === 'read' || action === 'upload';
-    }
-    
+    // Default deny for unmapped permissions
     return false;
   };
 

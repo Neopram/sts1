@@ -629,3 +629,158 @@ async def get_my_recent_activities(
     except Exception as e:
         logger.error(f"Error getting my recent activities: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ============ PHASE 3: ROLE-FILTERED ACTIVITIES FOR RECENT UPDATES PANEL ============
+
+@router.get("/rooms/{room_id}/activities/by-role")
+async def get_activities_by_role(
+    room_id: str,
+    role_filter: Optional[str] = None,
+    limit: int = 10,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    PR-3: Get activities filtered by party role for RecentUpdatesByPlayerPanel component
+    
+    Query Parameters:
+    - role_filter: Filter by role ('trading_company', 'shipowner', 'broker', 'system', or 'all')
+    - limit: Number of activities to return (default: 10)
+    - offset: Pagination offset (default: 0)
+    
+    Returns activities with:
+    - id: Activity ID
+    - timestamp: When activity occurred
+    - actor: Who performed the action
+    - actorRole: Their role
+    - action: What they did
+    - description: Human-readable description
+    - vesselName: Related vessel if any
+    - documentName: Related document if any
+    - status: Current status if applicable
+    - comment: Any comments
+    """
+    try:
+        from app.permission_matrix import permission_matrix
+        from app.models import User
+        
+        user_email = get_user_info(current_user)
+        
+        # 1. VERIFY ROOM ACCESS
+        await require_room_access(room_id, user_email, session)
+        
+        # 2. CHECK PERMISSION
+        user_result = await session.execute(
+            select(User).where(User.email == user_email)
+        )
+        user = user_result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        can_view_activities = permission_matrix.has_permission(user.role, "activities", "view_own") or \
+                            permission_matrix.has_permission(user.role, "activities", "view_all")
+        
+        if not can_view_activities:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Permission denied: {user.role} cannot view activities"
+            )
+        
+        # 3. BUILD QUERY
+        query = (
+            select(ActivityLog)
+            .where(ActivityLog.room_id == room_id)
+            .order_by(desc(ActivityLog.ts))
+        )
+        
+        # 4. APPLY ROLE FILTER if specified
+        if role_filter and role_filter != "all":
+            # Map role filter to actor patterns
+            if role_filter == "trading_company":
+                query = query.where(ActivityLog.actor.ilike("%trading%") | ActivityLog.actor.ilike("%company%"))
+            elif role_filter == "shipowner":
+                query = query.where(ActivityLog.actor.ilike("%owner%") | ActivityLog.actor.ilike("%shipowner%"))
+            elif role_filter == "broker":
+                query = query.where(ActivityLog.actor.ilike("%broker%"))
+            elif role_filter == "system":
+                query = query.where(ActivityLog.actor.ilike("%system%") | ActivityLog.actor.ilike("%admin%"))
+        
+        # 5. APPLY PAGINATION
+        query = query.offset(offset).limit(limit)
+        
+        # 6. EXECUTE QUERY
+        result = await session.execute(query)
+        activities = result.scalars().all()
+        
+        # 7. FORMAT RESPONSE
+        response = []
+        for activity in activities:
+            meta = {}
+            if activity.meta_json:
+                try:
+                    meta = json.loads(activity.meta_json)
+                except json.JSONDecodeError:
+                    meta = {"raw": activity.meta_json}
+            
+            # Determine actor role from activity metadata or actor name
+            actor_role = "system"
+            if activity.actor:
+                actor_lower = activity.actor.lower()
+                if "trading" in actor_lower or "company" in actor_lower:
+                    actor_role = "trading_company"
+                elif "owner" in actor_lower or "shipowner" in actor_lower:
+                    actor_role = "shipowner"
+                elif "broker" in actor_lower:
+                    actor_role = "broker"
+                elif "admin" in actor_lower or "system" in actor_lower:
+                    actor_role = "system"
+            
+            # Extract vessel and document names from meta if available
+            vessel_name = meta.get("vessel_name") or meta.get("vessel")
+            document_name = meta.get("document_name") or meta.get("document")
+            status = meta.get("status")
+            comment = meta.get("comment") or meta.get("notes")
+            
+            # Build human-readable description
+            description = activity.action
+            if vessel_name and document_name:
+                description = f"{activity.action}: {document_name} for {vessel_name}"
+            elif vessel_name:
+                description = f"{activity.action}: {vessel_name}"
+            elif document_name:
+                description = f"{activity.action}: {document_name}"
+            
+            response.append({
+                "id": str(activity.id),
+                "timestamp": activity.ts.isoformat(),
+                "actor": activity.actor or "System",
+                "actorRole": actor_role,
+                "action": activity.action,
+                "description": description,
+                "vesselName": vessel_name,
+                "documentName": document_name,
+                "status": status,
+                "comment": comment,
+            })
+        
+        logger.info(f"User {user_email} retrieved {len(response)} filtered activities from room {room_id}")
+        return {
+            "status": "success",
+            "room_id": room_id,
+            "role_filter": role_filter or "all",
+            "count": len(response),
+            "activities": response,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting activities by role for room {room_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error fetching filtered activities"
+        )

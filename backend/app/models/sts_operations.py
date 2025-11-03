@@ -44,6 +44,7 @@ class StsOperationSession(Base):
     One operation can involve multiple vessels and many participants.
     """
     __tablename__ = "sts_operation_sessions"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(UUIDType, primary_key=True, default=uuid_default)
     
@@ -93,6 +94,7 @@ class OperationParticipant(Base):
     Can be trading company staff, broker, shipowner staff, etc.
     """
     __tablename__ = "operation_participants"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(UUIDType, primary_key=True, default=uuid_default)
     operation_id = Column(UUIDType, ForeignKey("sts_operation_sessions.id"), nullable=False, index=True)
@@ -138,6 +140,7 @@ class OperationVessel(Base):
     Supports mother/daughter vessel relationships.
     """
     __tablename__ = "operation_vessels"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(UUIDType, primary_key=True, default=uuid_default)
     operation_id = Column(UUIDType, ForeignKey("sts_operation_sessions.id"), nullable=False, index=True)
@@ -187,6 +190,7 @@ class StsOperationCode(Base):
     Used for tracking and auditing operation code generation.
     """
     __tablename__ = "sts_operation_codes"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(UUIDType, primary_key=True, default=uuid_default)
     operation_id = Column(UUIDType, ForeignKey("sts_operation_sessions.id"), nullable=False, index=True)

@@ -34,8 +34,9 @@ const LoginPage: React.FC = () => {
     setError('');
     
     try {
-      await login(demoEmail, 'password123');
-      navigate('/dashboard');
+      const userData = await login(demoEmail, 'password123');
+      // Redirect to dashboard - role-based routing handled by DashboardContainer
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setError('Login failed. Please try again.');
       setLoadingEmail(null);
@@ -48,8 +49,9 @@ const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      const userData = await login(email, password);
+      // Redirect to dashboard - role-based routing handled by DashboardContainer
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setError('Invalid email or password');
       setLoading(false);

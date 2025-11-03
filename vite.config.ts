@@ -36,20 +36,6 @@ export default defineConfig({
           });
         },
       },
-      '/dashboard': {
-        target: process.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8001',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => `/api/v1${path}`,
-        configure: (proxy, _options) => {
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('Sending Request to the Target:', req.method, req.url);
-          });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
-          });
-        },
-      },
     }
   },
   build: {

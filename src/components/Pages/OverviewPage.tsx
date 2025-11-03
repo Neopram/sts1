@@ -20,6 +20,9 @@ import { WeatherConditions } from '../OperationStatus/WeatherConditions';
 import { CountdownTimer } from '../OperationStatus/CountdownTimer';
 import { VesselCard } from '../OperationStatus/VesselCard';
 import { ProximityIndicator } from '../OperationStatus/ProximityIndicator';
+// PR-3: New comparison and updates components
+import { VesselComparativePanel } from '../VesselComparativePanel';
+import { RecentUpdatesByPlayerPanel } from '../RecentUpdatesByPlayerPanel';
 
 interface OverviewPageProps {
   cockpitData?: any;
@@ -730,6 +733,24 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* PHASE 3: Vessel Comparative Panel */}
+      {currentRoomId && (
+        <VesselComparativePanel 
+          operationId={currentRoomId}
+          vessels={vessels}
+          onRefresh={loadData}
+        />
+      )}
+
+      {/* PHASE 3: Recent Updates By Player Panel */}
+      {currentRoomId && (
+        <RecentUpdatesByPlayerPanel 
+          operationId={currentRoomId}
+          maxItems={10}
+          onRefresh={loadData}
+        />
       )}
 
       {/* Document Details Modal */}

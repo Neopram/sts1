@@ -50,11 +50,13 @@ class MessageResponse(BaseModel):
     message_type: str
     created_at: datetime
     read_by: List[str] = []
+    is_public: bool = True  # PHASE 4: Public/Private visibility
 
 
 class SendMessageRequest(BaseModel):
     content: str
     message_type: str = "text"
+    is_public: bool = True  # PHASE 4: Public by default
 
 
 # WebSocket endpoint for real-time chat
@@ -97,6 +99,7 @@ async def websocket_endpoint(
                         user_name,
                         message_data.get("content", ""),
                         message_data.get("message_type", "text"),
+                        message_data.get("is_public", True),  # PHASE 4
                     )
                 elif message_data.get("type") == "typing":
                     await handle_typing_indicator(
@@ -123,7 +126,7 @@ async def websocket_endpoint(
 
 
 async def handle_chat_message(
-    room_id: str, sender_email: str, sender_name: str, content: str, message_type: str
+    room_id: str, sender_email: str, sender_name: str, content: str, message_type: str, is_public: bool = True
 ):
     """
     Handle incoming chat message
@@ -138,6 +141,7 @@ async def handle_chat_message(
                     sender_name=sender_name,
                     content=content,
                     message_type=message_type,
+                    is_public=is_public,  # PHASE 4: Save visibility
                 )
                 session.add(message)
                 await session.commit()
@@ -150,6 +154,7 @@ async def handle_chat_message(
                     content,
                     message_type,
                     str(message.id),
+                    is_public=is_public,  # PHASE 4
                 )
 
                 # Log activity
@@ -157,7 +162,7 @@ async def handle_chat_message(
                     room_id,
                     sender_email,
                     "message_sent",
-                    {"message_type": message_type, "content_length": len(content)},
+                    {"message_type": message_type, "content_length": len(content), "is_public": is_public},  # PHASE 4
                 )
 
                 break
@@ -295,6 +300,7 @@ async def get_room_messages(
                     message_type=message.message_type,
                     created_at=message.created_at,
                     read_by=message.read_by or [],
+                    is_public=message.is_public,  # PHASE 4
                 )
             )
 
@@ -331,6 +337,7 @@ async def send_message(
             sender_name=user_name,
             content=message_data.content,
             message_type=message_data.message_type,
+            is_public=message_data.is_public,  # PHASE 4
         )
         session.add(message)
         await session.commit()
@@ -343,6 +350,7 @@ async def send_message(
             message_data.content,
             message_data.message_type,
             str(message.id),
+            is_public=message_data.is_public,  # PHASE 4
         )
 
         # Log activity

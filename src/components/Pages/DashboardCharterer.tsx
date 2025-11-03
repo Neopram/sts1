@@ -51,6 +51,7 @@ interface ChartererDashboard {
 }
 
 export const DashboardCharterer: React.FC = () => {
+  // ✅ ALL HOOKS MUST BE HERE - BEFORE ANY CONDITIONALS
   const { hasAccess } = useDashboardAccess('charterer');
   const { data: dashboard, loading, error, refetch } = useDashboardData<ChartererDashboard>(
     '/dashboard/charterer/overview',
@@ -62,7 +63,71 @@ export const DashboardCharterer: React.FC = () => {
 
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
-  // Check access
+  // Memoized helper functions - MOVED BEFORE CONDITIONS
+  const getUrgencyStatus = useCallback((urgency: string): 'success' | 'warning' | 'critical' | 'info' => {
+    switch (urgency) {
+      case 'critical':
+        return 'critical';
+      case 'high':
+        return 'warning';
+      case 'medium':
+        return 'info';
+      default:
+        return 'success';
+    }
+  }, []);
+
+  // Memoized helper function to get margin status - MOVED BEFORE CONDITIONS
+  const getMarginStatus = useCallback((marginAtRisk: number): 'success' | 'warning' | 'critical' => {
+    if (marginAtRisk <= 20) return 'success';
+    if (marginAtRisk <= 50) return 'warning';
+    return 'critical';
+  }, []);
+
+  // Safe destructuring with defaults
+  const {
+    demurrage = { total_exposure: 0, by_room: [], urgency: 'low' },
+    margin_impact = { margin_safe: 0, margin_at_risk: 0, operations_delayed: 0, operations_on_track: 0 },
+    urgent_approvals = [],
+    operations = { total: 0, active: 0, pending_approvals: 0, completion_rate: 0 },
+    alert_priority = 'low',
+  } = dashboard || {};
+
+  // Memoized visible alerts - MOVED BEFORE CONDITIONS
+  const visibleAlerts = useMemo(() => {
+    const alerts: Array<{ id: string; type: 'critical' | 'warning' | 'info'; title: string; message: string }> = [];
+
+    if (alert_priority === 'demurrage' || demurrage.urgency === 'critical') {
+      alerts.push({
+        id: 'demurrage-alert',
+        type: 'critical',
+        title: 'Demurrage Alert',
+        message: `Total exposure: $${demurrage.total_exposure.toLocaleString('en-US', { maximumFractionDigits: 0 })}. Review urgent operations immediately.`,
+      });
+    }
+
+    if (margin_impact.margin_at_risk > 50) {
+      alerts.push({
+        id: 'margin-alert',
+        type: 'warning',
+        title: 'High Margin Risk',
+        message: `${margin_impact.margin_at_risk.toFixed(1)}% of margin at risk. ${margin_impact.operations_delayed} operations delayed.`,
+      });
+    }
+
+    if (urgent_approvals.length > 0) {
+      alerts.push({
+        id: 'approvals-alert',
+        type: 'warning',
+        title: 'Pending Approvals',
+        message: `${urgent_approvals.length} urgent approvals pending. Review immediately to avoid delays.`,
+      });
+    }
+
+    return alerts;
+  }, [alert_priority, demurrage.urgency, demurrage.total_exposure, margin_impact.margin_at_risk, margin_impact.operations_delayed, urgent_approvals.length]);
+
+  // ✅ NOW CHECK ACCESS - AFTER ALL HOOKS
   if (!hasAccess) {
     return (
       <DashboardBase title="Access Denied" icon="🚫">
@@ -98,70 +163,6 @@ export const DashboardCharterer: React.FC = () => {
       </DashboardBase>
     );
   }
-
-  // Safe destructuring with defaults
-  const {
-    demurrage = { total_exposure: 0, by_room: [], urgency: 'low' },
-    margin_impact = { margin_safe: 0, margin_at_risk: 0, operations_delayed: 0, operations_on_track: 0 },
-    urgent_approvals = [],
-    operations = { total: 0, active: 0, pending_approvals: 0, completion_rate: 0 },
-    alert_priority = 'low',
-  } = dashboard;
-
-  // Memoized helper functions
-  const getUrgencyStatus = useCallback((urgency: string): 'success' | 'warning' | 'critical' | 'info' => {
-    switch (urgency) {
-      case 'critical':
-        return 'critical';
-      case 'high':
-        return 'warning';
-      case 'medium':
-        return 'info';
-      default:
-        return 'success';
-    }
-  }, []);
-
-  // Memoized helper function to get margin status
-  const getMarginStatus = useCallback((marginAtRisk: number): 'success' | 'warning' | 'critical' => {
-    if (marginAtRisk <= 20) return 'success';
-    if (marginAtRisk <= 50) return 'warning';
-    return 'critical';
-  }, []);
-
-  // Memoized visible alerts
-  const visibleAlerts = useMemo(() => {
-    const alerts: Array<{ id: string; type: 'critical' | 'warning' | 'info'; title: string; message: string }> = [];
-
-    if (alert_priority === 'demurrage' || demurrage.urgency === 'critical') {
-      alerts.push({
-        id: 'demurrage-alert',
-        type: 'critical',
-        title: 'Demurrage Alert',
-        message: `Total exposure: $${demurrage.total_exposure.toLocaleString('en-US', { maximumFractionDigits: 0 })}. Review urgent operations immediately.`,
-      });
-    }
-
-    if (margin_impact.margin_at_risk > 50) {
-      alerts.push({
-        id: 'margin-alert',
-        type: 'warning',
-        title: 'High Margin Risk',
-        message: `${margin_impact.margin_at_risk.toFixed(1)}% of margin at risk. ${margin_impact.operations_delayed} operations delayed.`,
-      });
-    }
-
-    if (urgent_approvals.length > 0) {
-      alerts.push({
-        id: 'approvals-alert',
-        type: 'warning',
-        title: 'Pending Approvals',
-        message: `${urgent_approvals.length} urgent approvals pending. Review immediately to avoid delays.`,
-      });
-    }
-
-    return alerts;
-  }, [alert_priority, demurrage.urgency, demurrage.total_exposure, margin_impact.margin_at_risk, margin_impact.operations_delayed, urgent_approvals.length]);
 
   return (
     <DashboardBase

@@ -319,6 +319,104 @@ class DashboardProjectionService:
             logger.error(f"Error in shipowner overview: {e}")
             raise
 
+    # ============ BUYER DASHBOARD ============
+
+    async def get_buyer_overview(self) -> Dict[str, Any]:
+        """
+        Buyer views operations through lens of:
+        - Purchase order metrics (volume, cost)
+        - Budget impact and utilization
+        - Supplier performance tracking
+        - Pending approvals requiring action
+        """
+        try:
+            # Get buyer's rooms (purchase orders)
+            buyer_rooms = await self._get_buyer_rooms()
+            
+            # Calculate purchase metrics
+            purchase_metrics = await self._calculate_purchase_metrics(buyer_rooms)
+            
+            # Budget impact analysis
+            budget_impact = await self._calculate_budget_impact(buyer_rooms)
+            
+            # Supplier (seller) performance
+            supplier_performance = await self._calculate_supplier_performance(buyer_rooms)
+            
+            # Pending approvals
+            pending_approvals = await self._get_buyer_pending_approvals(buyer_rooms)
+            
+            return {
+                "purchases": purchase_metrics,
+                "budget": budget_impact,
+                "suppliers": supplier_performance,
+                "pending_approvals": pending_approvals,
+                "alert_priority": "budget" if budget_impact.get("budget_utilization_percent", 0) > 90 else "general",
+            }
+        except Exception as e:
+            logger.error(f"Error in buyer overview: {e}")
+            raise
+
+    # ============ SELLER DASHBOARD ============
+
+    async def get_seller_overview(self) -> Dict[str, Any]:
+        """
+        Seller views operations through lens of:
+        - Sales volume and revenue metrics
+        - Pricing trends and market positioning
+        - Active negotiations with buyers
+        - Buyer performance and engagement metrics
+        """
+        try:
+            # Get seller's rooms (sales orders)
+            seller_rooms = await self._get_seller_rooms()
+            logger.info(f"Seller {self.current_user.email}: Found {len(seller_rooms)} rooms")
+            
+            # Calculate sales metrics
+            try:
+                sales_metrics = await self._calculate_sales_metrics(seller_rooms)
+            except Exception as e:
+                logger.error(f"Error calculating sales metrics: {e}")
+                sales_metrics = {"total_volume_bbl": 0, "total_revenue": 0, "by_room": []}
+            
+            # Pricing trends analysis
+            try:
+                pricing_trends = await self._calculate_pricing_trends(seller_rooms)
+            except Exception as e:
+                logger.error(f"Error calculating pricing trends: {e}")
+                pricing_trends = {"average_deal_price": 0, "trend_data": []}
+            
+            # Active negotiations
+            try:
+                negotiations = await self._get_active_negotiations(seller_rooms)
+            except Exception as e:
+                logger.error(f"Error getting active negotiations: {e}")
+                negotiations = []
+            
+            # Buyer performance metrics
+            try:
+                buyer_performance = await self._calculate_buyer_performance(seller_rooms)
+            except Exception as e:
+                logger.error(f"Error calculating buyer performance: {e}")
+                buyer_performance = []
+            
+            return {
+                "sales": sales_metrics,
+                "pricing": pricing_trends,
+                "negotiations": negotiations,
+                "buyer_performance": buyer_performance,
+                "alert_priority": "negotiations" if any(n.get("status") == "stalled" for n in negotiations) else "general",
+            }
+        except Exception as e:
+            logger.error(f"Error in seller overview: {e}")
+            # Return safe defaults instead of raising
+            return {
+                "sales": {"total_volume_bbl": 0, "total_revenue": 0, "by_room": []},
+                "pricing": {"average_deal_price": 0, "trend_data": []},
+                "negotiations": [],
+                "buyer_performance": [],
+                "alert_priority": "general",
+            }
+
     # ============ INSPECTOR DASHBOARD ============
 
     async def get_inspector_overview(self) -> Dict[str, Any]:
@@ -359,6 +457,38 @@ class DashboardProjectionService:
     # ============ PRIVATE HELPER METHODS ============
 
     # -- Data Retrieval --
+
+    async def _get_buyer_rooms(self) -> List[Room]:
+        """Get all rooms where current user is buyer (purchase orders)"""
+        stmt = (
+            select(Room)
+            .join(Party, Room.id == Party.room_id)
+            .where(
+                and_(
+                    Party.role == "buyer",
+                    Party.email == self.current_user.email
+                )
+            )
+            .order_by(Room.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def _get_seller_rooms(self) -> List[Room]:
+        """Get all rooms where current user is seller (sales orders)"""
+        stmt = (
+            select(Room)
+            .join(Party, Room.id == Party.room_id)
+            .where(
+                and_(
+                    Party.role == "seller",
+                    Party.email == self.current_user.email
+                )
+            )
+            .order_by(Room.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
 
     async def _get_charterer_rooms(self) -> List[Room]:
         """Get all rooms where current user is charterer"""
@@ -997,6 +1127,509 @@ class DashboardProjectionService:
         """Generate recommendations for inspector"""
         # Placeholder
         return []
+
+    # ============ BUYER DASHBOARD METRICS ============
+
+    async def _calculate_purchase_metrics(self, rooms: List[Room]) -> Dict[str, Any]:
+        """Calculate total purchase volume and spending by order"""
+        if not rooms:
+            return {
+                "total_volume_bbl": 0,
+                "total_spent": 0,
+                "by_order": []
+            }
+
+        try:
+            total_volume = 0
+            total_spent = 0
+            by_order = []
+
+            for room in rooms:
+                # Extract purchase data from room
+                quantity = room.cargo_quantity or 0
+                unit_price = (room.cargo_value_usd / quantity) if (quantity > 0 and room.cargo_value_usd) else 0
+                total_value = room.cargo_value_usd or 0
+                
+                # Get seller (other party in room with seller role)
+                sellers_stmt = (
+                    select(Party)
+                    .where(
+                        and_(
+                            Party.room_id == room.id,
+                            Party.role == "seller"
+                        )
+                    )
+                )
+                sellers_result = await self.session.execute(sellers_stmt)
+                sellers = sellers_result.scalars().all()
+                seller_name = sellers[0].name if sellers else "Unknown Seller"
+
+                # Determine order status
+                status = "pending"
+                if room.status_detail:
+                    status = room.status_detail
+                elif room.status == "completed":
+                    status = "delivered"
+                elif (self.now - room.created_at).days > 5:
+                    status = "delayed"
+                elif room.updated_at and (self.now - room.updated_at).days > 3:
+                    status = "in_transit"
+
+                # Calculate ETA
+                eta_days = 0
+                if room.sts_eta:
+                    eta_days = max(0, (room.sts_eta - self.now).days)
+
+                by_order.append({
+                    "order_id": str(room.id),
+                    "seller_party": seller_name,
+                    "quantity": quantity,
+                    "unit_price": unit_price,
+                    "total_cost": total_value,
+                    "status": status,
+                    "eta_days": eta_days,
+                })
+
+                total_volume += quantity
+                total_spent += total_value
+
+            return {
+                "total_volume_bbl": total_volume,
+                "total_spent": total_spent,
+                "by_order": by_order
+            }
+        except Exception as e:
+            logger.error(f"Error calculating purchase metrics: {e}")
+            return {"total_volume_bbl": 0, "total_spent": 0, "by_order": []}
+
+    async def _calculate_budget_impact(self, rooms: List[Room]) -> Dict[str, Any]:
+        """Calculate budget utilization and remaining balance"""
+        if not rooms:
+            return {
+                "total_budget": 5000000,  # Default $5M budget
+                "spent_to_date": 0,
+                "budget_remaining": 5000000,
+                "budget_utilization_percent": 0
+            }
+
+        try:
+            # Estimate total budget (in real system, this would be from buyer's company settings)
+            total_budget = 5000000  # $5M default
+            
+            # Sum all spending
+            spent_to_date = sum(r.cargo_value_usd or 0 for r in rooms)
+            budget_remaining = total_budget - spent_to_date
+            budget_utilization_percent = (spent_to_date / total_budget * 100) if total_budget > 0 else 0
+
+            return {
+                "total_budget": total_budget,
+                "spent_to_date": spent_to_date,
+                "budget_remaining": max(0, budget_remaining),
+                "budget_utilization_percent": min(100, budget_utilization_percent)
+            }
+        except Exception as e:
+            logger.error(f"Error calculating budget impact: {e}")
+            return {
+                "total_budget": 5000000,
+                "spent_to_date": 0,
+                "budget_remaining": 5000000,
+                "budget_utilization_percent": 0
+            }
+
+    async def _calculate_supplier_performance(self, rooms: List[Room]) -> List[Dict[str, Any]]:
+        """Calculate performance metrics for each supplier (seller)"""
+        if not rooms:
+            return []
+
+        try:
+            supplier_metrics = {}
+
+            for room in rooms:
+                # Get seller info
+                sellers_stmt = (
+                    select(Party)
+                    .where(
+                        and_(
+                            Party.room_id == room.id,
+                            Party.role == "seller"
+                        )
+                    )
+                )
+                sellers_result = await self.session.execute(sellers_stmt)
+                sellers = sellers_result.scalars().all()
+                
+                if not sellers:
+                    continue
+
+                seller_name = sellers[0].name
+                
+                if seller_name not in supplier_metrics:
+                    supplier_metrics[seller_name] = {
+                        "supplier_name": seller_name,
+                        "total_orders": 0,
+                        "on_time_count": 0,
+                        "quality_score_sum": 0,
+                        "lead_times": [],
+                        "total_orders_quality": 0
+                    }
+
+                metrics = supplier_metrics[seller_name]
+                metrics["total_orders"] += 1
+
+                # On-time delivery assessment
+                if room.sts_eta and room.updated_at:
+                    if room.updated_at <= room.sts_eta:
+                        metrics["on_time_count"] += 1
+
+                # Quality rating (based on document approval status)
+                approved_docs = await self.session.execute(
+                    select(func.count(Document.id)).where(
+                        and_(
+                            Document.room_id == room.id,
+                            Document.status == "approved"
+                        )
+                    )
+                )
+                total_docs = await self.session.execute(
+                    select(func.count(Document.id)).where(Document.room_id == room.id)
+                )
+                approved_count = approved_docs.scalar() or 0
+                total_count = total_docs.scalar() or 1
+
+                quality_rating = (approved_count / total_count * 100) if total_count > 0 else 80
+                metrics["quality_score_sum"] += quality_rating
+                metrics["total_orders_quality"] += 1
+
+                # Lead time (days between order and ETA)
+                if room.created_at and room.sts_eta:
+                    lead_time = (room.sts_eta - room.created_at).days
+                    metrics["lead_times"].append(lead_time)
+
+            # Calculate final metrics
+            result = []
+            for supplier_name, metrics in supplier_metrics.items():
+                avg_lead_time = sum(metrics["lead_times"]) / len(metrics["lead_times"]) if metrics["lead_times"] else 0
+                on_time_rate = (metrics["on_time_count"] / metrics["total_orders"] * 100) if metrics["total_orders"] > 0 else 0
+                quality_rating = (metrics["quality_score_sum"] / metrics["total_orders_quality"]) if metrics["total_orders_quality"] > 0 else 80
+
+                result.append({
+                    "supplier_name": supplier_name,
+                    "total_orders": metrics["total_orders"],
+                    "on_time_rate": on_time_rate,
+                    "quality_rating": quality_rating,
+                    "avg_lead_time_days": avg_lead_time
+                })
+
+            return sorted(result, key=lambda x: x["quality_rating"], reverse=True)
+        except Exception as e:
+            logger.error(f"Error calculating supplier performance: {e}")
+            return []
+
+    async def _get_buyer_pending_approvals(self, rooms: List[Room]) -> List[Dict[str, Any]]:
+        """Get pending approvals awaiting buyer action"""
+        if not rooms:
+            return []
+
+        try:
+            pending_approvals = []
+            room_ids = [r.id for r in rooms]
+
+            # Get all pending approvals for buyer's rooms
+            approvals_stmt = (
+                select(Approval, Room, Party)
+                .join(Room, Approval.room_id == Room.id)
+                .join(Party, Approval.party_id == Party.id)
+                .where(
+                    and_(
+                        Approval.room_id.in_(room_ids),
+                        Approval.status == "pending",
+                        Party.role == "seller"
+                    )
+                )
+                .order_by(Approval.updated_at.asc())
+            )
+
+            result = await self.session.execute(approvals_stmt)
+            approvals = result.all()
+
+            for approval, room, seller_party in approvals:
+                hours_waiting = (self.now - approval.updated_at).total_seconds() / 3600 if approval.updated_at else 0
+                
+                pending_approvals.append({
+                    "approval_id": str(approval.id),
+                    "order_id": str(room.id),
+                    "seller_name": seller_party.name,
+                    "quantity": room.cargo_quantity or 0,
+                    "status": "pending_buyer_review",
+                    "awaiting_since_hours": hours_waiting
+                })
+
+            return pending_approvals
+        except Exception as e:
+            logger.error(f"Error getting buyer pending approvals: {e}")
+            return []
+
+    # ============ SELLER DASHBOARD METRICS ============
+
+    async def _calculate_sales_metrics(self, rooms: List[Room]) -> Dict[str, Any]:
+        """Calculate total sales volume and revenue by room"""
+        if not rooms:
+            return {
+                "total_volume_bbl": 0,
+                "total_revenue": 0,
+                "by_room": []
+            }
+
+        try:
+            total_volume = 0
+            total_revenue = 0
+            by_room = []
+
+            for room in rooms:
+                quantity = room.cargo_quantity or 0
+                revenue = room.cargo_value_usd or 0
+                unit_price = (revenue / quantity) if (quantity > 0 and revenue) else 0
+
+                # Get buyer info
+                buyers_stmt = (
+                    select(Party)
+                    .where(
+                        and_(
+                            Party.room_id == room.id,
+                            Party.role == "buyer"
+                        )
+                    )
+                )
+                buyers_result = await self.session.execute(buyers_stmt)
+                buyers = buyers_result.scalars().all()
+                buyer_name = buyers[0].name if buyers else "Unknown Buyer"
+
+                # Determine sales status
+                status = "pending"
+                if room.status_detail:
+                    status = room.status_detail
+                elif room.status == "completed":
+                    status = "completed"
+                elif room.updated_at and (self.now - room.updated_at).days > 1:
+                    status = "in_progress"
+
+                by_room.append({
+                    "room_id": str(room.id),
+                    "room_title": room.title,
+                    "quantity": quantity,
+                    "unit_price": unit_price,
+                    "total_value": revenue,
+                    "status": status,
+                })
+
+                total_volume += quantity
+                total_revenue += revenue
+
+            return {
+                "total_volume_bbl": total_volume,
+                "total_revenue": total_revenue,
+                "by_room": by_room
+            }
+        except Exception as e:
+            logger.error(f"Error calculating sales metrics: {e}")
+            return {"total_volume_bbl": 0, "total_revenue": 0, "by_room": []}
+
+    async def _calculate_pricing_trends(self, rooms: List[Room]) -> Dict[str, Any]:
+        """Calculate pricing trends and market positioning"""
+        if not rooms:
+            return {
+                "average_deal_price": 0,
+                "trend_data": []
+            }
+
+        try:
+            # Calculate average price
+            prices = []
+            for room in rooms:
+                if room.cargo_value_usd and room.cargo_quantity and room.cargo_quantity > 0:
+                    unit_price = room.cargo_value_usd / room.cargo_quantity
+                    prices.append(unit_price)
+
+            average_deal_price = sum(prices) / len(prices) if prices else 0
+
+            # Simulate trend data (in real system, this would query historical prices)
+            # Current period (last 30 days)
+            current_period_prices = prices[-max(1, len(prices)//2):]
+            current_avg = sum(current_period_prices) / len(current_period_prices) if current_period_prices else 0
+
+            # Previous period
+            previous_period_prices = prices[:-max(1, len(prices)//2)] if len(prices) > 1 else prices
+            previous_avg = sum(previous_period_prices) / len(previous_period_prices) if previous_period_prices else current_avg
+
+            # Determine trend
+            market_trend = "up" if current_avg > previous_avg else ("down" if current_avg < previous_avg else "stable")
+
+            trend_data = [
+                {
+                    "pricing_period": "Last 30 Days",
+                    "average_price": current_avg,
+                    "market_trend": market_trend
+                },
+                {
+                    "pricing_period": "Previous 30 Days",
+                    "average_price": previous_avg,
+                    "market_trend": market_trend
+                }
+            ]
+
+            return {
+                "average_deal_price": average_deal_price,
+                "trend_data": trend_data
+            }
+        except Exception as e:
+            logger.error(f"Error calculating pricing trends: {e}")
+            return {"average_deal_price": 0, "trend_data": []}
+
+    async def _get_active_negotiations(self, rooms: List[Room]) -> List[Dict[str, Any]]:
+        """Get active negotiations (pending approvals)"""
+        if not rooms:
+            return []
+
+        try:
+            negotiations = []
+            room_ids = [r.id for r in rooms]
+
+            # Get pending approvals for these rooms
+            approvals_stmt = (
+                select(Approval)
+                .where(Approval.room_id.in_(room_ids))
+            )
+
+            result = await self.session.execute(approvals_stmt)
+            approvals = result.scalars().all()
+
+            # Build room lookup and buyer lookup
+            room_map = {r.id: r for r in rooms}
+            
+            for approval in approvals:
+                room = room_map.get(approval.room_id)
+                if not room:
+                    continue
+
+                # Get buyer party info
+                buyer_stmt = (
+                    select(Party)
+                    .where(
+                        and_(
+                            Party.room_id == room.id,
+                            Party.role == "buyer"
+                        )
+                    )
+                )
+                buyer_result = await self.session.execute(buyer_stmt)
+                buyer_parties = buyer_result.scalars().all()
+                buyer_name = buyer_parties[0].name if buyer_parties else "Unknown Buyer"
+
+                # Calculate negotiation duration
+                created_diff = (self.now - room.created_at).days if room.created_at else 0
+                
+                # Determine negotiation status
+                if approval.status == "pending":
+                    status = "in_progress"
+                elif approval.status == "rejected":
+                    status = "stalled"
+                else:
+                    status = "pending_approval"
+
+                negotiations.append({
+                    "room_id": str(room.id),
+                    "room_title": room.title,
+                    "buyer_party": buyer_name,
+                    "quantity": room.cargo_quantity or 0,
+                    "proposed_price": (room.cargo_value_usd / room.cargo_quantity) if (room.cargo_quantity and room.cargo_quantity > 0) else 0,
+                    "status": status,
+                    "days_in_negotiation": created_diff
+                })
+
+            return negotiations
+        except Exception as e:
+            logger.error(f"Error getting active negotiations: {e}")
+            return []
+
+    async def _calculate_buyer_performance(self, rooms: List[Room]) -> List[Dict[str, Any]]:
+        """Calculate performance metrics for each buyer"""
+        if not rooms:
+            return []
+
+        try:
+            buyer_metrics = {}
+
+            for room in rooms:
+                # Get buyer info
+                buyers_stmt = (
+                    select(Party)
+                    .where(
+                        and_(
+                            Party.room_id == room.id,
+                            Party.role == "buyer"
+                        )
+                    )
+                )
+                buyers_result = await self.session.execute(buyers_stmt)
+                buyers = buyers_result.scalars().all()
+                
+                if not buyers:
+                    continue
+
+                buyer_name = buyers[0].name
+                
+                if buyer_name not in buyer_metrics:
+                    buyer_metrics[buyer_name] = {
+                        "buyer_name": buyer_name,
+                        "total_deals": 0,
+                        "approved_deals": 0,
+                        "response_times": [],
+                    }
+
+                metrics = buyer_metrics[buyer_name]
+                metrics["total_deals"] += 1
+
+                # Get approvals for this room where buyer is involved
+                approvals_stmt = (
+                    select(Approval)
+                    .where(Approval.room_id == room.id)
+                )
+                approvals_result = await self.session.execute(approvals_stmt)
+                approvals = approvals_result.scalars().all()
+
+                for approval in approvals:
+                    # Get the party info for this approval
+                    party_stmt = select(Party).where(Party.id == approval.party_id)
+                    party_result = await self.session.execute(party_stmt)
+                    party = party_result.scalar()
+                    
+                    # Only count approvals from buyer party
+                    if party and party.role == "buyer":
+                        if approval.status == "approved":
+                            metrics["approved_deals"] += 1
+                        
+                        # Calculate response time (time from room creation to approval)
+                        if approval.updated_at and room.created_at:
+                            response_time = (approval.updated_at - room.created_at).total_seconds() / 3600
+                            metrics["response_times"].append(response_time)
+
+            # Calculate final metrics
+            result = []
+            for buyer_name, metrics in buyer_metrics.items():
+                approval_rate = (metrics["approved_deals"] / metrics["total_deals"] * 100) if metrics["total_deals"] > 0 else 0
+                avg_response_time = sum(metrics["response_times"]) / len(metrics["response_times"]) if metrics["response_times"] else 24
+
+                result.append({
+                    "buyer_name": buyer_name,
+                    "total_deals": metrics["total_deals"],
+                    "approval_rate": approval_rate,
+                    "avg_response_time_hours": avg_response_time
+                })
+
+            return sorted(result, key=lambda x: x["approval_rate"], reverse=True)
+        except Exception as e:
+            logger.error(f"Error calculating buyer performance: {e}")
+            return []
 
     # -- Utility Methods --
 

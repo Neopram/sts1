@@ -1,0 +1,80 @@
+{
+  "timestamp": "2025-11-03T11:26:50.193460",
+  "total_rooms": 8,
+  "rooms": [
+    {
+      "id": "23af7c01-9209-47ef-8f37-d941a3370ddc",
+      "title": "Test STS Operation - Multi-User",
+      "location": "Fujairah, UAE",
+      "created_by": "owner@sts.com",
+      "parties": 4
+    },
+    {
+      "id": "ee99e8cf-6f48-42de-8cfb-1f63a6b13d9e",
+      "title": "STS Operation Delta - North Sea",
+      "location": "Rotterdam Port",
+      "created_by": "admin@sts.com",
+      "parties": 1
+    },
+    {
+      "id": "e7c00601-d77d-48ae-ba86-988b1d2d0dc9",
+      "title": "STS Operation Alpha - Mediterranean",
+      "location": "Gibraltar Strait",
+      "created_by": "admin@sts.com",
+      "parties": 1
+    },
+    {
+      "id": "7cfebca6-4acc-4743-9d33-617a44e8a386",
+      "title": "STS Operation Beta - Atlantic",
+      "location": "Canary Islands",
+      "created_by": "admin@sts.com",
+      "parties": 1
+    },
+    {
+      "id": "1c49905e-789f-49cb-957e-3247beb5935c",
+      "title": "STS Operation Gamma - Pacific",
+      "location": "Singapore Strait",
+      "created_by": "admin@sts.com",
+      "parties": 1
+    },
+    {
+      "id": "af7f7511-2cbf-4d61-bf26-be132af05d21",
+      "title": "STS Operation Alpha - Mediterranean",
+      "location": "Mediterranean Sea, 35\u00b0N 15\u00b0E",
+      "created_by": "broker@maritime.com",
+      "parties": 5
+    },
+    {
+      "id": "a5bc5e02-98f1-4745-8275-bc8859fd9243",
+      "title": "STS Operation Beta - North Sea",
+      "location": "North Sea, 56\u00b0N 3\u00b0E",
+      "created_by": "owner@northsea.com",
+      "parties": 4
+    },
+    {
+      "id": "a783f77f-6553-45ee-8247-df9098b11d0a",
+      "title": "STS Operation Gamma - Gulf of Mexico",
+      "location": "Gulf of Mexico, 27\u00b0N 90\u00b0W",
+      "created_by": "demo@example.com",
+      "parties": 4
+    }
+  ],
+  "users": [
+    {
+      "email": "broker@sts.com",
+      "role": "broker"
+    },
+    {
+      "email": "owner@sts.com",
+      "role": "owner"
+    },
+    {
+      "email": "test@sts.com",
+      "role": "buyer"
+    }
+  ],
+  "problem_room": {
+    "id": "fdf18990-39d9-4214-bcaa-a0772ec77955",
+    "exists": false
+  }
+}

@@ -6,6 +6,7 @@ import './styles/button-alignment.css'
 import './styles/modern-animations.css'
 import { router } from './router'
 import { AppProvider } from './contexts/AppContext'
+import { PolicyProvider } from './contexts/PolicyContext'  // RBAC: Policy provider
 import { LanguageProvider } from './contexts/LanguageContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { WebSocketProvider } from './contexts/WebSocketContext'
@@ -20,23 +21,25 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <AppProvider>
-        <LanguageProvider>
-          <NotificationProvider>
-            <WebSocketProvider>
-              <HelpProvider>
-              <ProfileProvider>
-                <SettingsProvider>
-                  <SearchProvider>
-                    <AppInitializer>
-                      <RouterProvider router={router} />
-                    </AppInitializer>
-                  </SearchProvider>
-                </SettingsProvider>
-              </ProfileProvider>
-            </HelpProvider>
-            </WebSocketProvider>
-          </NotificationProvider>
-        </LanguageProvider>
+        <PolicyProvider>  {/* RBAC: Envuelve todos los providers que necesitan permisos */}
+          <LanguageProvider>
+            <NotificationProvider>
+              <WebSocketProvider>
+                <HelpProvider>
+                <ProfileProvider>
+                  <SettingsProvider>
+                    <SearchProvider>
+                      <AppInitializer>
+                        <RouterProvider router={router} />
+                      </AppInitializer>
+                    </SearchProvider>
+                  </SettingsProvider>
+                </ProfileProvider>
+              </HelpProvider>
+              </WebSocketProvider>
+            </NotificationProvider>
+          </LanguageProvider>
+        </PolicyProvider>
       </AppProvider>
     </ErrorBoundary>
   </React.StrictMode>,

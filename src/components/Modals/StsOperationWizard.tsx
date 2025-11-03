@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import * as api from '../../api';
+import { COASTAL_COUNTRIES, isValidCoastalCountry } from '../../constants/coastalCountries';
 
 interface Props {
   isOpen: boolean;
@@ -61,7 +62,7 @@ export const StsOperationWizard: React.FC<Props> = ({
       vessel_imo: '',
       mmsi: '',
       vessel_type: 'Tanker',
-      vessel_role: 'Receiving Vessel',
+      vessel_role: 'mother_vessel', // PR-2: Default to mother_vessel
       flag: '',
     },
   ]);
@@ -74,6 +75,11 @@ export const StsOperationWizard: React.FC<Props> = ({
     }
     if (!location.trim()) {
       setError('Location is required');
+      return false;
+    }
+    // PR-2: Validate coastal country
+    if (!isValidCoastalCountry(location)) {
+      setError(`"${location}" is not a recognized coastal country. Please select from the list.`);
       return false;
     }
     if (!startDate) {
@@ -207,8 +213,17 @@ export const StsOperationWizard: React.FC<Props> = ({
           });
         }
 
-        // Step 6: Finalize
+        // Step 6: Finalize & Send Emails - PR-2
+        // This endpoint automatically sends emails to all participants
         const finalOp = await api.finalizeOperation(opResponse.id);
+
+        // Show success notification
+        window.dispatchEvent(new CustomEvent('app:notification', {
+          detail: {
+            type: 'success',
+            message: `✅ STS Operation created successfully!\n🔔 Notification emails sent to ${allParticipants.length} participants\n📋 Operation Code: ${finalOp.sts_code || opResponse.id}`
+          }
+        }));
 
         // Success!
         onComplete?.(finalOp);
@@ -248,7 +263,7 @@ export const StsOperationWizard: React.FC<Props> = ({
         vessel_imo: '',
         mmsi: '',
         vessel_type: 'Tanker',
-        vessel_role: 'Receiving Vessel',
+        vessel_role: 'mother_vessel', // PR-2: Updated default
         flag: '',
       },
     ]);
@@ -283,15 +298,24 @@ export const StsOperationWizard: React.FC<Props> = ({
           />
         </label>
 
+        {/* PR-2: Location Dropdown with Coastal Countries */}
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Location *</span>
-          <input
-            type="text"
+          <span className="text-sm font-medium text-gray-700">Location (Coastal Country) *</span>
+          <select
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
-            placeholder="e.g., Singapore Strait"
-          />
+          >
+            <option value="">-- Select a Coastal Country --</option>
+            {COASTAL_COUNTRIES.map((country) => (
+              <option key={country.code} value={country.name}>
+                {country.name} ({country.code})
+              </option>
+            ))}
+          </select>
+          {location && !isValidCoastalCountry(location) && (
+            <p className="mt-1 text-xs text-red-600">Invalid selection</p>
+          )}
         </label>
 
         <div className="grid grid-cols-2 gap-4">
@@ -510,22 +534,42 @@ export const StsOperationWizard: React.FC<Props> = ({
               </select>
             </label>
 
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">Vessel Role</span>
-              <select
-                value={v.vessel_role}
-                onChange={(e) => {
-                  const updated = [...vessels];
-                  updated[idx].vessel_role = e.target.value;
-                  setVessels(updated);
-                }}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2"
-              >
-                <option>Receiving Vessel</option>
-                <option>Delivery Vessel</option>
-                <option>Other</option>
-              </select>
-            </label>
+            {/* PR-2: Mother/Daughter Vessel Role Selection */}
+            <div className="block">
+              <span className="text-sm font-medium text-gray-700">Vessel Role *</span>
+              <div className="mt-2 space-y-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`vessel-role-${idx}`}
+                    value="mother_vessel"
+                    checked={v.vessel_role === 'mother_vessel'}
+                    onChange={(e) => {
+                      const updated = [...vessels];
+                      updated[idx].vessel_role = e.target.value;
+                      setVessels(updated);
+                    }}
+                    className="w-4 h-4 border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700 font-medium">🛢️ Mother Vessel (Donor)</span>
+                </label>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={`vessel-role-${idx}`}
+                    value="daughter_vessel"
+                    checked={v.vessel_role === 'daughter_vessel'}
+                    onChange={(e) => {
+                      const updated = [...vessels];
+                      updated[idx].vessel_role = e.target.value;
+                      setVessels(updated);
+                    }}
+                    className="w-4 h-4 border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700 font-medium">🛳️ Daughter Vessel (Receiver)</span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
       ))}
@@ -539,7 +583,7 @@ export const StsOperationWizard: React.FC<Props> = ({
               vessel_imo: '',
               mmsi: '',
               vessel_type: 'Tanker',
-              vessel_role: 'Receiving Vessel',
+              vessel_role: 'mother_vessel', // PR-2: Updated default
               flag: '',
             },
           ]);

@@ -205,6 +205,7 @@ async def login(
 
     try:
         logger.info(f"Login attempt for email: {email}")
+        print(f"[LOGIN] Attempting login for {email}")
         
         # Find user
         result = await session.execute(select(User).where(User.email == email).limit(1))
@@ -212,24 +213,35 @@ async def login(
 
         if not user:
             logger.warning(f"User not found: {email}")
+            print(f"[LOGIN] User not found: {email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
 
         logger.info(f"User found: {user.email}, role: {user.role}")
+        print(f"[LOGIN] User found: {user.email}, role: {user.role}")
 
         # Validate password
         if user.password_hash:
             try:
-                if not bcrypt.verify(password, user.password_hash):
+                print(f"[LOGIN] Verifying password for {email}...")
+                verified = bcrypt.verify(password, user.password_hash)
+                print(f"[LOGIN] Password verification result: {verified}")
+                if not verified:
                     logger.warning(f"Invalid password for: {email}")
+                    print(f"[LOGIN] Invalid password for {email}")
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="Invalid email or password",
                     )
+            except HTTPException:
+                raise
             except Exception as verify_error:
                 logger.error(f"Password verification error: {verify_error}")
+                print(f"[LOGIN] Password verification error: {verify_error}")
+                import traceback
+                traceback.print_exc()
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid email or password",
@@ -237,21 +249,50 @@ async def login(
         else:
             # No password set, allow login (for demo users)
             logger.warning(f"No password hash for user: {email}, allowing login")
+            print(f"[LOGIN] No password hash for user: {email}, allowing login")
 
         # Create access token
-        token = create_access_token({"sub": user.email, "role": user.role})
+        print(f"[LOGIN] Creating access token for {email}...")
+        try:
+            token = create_access_token({"sub": user.email, "role": user.role})
+            print(f"[LOGIN] Token created successfully")
+        except Exception as token_error:
+            logger.error(f"Error creating token: {token_error}")
+            print(f"[LOGIN] Token creation error: {token_error}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create access token"
+            )
 
         logger.info(f"Login successful for: {email}")
+        print(f"[LOGIN] Login successful for {email}")
+        
+        # Ensure name is not None (fallback to email if missing)
+        user_name = user.name if user.name else user.email.split('@')[0]
+        
         return TokenResponse(
-            token=token, email=user.email, role=user.role, name=user.name
+            token=token, email=user.email, role=user.role, name=user_name
         )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Login error: {e}")
+        print(f"[LOGIN] Uncaught exception: {e}")
         import traceback
-        traceback.print_exc()
+        error_trace = traceback.format_exc()
+        print(error_trace)
+        logger.error(error_trace)
+        # Always show detailed error in development (default)
+        import os
+        is_dev = os.getenv("ENVIRONMENT", "development").lower() != "production"
+        if is_dev:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Login error: {str(e)}\n\n{error_trace}",
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",

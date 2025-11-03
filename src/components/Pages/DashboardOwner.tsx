@@ -62,6 +62,7 @@ interface OwnerDashboard {
 type DashboardTab = 'overview' | 'fleet' | 'documents' | 'insurance' | 'inspections' | 'crew' | 'maintenance' | 'compliance' | 'analytics' | 'sts-operations' | 'alerts' | 'import';
 
 export const DashboardOwner: React.FC = () => {
+  // ✅ ALL HOOKS FIRST - BEFORE ANY CONDITIONALS
   const { hasAccess } = useDashboardAccess('owner');
   const { data: dashboard, loading, error, refetch } = useDashboardData<OwnerDashboard>(
     '/api/v1/dashboard-v2/for-role',
@@ -74,7 +75,7 @@ export const DashboardOwner: React.FC = () => {
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
 
-  // Check access
+  // ✅ NOW CHECK ACCESS - AFTER ALL HOOKS
   if (!hasAccess) {
     return (
       <DashboardBase title="Access Denied" icon="🚫">
@@ -112,8 +113,8 @@ export const DashboardOwner: React.FC = () => {
     );
   }
 
-  // Safe destructuring with defaults
-  const dashboardData = (dashboard as any)?.data || dashboard;
+  // Safe destructuring with defaults - dashboard is guaranteed to exist at this point
+  const dashboardData = (dashboard as any)?.data || dashboard || {};
   const {
     sire_compliance = [],
     open_findings = [],

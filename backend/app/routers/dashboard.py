@@ -59,6 +59,10 @@ async def get_dashboard_overview(
             data = await projection_service.get_shipowner_overview()
         elif role == "inspector":
             data = await projection_service.get_inspector_overview()
+        elif role == "buyer":
+            data = await projection_service.get_buyer_overview()
+        elif role == "seller":
+            data = await projection_service.get_seller_overview()
         else:
             # Default viewer dashboard
             data = {
@@ -684,3 +688,266 @@ async def get_broker_approval_queue_legacy(
     except Exception as e:
         logger.error(f"Error: {e}")
         raise HTTPException(status_code=500, detail="Error")
+
+
+# ============ BUYER DASHBOARD ENDPOINTS ============
+
+@router.get("/buyer/overview")
+async def get_buyer_overview(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Buyer dashboard overview.
+    Shows purchase orders, budget status, supplier performance, and pending approvals.
+    """
+    try:
+        if current_user.role != "buyer":
+            raise HTTPException(status_code=403, detail="Buyer access required")
+        
+        projection_service = DashboardProjectionService(session, current_user)
+        overview = await projection_service.get_buyer_overview()
+        
+        return overview
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting buyer overview: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching buyer dashboard")
+
+
+@router.get("/buyer/purchases")
+async def get_buyer_purchases(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Detailed purchase order metrics for buyer.
+    Shows volume, costs, and order statuses.
+    """
+    try:
+        if current_user.role != "buyer":
+            raise HTTPException(status_code=403, detail="Buyer access required")
+        
+        projection_service = DashboardProjectionService(session, current_user)
+        overview = await projection_service.get_buyer_overview()
+        
+        return overview.get("purchases", {})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting buyer purchases: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching purchase data")
+
+
+@router.get("/buyer/budget")
+async def get_buyer_budget(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Budget impact and utilization for buyer.
+    Shows budget remaining and utilization percentage.
+    """
+    try:
+        if current_user.role != "buyer":
+            raise HTTPException(status_code=403, detail="Buyer access required")
+        
+        projection_service = DashboardProjectionService(session, current_user)
+        overview = await projection_service.get_buyer_overview()
+        
+        return overview.get("budget", {})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting buyer budget: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching budget data")
+
+
+@router.get("/buyer/suppliers")
+async def get_buyer_suppliers(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Supplier (seller) performance metrics for buyer.
+    Shows on-time rate, quality rating, and lead times.
+    """
+    try:
+        if current_user.role != "buyer":
+            raise HTTPException(status_code=403, detail="Buyer access required")
+        
+        projection_service = DashboardProjectionService(session, current_user)
+        overview = await projection_service.get_buyer_overview()
+        
+        return {
+            "suppliers": overview.get("suppliers", []),
+            "count": len(overview.get("suppliers", []))
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting supplier performance: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching supplier data")
+
+
+@router.get("/buyer/pending-approvals")
+async def get_buyer_pending_approvals(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Pending approvals requiring buyer action.
+    """
+    try:
+        if current_user.role != "buyer":
+            raise HTTPException(status_code=403, detail="Buyer access required")
+        
+        projection_service = DashboardProjectionService(session, current_user)
+        overview = await projection_service.get_buyer_overview()
+        
+        return {
+            "pending": overview.get("pending_approvals", []),
+            "count": len(overview.get("pending_approvals", []))
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting pending approvals: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching approvals")
+
+
+# ============ SELLER DASHBOARD ENDPOINTS ============
+
+@router.get("/seller/overview")
+async def get_seller_overview(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Seller dashboard overview.
+    Shows sales pipeline, pricing trends, active negotiations, and buyer performance.
+    """
+    try:
+        if current_user.role != "seller":
+            raise HTTPException(status_code=403, detail="Seller access required")
+        
+        projection_service = DashboardProjectionService(session, current_user)
+        overview = await projection_service.get_seller_overview()
+        
+        logger.info(f"Seller dashboard loaded for {current_user.email}")
+        return overview
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting seller overview: {e}", exc_info=True)
+        # Return safe structure instead of error
+        return {
+            "sales": {"total_volume_bbl": 0, "total_revenue": 0, "by_room": []},
+            "pricing": {"average_deal_price": 0, "trend_data": []},
+            "negotiations": [],
+            "buyer_performance": [],
+            "alert_priority": "general",
+        }
+
+
+@router.get("/seller/sales")
+async def get_seller_sales(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Sales metrics for seller.
+    Shows volume, revenue, and transaction statuses.
+    """
+    try:
+        if current_user.role != "seller":
+            raise HTTPException(status_code=403, detail="Seller access required")
+        
+        projection_service = DashboardProjectionService(session, current_user)
+        overview = await projection_service.get_seller_overview()
+        
+        return overview.get("sales", {})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting seller sales: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching sales data")
+
+
+@router.get("/seller/pricing")
+async def get_seller_pricing(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Pricing trends and market positioning for seller.
+    Shows average deal price and trend analysis.
+    """
+    try:
+        if current_user.role != "seller":
+            raise HTTPException(status_code=403, detail="Seller access required")
+        
+        projection_service = DashboardProjectionService(session, current_user)
+        overview = await projection_service.get_seller_overview()
+        
+        return overview.get("pricing", {})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting pricing trends: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching pricing data")
+
+
+@router.get("/seller/negotiations")
+async def get_seller_negotiations(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Active negotiations for seller.
+    Shows deals in progress with buyers.
+    """
+    try:
+        if current_user.role != "seller":
+            raise HTTPException(status_code=403, detail="Seller access required")
+        
+        projection_service = DashboardProjectionService(session, current_user)
+        overview = await projection_service.get_seller_overview()
+        
+        return {
+            "negotiations": overview.get("negotiations", []),
+            "count": len(overview.get("negotiations", []))
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting negotiations: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching negotiations")
+
+
+@router.get("/seller/buyer-performance")
+async def get_seller_buyer_performance(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    Buyer performance metrics for seller.
+    Shows approval rates and response times.
+    """
+    try:
+        if current_user.role != "seller":
+            raise HTTPException(status_code=403, detail="Seller access required")
+        
+        projection_service = DashboardProjectionService(session, current_user)
+        overview = await projection_service.get_seller_overview()
+        
+        return {
+            "buyers": overview.get("buyer_performance", []),
+            "count": len(overview.get("buyer_performance", []))
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting buyer performance: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching buyer performance")

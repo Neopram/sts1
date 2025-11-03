@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, Plus, Search } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +25,16 @@ export const RoomSelector: React.FC = () => {
     room.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     room.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  // Auto-select first room if none is selected
+  useEffect(() => {
+    if (rooms.length > 0 && !currentRoomId) {
+      const firstRoom = rooms[0];
+      setCurrentRoomId(firstRoom.id);
+      localStorage.setItem('current-room', firstRoom.id);
+      console.log(`[ROOM_SELECTOR] Auto-selected first room: ${firstRoom.title}`);
+    }
+  }, [rooms, currentRoomId, setCurrentRoomId]);
   
   const handleSelectRoom = (roomId: string) => {
     setCurrentRoomId(roomId);
@@ -137,12 +147,31 @@ export const RoomSelector: React.FC = () => {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-gray-900 truncate">
-                        {room.title}
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="font-semibold text-gray-900 truncate">
+                          {room.title}
+                        </div>
+                        {/* ARMONÍA ABSOLUTA: Badge de tipo de operación */}
+                        {room.type === 'sts_operation' && (
+                          <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded font-mono whitespace-nowrap">
+                            STS
+                          </span>
+                        )}
+                        {room.type === 'room' && (
+                          <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded whitespace-nowrap">
+                            Legacy
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-600 truncate">
                         {room.location}
                       </div>
+                      {/* ARMONÍA ABSOLUTA: Mostrar código STS si está disponible */}
+                      {room.sts_code && (
+                        <div className="text-xs text-blue-600 font-mono mt-0.5">
+                          Code: {room.sts_code}
+                        </div>
+                      )}
                       <div className="text-xs text-gray-500 mt-1">
                         ETA: {new Date(room.sts_eta).toLocaleDateString()}
                       </div>

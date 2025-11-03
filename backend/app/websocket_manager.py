@@ -138,6 +138,7 @@ class ConnectionManager:
         content: str,
         message_type: str = "text",
         message_id: str = None,
+        is_public: bool = True,  # PHASE 4: Message visibility
     ):
         """
         Send a chat message to all users in a room
@@ -149,6 +150,7 @@ class ConnectionManager:
             "sender_name": sender_name,
             "content": content,
             "message_type": message_type,
+            "is_public": is_public,  # PHASE 4: Include visibility
             "timestamp": datetime.utcnow().isoformat(),
         }
 

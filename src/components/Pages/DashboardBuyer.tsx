@@ -57,7 +57,7 @@ interface BuyerDashboard {
 export const DashboardBuyer: React.FC = () => {
   const { hasAccess } = useDashboardAccess('buyer');
   const { data: dashboard, loading, error } = useDashboardData<BuyerDashboard>(
-    '/dashboard/buyer/overview',
+    '/api/v1/dashboard/buyer/overview',
     {
       enabled: hasAccess,
       refetchInterval: 30000, // Auto-refetch every 30 seconds

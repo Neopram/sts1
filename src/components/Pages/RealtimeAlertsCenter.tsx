@@ -449,7 +449,6 @@ export const RealtimeAlertsCenter: React.FC = () => {
                 <div
                   key={alert.alert_id}
                   style={{
-                    background: '#fff',
                     border: `2px solid ${severityColor.color}`,
                     borderRadius: '8px',
                     padding: '12px',

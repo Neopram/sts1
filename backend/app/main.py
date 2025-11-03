@@ -30,7 +30,7 @@ from app.routers import (activities, approval_matrix, approvals, auth, cache_man
                          search, settings, snapshots, stats, users, vessels, weather, vessel_sessions, websocket,
                          sanctions, vessel_integrations, missing_documents, email_settings, totp_settings, 
                          login_tracking, backup_settings, advanced_export, dashboard, operations, sts_operations,
-                         demurrage_api, commission_api, compliance_api, notifications_api_v2, documents_api_v2, dashboard_api_v2)
+                         operations_unified, demurrage_api, commission_api, compliance_api, notifications_api_v2, documents_api_v2, dashboard_api_v2)
 
 # Configure logging
 logging.basicConfig(
@@ -88,8 +88,9 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(auth.router)
 app.include_router(operations.router)  # PHASE 0: New unified operations router
 app.include_router(sts_operations.router)  # PHASE 1: STS operations (create, wizard, etc.)
+app.include_router(operations_unified.router)  # ARMONÍA ABSOLUTA: Unified Rooms + STS Operations endpoint
 app.include_router(dashboard.router)
-app.include_router(rooms.router)
+app.include_router(rooms.router)  # Legacy endpoint (maintained for backward compatibility)
 app.include_router(documents.router)
 app.include_router(messages.router)
 app.include_router(approvals.router)

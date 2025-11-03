@@ -24,6 +24,7 @@ from app.models import (
     OperationVessel,
     StsOperationCode,
 )
+from app.services.email_service import EmailService  # PR-2: Email notifications
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +222,22 @@ class StsOperationService:
 
             await self.session.flush()
 
-            logger.info(f"Finalized operation {operation_id}")
+            # PR-2: Send emails to all participants
+            try:
+                email_service = EmailService()
+                for participant in operation.participants:
+                    logger.info(f"Sending operation created email to {participant.email}")
+                    email_service.send_operation_created(
+                        to_email=participant.email,
+                        recipient_name=participant.name,
+                        operation_title=operation.title,
+                        operation_code=operation.sts_operation_code,
+                    )
+            except Exception as email_err:
+                logger.error(f"Error sending emails for operation {operation_id}: {email_err}", exc_info=True)
+                # Don't fail operation finalization if email fails
+
+            logger.info(f"Finalized operation {operation_id} - emails sent to {len(operation.participants)} participants")
             return operation
 
         except Exception as e:

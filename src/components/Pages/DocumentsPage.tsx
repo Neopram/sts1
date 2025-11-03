@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Eye, Check, X, Clock, AlertTriangle, FileText, Upload, Edit3, RefreshCw, Search, Download } from 'lucide-react';
+import { Eye, Check, X, Clock, AlertTriangle, FileText, Upload, Edit3, RefreshCw, Search, Download, Copy } from 'lucide-react';
 import { Document } from '../../types/api';
 import { useApp } from '../../contexts/AppContext';
 import ApiService from '../../api';
@@ -36,6 +36,7 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
 
   // Load documents from API
   const loadDocuments = async () => {
@@ -275,7 +276,7 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
               Document Management
             </h1>
 
-            <div className="flex gap-6">
+            <div className="flex gap-3">
               <button
                 onClick={loadDocuments}
                 disabled={loading}
@@ -283,6 +284,16 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 Refresh
+              </button>
+
+              {/* Use Template Button - PR1 */}
+              <button
+                onClick={() => setShowTemplateModal(true)}
+                className="btn-secondary"
+                title="Use a document template for faster uploads"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Use Template
               </button>
 
               <button
@@ -735,6 +746,74 @@ export const DocumentsPage: React.FC<DocumentsPageProps> = ({
                       </button>
                     ) : null}
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Template Modal - PR1 */}
+          {showTemplateModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-96 overflow-y-auto">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between p-6 border-b border-secondary-200 sticky top-0 bg-white z-10">
+                  <div>
+                    <h3 className="text-lg font-bold text-secondary-900">Document Templates</h3>
+                    <p className="text-sm text-secondary-600 mt-1">Use a template to speed up document uploads</p>
+                  </div>
+                  <button
+                    onClick={() => setShowTemplateModal(false)}
+                    className="text-secondary-400 hover:text-secondary-600 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                {/* Modal Body */}
+                <div className="p-6">
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Template Options */}
+                    {[
+                      { name: 'Q88 Certificate', description: 'Standard Q88 vessel compliance certificate', icon: '📄' },
+                      { name: 'CSR Report', description: 'Corporate Social Responsibility documentation', icon: '📋' },
+                      { name: 'CAP Form', description: 'Competency Assessment Plan', icon: '📝' },
+                      { name: 'STS Agreement', description: 'Standard STS operation agreement template', icon: '📑' },
+                    ].map((template, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          // In production, this would trigger document upload with template
+                          setShowTemplateModal(false);
+                          window.dispatchEvent(new CustomEvent('app:notification', {
+                            detail: {
+                              type: 'success',
+                              message: `${template.name} template ready for use`
+                            }
+                          }));
+                          onUploadDocument();
+                        }}
+                        className="text-left p-4 border-2 border-secondary-200 hover:border-primary-400 hover:bg-primary-50 rounded-lg transition-all duration-200 cursor-pointer"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">{template.icon}</span>
+                          <div>
+                            <h4 className="font-semibold text-secondary-900">{template.name}</h4>
+                            <p className="text-sm text-secondary-600 mt-1">{template.description}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Modal Footer */}
+                <div className="px-6 py-4 border-t border-secondary-200 sticky bottom-0 bg-white z-10 flex gap-3 justify-end">
+                  <button
+                    onClick={() => setShowTemplateModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-secondary-700 bg-secondary-100 hover:bg-secondary-200 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             </div>

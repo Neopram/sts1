@@ -1,32 +1,23 @@
-import asyncio
-from app.database import get_async_session
-from sqlalchemy import text
+#!/usr/bin/env python
+import sqlite3
 
-async def check_schema():
-    async for session in get_async_session():
-        try:
-            # Check all required tables exist
-            tables = ['users', 'rooms', 'parties', 'document_types', 'vessels',
-                     'documents', 'approvals', 'messages', 'vessel_pairs',
-                     'weather_data', 'activity_log', 'notifications',
-                     'document_versions', 'feature_flags', 'user_settings', 'snapshots']
+db_path = "sts_clearance.db"
+conn = sqlite3.connect(db_path)
+cursor = conn.cursor()
 
-            for table in tables:
-                result = await session.execute(text(f'SELECT name FROM sqlite_master WHERE type="table" AND name="{table}"'))
-                exists = result.fetchone()
-                print(f'✅ Table {table}: {"EXISTS" if exists else "MISSING"}')
+# Get all tables
+cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+tables = cursor.fetchall()
+print(f"Tables in database: {[t[0] for t in tables]}\n")
 
-            # Check vessel_id columns exist
-            vessel_tables = ['documents', 'approvals', 'messages']
-            for table in vessel_tables:
-                result = await session.execute(text(f'PRAGMA table_info({table})'))
-                columns = result.fetchall()
-                vessel_col = [col for col in columns if col[1] == 'vessel_id']
-                print(f'✅ {table}.vessel_id: {"EXISTS" if vessel_col else "MISSING"}')
+# Check users table schema
+if any(t[0] == 'users' for t in tables):
+    print("Users table schema:")
+    cursor.execute("PRAGMA table_info(users);")
+    columns = cursor.fetchall()
+    for col in columns:
+        print(f"  {col[1]}: {col[2]}")
+else:
+    print("Users table NOT found!")
 
-            break
-        finally:
-            await session.close()
-
-if __name__ == "__main__":
-    asyncio.run(check_schema())
+conn.close()

@@ -434,7 +434,6 @@ export const STSOperationsManager: React.FC = () => {
               <div
                 key={op.operation_id}
                 style={{
-                  background: '#fff',
                   border: `2px solid ${getStatusColor(op.status)}`,
                   borderRadius: '12px',
                   padding: '16px',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, Outlet } from 'react-router-dom';
 import { useApp } from './src/contexts/AppContext';
 import Header from './src/components/Layout/Header';
@@ -13,8 +13,50 @@ import { MessagesPage } from './src/components/Pages/MessagesPage';
 import { MissingDocumentsPage } from './src/components/Pages/MissingDocumentsPage';
 import { UploadModal } from './src/components/Modals/UploadModal';
 import { StsOperationWizard } from './src/components/Modals/StsOperationWizard'; // PHASE 1: STS Operations wizard
-import LoginPage from './src/components/Pages/LoginPage';
 import ApiService from './src/api';
+
+/**
+ * UTILITY FUNCTIONS FOR RESILIENT API CALLS
+ */
+
+// Helper: Add timeout to promises
+const withTimeout = async <T,>(
+  promise: Promise<T>,
+  timeoutMs: number = 10000,
+  actionName: string = 'Request'
+): Promise<T> => {
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => {
+      const error = new Error(`${actionName} timed out after ${timeoutMs}ms`);
+      (error as any).code = 'TIMEOUT';
+      reject(error);
+    }, timeoutMs)
+  );
+  
+  return Promise.race([promise, timeoutPromise]);
+};
+
+// Helper: Retry with exponential backoff
+const withRetry = async <T,>(
+  fn: () => Promise<T>,
+  maxAttempts: number = 3,
+  delayMs: number = 1000
+): Promise<T> => {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxAttempts) throw err;
+      // Don't retry on timeout errors for initial attempts
+      if ((err as any)?.code !== 'TIMEOUT' || attempt < maxAttempts) {
+        const backoffDelay = delayMs * Math.pow(2, attempt - 1);
+        console.log(`[RETRY] Attempt ${attempt} failed, retrying in ${backoffDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
+    }
+  }
+  throw new Error('Max retries exceeded');
+};
 
 const STSClearanceApp: React.FC = () => {
   const {
@@ -43,76 +85,256 @@ const STSClearanceApp: React.FC = () => {
   const [activities, setActivities] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [missingDocuments, setMissingDocuments] = useState<any>(null);
+  const [uiError, setUiError] = useState<{ action: string; message: string; timestamp: number } | null>(null);
 
-  const tabs = [
-    { id: 'overview', label: 'Overview', badge: undefined },
-    { id: 'documents', label: 'Documents', badge: cockpitData?.missingDocuments?.length || 0 },
-    { id: 'missing', label: 'Missing Docs', badge: missingDocuments?.summary?.criticalCount || 0, highlight: missingDocuments?.summary?.criticalCount > 0 },
-    { id: 'approval', label: 'Approval', badge: cockpitData?.pendingApprovals?.length || 0 },
-    { id: 'activity', label: 'Activity', badge: undefined },
-    { id: 'history', label: 'History', badge: undefined },
-    { id: 'messages', label: 'Messages', badge: messages.filter(m => !m.read).length }
-  ];
+  /**
+   * BADGE HELPERS - Safe badge calculation with fallbacks
+   */
+  const getDocumentsBadge = (): number => {
+    try {
+      return cockpitData?.missingDocuments?.length || 0;
+    } catch {
+      console.warn('[BADGE] Error calculating documents badge');
+      return 0;
+    }
+  };
 
-  // Fetch cockpit data
-  const fetchCockpitData = async () => {
+  const getMissingDocsBadge = (): number => {
+    try {
+      return missingDocuments?.summary?.criticalCount || 0;
+    } catch {
+      console.warn('[BADGE] Error calculating missing docs badge');
+      return 0;
+    }
+  };
+
+  const getApprovalBadge = (): number => {
+    try {
+      return cockpitData?.pendingApprovals?.length || 0;
+    } catch {
+      console.warn('[BADGE] Error calculating approval badge');
+      return 0;
+    }
+  };
+
+  const getMessagesBadge = (): number => {
+    try {
+      return Array.isArray(messages) 
+        ? messages.filter(m => typeof m === 'object' && 'read' in m && !m.read).length 
+        : 0;
+    } catch {
+      console.warn('[BADGE] Error calculating messages badge');
+      return 0;
+    }
+  };
+
+  /**
+   * ROLE-BASED TAB VISIBILITY
+   * Returns tabs appropriate for the current user's role
+   */
+  const getTabs = (): Array<{ id: string; label: string; badge?: number; highlight?: boolean }> => {
+    const baseRole = user?.role?.toLowerCase();
+    
+    // Base tabs for all users
+    const baseTabs = [
+      { id: 'overview', label: 'Overview', badge: undefined }
+    ];
+    
+    // Role-specific tabs
+    const roleSpecificTabs: Record<string, Array<{ id: string; label: string; badge?: number; highlight?: boolean }>> = {
+      admin: [
+        { id: 'documents', label: 'Documents', badge: getDocumentsBadge() },
+        { id: 'missing', label: 'Missing Docs', badge: getMissingDocsBadge(), highlight: getMissingDocsBadge() > 0 },
+        { id: 'approval', label: 'Approval', badge: getApprovalBadge() },
+        { id: 'activity', label: 'Activity', badge: undefined },
+        { id: 'history', label: 'History', badge: undefined },
+        { id: 'messages', label: 'Messages', badge: getMessagesBadge() }
+      ],
+      broker: [
+        { id: 'documents', label: 'Documents', badge: getDocumentsBadge() },
+        { id: 'missing', label: 'Missing Docs', badge: getMissingDocsBadge(), highlight: getMissingDocsBadge() > 0 },
+        { id: 'approval', label: 'Approval', badge: getApprovalBadge() },
+        { id: 'activity', label: 'Activity', badge: undefined },
+        { id: 'history', label: 'History', badge: undefined },
+        { id: 'messages', label: 'Messages', badge: getMessagesBadge() }
+      ],
+      owner: [
+        { id: 'documents', label: 'Documents', badge: getDocumentsBadge() },
+        { id: 'approval', label: 'Approval', badge: getApprovalBadge() },
+        { id: 'activity', label: 'Activity', badge: undefined },
+        { id: 'messages', label: 'Messages', badge: getMessagesBadge() }
+      ],
+      charterer: [
+        { id: 'documents', label: 'Documents', badge: getDocumentsBadge() },
+        { id: 'approval', label: 'Approval', badge: getApprovalBadge() },
+        { id: 'activity', label: 'Activity', badge: undefined },
+        { id: 'messages', label: 'Messages', badge: getMessagesBadge() }
+      ],
+      seller: [
+        { id: 'documents', label: 'Documents', badge: getDocumentsBadge() },
+        { id: 'activity', label: 'Activity', badge: undefined },
+        { id: 'messages', label: 'Messages', badge: getMessagesBadge() }
+      ],
+      buyer: [
+        { id: 'documents', label: 'Documents', badge: getDocumentsBadge() },
+        { id: 'activity', label: 'Activity', badge: undefined },
+        { id: 'messages', label: 'Messages', badge: getMessagesBadge() }
+      ],
+      viewer: [
+        { id: 'documents', label: 'Documents (Read-only)', badge: 0 }
+      ]
+    };
+    
+    const specificTabs = roleSpecificTabs[baseRole!] || [];
+    return [...baseTabs, ...specificTabs];
+  };
+
+  /**
+   * TAB ACCESS CONTROL
+   * Validates if user has permission to access a specific tab
+   */
+  const canAccessTab = (tabId: string): boolean => {
+    const role = user?.role?.toLowerCase();
+    
+    const tabAccessMatrix: Record<string, string[]> = {
+      'overview': ['admin', 'broker', 'owner', 'charterer', 'seller', 'buyer', 'viewer'],
+      'documents': ['admin', 'broker', 'owner', 'charterer', 'seller', 'buyer', 'viewer'],
+      'missing': ['admin', 'broker', 'owner', 'charterer'],  // No viewer/parties
+      'approval': ['admin', 'broker', 'owner', 'charterer'],  // No viewer/parties
+      'activity': ['admin', 'broker', 'owner', 'charterer', 'seller', 'buyer'],
+      'history': ['admin', 'broker', 'owner', 'charterer'],
+      'messages': ['admin', 'broker', 'owner', 'charterer', 'seller', 'buyer']
+    };
+    
+    const allowedRoles = tabAccessMatrix[tabId] || [];
+    return allowedRoles.includes(role!);
+  };
+
+  // Dynamic tabs based on role
+  const tabs = getTabs();
+
+  /**
+   * CENTRALIZED ERROR HANDLER
+   */
+  const handleFetchError = useCallback((action: string, err: unknown) => {
+    const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+    console.error(`[FETCH] Error ${action}:`, err);
+    setUiError({ 
+      action, 
+      message: `Failed to ${action}: ${errorMsg}`, 
+      timestamp: Date.now() 
+    });
+  }, []);
+
+  const clearError = useCallback((action?: string) => {
+    if (!action || uiError?.action === action) {
+      setUiError(null);
+    }
+  }, [uiError?.action]);
+
+  /**
+   * FETCH FUNCTIONS WITH RESILIENCE
+   * All use withTimeout and withRetry for reliability
+   */
+  const fetchCockpitData = useCallback(async () => {
     if (!currentRoomId) return;
     
     try {
-      const data = await ApiService.getRoomSummary(currentRoomId);
+      const data = await withRetry(
+        () => withTimeout(
+          ApiService.getRoomSummary(currentRoomId),
+          10000,
+          'fetchCockpitData'
+        ),
+        3,
+        1000
+      );
       setCockpitData(data);
+      clearError('cockpit');
     } catch (err) {
-      console.error('Error fetching cockpit data:', err);
+      handleFetchError('fetchCockpitData', err);
     }
-  };
+  }, [currentRoomId, handleFetchError, clearError]);
 
-  // Fetch vessels
-  const fetchVessels = async () => {
+  const fetchVessels = useCallback(async () => {
     if (!currentRoomId) return;
     
     try {
-      const data = await ApiService.getVessels(currentRoomId);
+      const data = await withRetry(
+        () => withTimeout(
+          ApiService.getVessels(currentRoomId),
+          10000,
+          'fetchVessels'
+        ),
+        3,
+        1000
+      );
       setVessels(data);
+      clearError('vessels');
     } catch (err) {
-      console.error('Error fetching vessels:', err);
+      handleFetchError('fetchVessels', err);
     }
-  };
+  }, [currentRoomId, handleFetchError, clearError]);
 
-  // Fetch activities
-  const fetchActivities = async () => {
+  const fetchActivities = useCallback(async () => {
     if (!currentRoomId) return;
     
     try {
-      const data = await ApiService.getActivities(currentRoomId);
+      const data = await withRetry(
+        () => withTimeout(
+          ApiService.getActivities(currentRoomId),
+          10000,
+          'fetchActivities'
+        ),
+        3,
+        1000
+      );
       setActivities(data);
+      clearError('activities');
     } catch (err) {
-      console.error('Error fetching activities:', err);
+      handleFetchError('fetchActivities', err);
     }
-  };
+  }, [currentRoomId, handleFetchError, clearError]);
 
-  // Fetch messages
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     if (!currentRoomId) return;
     
     try {
-      const data = await ApiService.getMessages(currentRoomId);
+      const data = await withRetry(
+        () => withTimeout(
+          ApiService.getMessages(currentRoomId),
+          10000,
+          'fetchMessages'
+        ),
+        3,
+        1000
+      );
       setMessages(data);
+      clearError('messages');
     } catch (err) {
-      console.error('Error fetching messages:', err);
+      handleFetchError('fetchMessages', err);
     }
-  };
+  }, [currentRoomId, handleFetchError, clearError]);
 
-  // Fetch missing documents
-  const fetchMissingDocuments = async () => {
+  const fetchMissingDocuments = useCallback(async () => {
     if (!currentRoomId) return;
     
     try {
-      const data = await ApiService.getMissingDocuments([currentRoomId]);
+      const data = await withRetry(
+        () => withTimeout(
+          ApiService.getMissingDocuments([currentRoomId]),
+          10000,
+          'fetchMissingDocuments'
+        ),
+        3,
+        1000
+      );
       setMissingDocuments(data);
+      clearError('missingDocs');
     } catch (err) {
-      console.error('Error fetching missing documents:', err);
+      handleFetchError('fetchMissingDocuments', err);
     }
-  };
+  }, [currentRoomId, handleFetchError, clearError]);
 
   // Handle tab change
   const handleTabChange = (tabId: string) => {
@@ -177,52 +399,70 @@ const STSClearanceApp: React.FC = () => {
 
 
 
-  // Listen for refresh events
+  /**
+   * CONSOLIDATED DATA LOADING
+   * Loads all data in parallel when room changes or refresh is requested
+   * Uses Promise.allSettled for resilience - one failure won't block others
+   */
   useEffect(() => {
-    const handleRefresh = () => {
-      if (currentRoomId) {
-        fetchCockpitData();
-        fetchVessels();
-        fetchActivities();
-        fetchMessages();
-        fetchMissingDocuments();
+    const loadAllData = async () => {
+      if (!currentRoomId) return;
+      
+      try {
+        // Load all data in parallel - one failure won't block others
+        const results = await Promise.allSettled([
+          fetchCockpitData(),
+          fetchVessels(),
+          fetchActivities(),
+          fetchMessages(),
+          fetchMissingDocuments()
+        ]);
+        
+        // Log any failures for debugging
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            console.warn(`[DATA_LOAD] Promise ${index} failed:`, result.reason);
+          }
+        });
+      } catch (err) {
+        console.error('[DATA_LOAD] Unexpected error loading data:', err);
       }
     };
 
+    // Handle refresh event
+    const handleRefresh = () => {
+      console.log('[REFRESH] Data refresh requested');
+      loadAllData();
+    };
+
+    // Handle logout event
     const handleLogout = () => {
-      // Clear all local state when logout event is fired
+      console.log('[LOGOUT] Clearing all data');
       setCockpitData(null);
       setVessels([]);
       setActivities([]);
       setMessages([]);
       setMissingDocuments(null);
       setShowUploadModal(false);
+      setUiError(null);
     };
 
+    // Register listeners
     window.addEventListener('app:refresh', handleRefresh);
     window.addEventListener('app:logout', handleLogout);
     
+    // Load initial data
+    loadAllData();
+    
+    // Cleanup
     return () => {
       window.removeEventListener('app:refresh', handleRefresh);
       window.removeEventListener('app:logout', handleLogout);
     };
-  }, [currentRoomId]);
+  }, [currentRoomId, fetchCockpitData, fetchVessels, fetchActivities, fetchMessages, fetchMissingDocuments]);
 
-  // Fetch data when room changes
-  useEffect(() => {
-    if (currentRoomId) {
-      fetchCockpitData();
-      fetchVessels();
-      fetchActivities();
-      fetchMessages();
-      fetchMissingDocuments();
-    }
-  }, [currentRoomId]);
-
-  // Show login page if user is not authenticated
-  if (!user && !loading) {
-    return <LoginPage />;
-  }
+  // NOTE: LoginPage check removed here because STSClearanceApp is wrapped by ProtectedRoute
+  // ProtectedRoute guarantees that only authenticated users reach this component
 
   // Show loading state
   if (loading && !cockpitData) {
@@ -236,8 +476,8 @@ const STSClearanceApp: React.FC = () => {
     );
   }
 
-  // Show error state
-  if (error) {
+  // Show error state (only show if critical - no any data loaded)
+  if (error && !cockpitData && !loading) {
     return (
       <div className="min-h-screen bg-secondary-50 flex items-center justify-center">
         <div className="text-center max-w-md mx-auto px-4">
@@ -249,7 +489,8 @@ const STSClearanceApp: React.FC = () => {
                 </svg>
               </div>
               <h2 className="text-lg font-semibold text-secondary-900 mb-2">Error Loading Application</h2>
-              <p className="text-secondary-600 mb-6">{error}</p>
+              <p className="text-secondary-600 mb-2">{error.message}</p>
+              <p className="text-xs text-secondary-500 mb-6">Action: {error.action}</p>
               <button
                 onClick={refreshData}
                 className="btn-danger"
@@ -302,8 +543,31 @@ const STSClearanceApp: React.FC = () => {
     );
   }
 
-  // Render tab content
+  /**
+   * RENDER TAB CONTENT WITH PERMISSION VALIDATION
+   * Checks user permissions before rendering tab content
+   */
   const renderTabContent = () => {
+    // Permission check - if user can't access this tab, show access denied
+    if (!canAccessTab(activeTab)) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="card max-w-md">
+            <div className="card-body">
+              <div className="w-12 h-12 bg-danger-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-danger-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-danger-600 mb-2 text-center">Access Denied</h3>
+              <p className="text-secondary-600 text-center">You don't have permission to access this tab.</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Render appropriate component based on active tab
     switch (activeTab) {
       case 'overview':
         return (

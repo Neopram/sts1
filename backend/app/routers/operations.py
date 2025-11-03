@@ -249,6 +249,116 @@ async def list_operations(
         )
 
 
+# ============ PHASE 3: VESSEL COMPARATIVE PANEL ENDPOINTS ============
+
+@router.get("/{operation_id}/vessel-comparison")
+async def get_vessel_document_comparison(
+    operation_id: str,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """
+    PR-3: Get vessel document comparison for VesselComparativePanel component
+    
+    Returns side-by-side comparison of vessel documents from different party perspectives
+    
+    Response includes:
+    - vesselName: Name of vessel
+    - vesselIMO: IMO number
+    - tradingDocuments: Documents uploaded by trading company (status, timestamp, actor)
+    - ownerDocuments: Documents uploaded by shipowner
+    
+    Status values: 'uploaded', 'missing', 'outdated'
+    """
+    try:
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        
+        # Verify operation exists and user has access
+        result = await session.execute(
+            select(Room).where(Room.id == operation_id).options(
+                selectinload(Room.documents),
+                selectinload(Room.vessels),
+                selectinload(Room.parties)
+            )
+        )
+        room = result.scalar_one_or_none()
+        
+        if not room:
+            raise HTTPException(status_code=404, detail="Operation not found")
+        
+        # Build vessel comparison data
+        comparisons = []
+        for vessel in room.vessels or []:
+            vessel_docs = [doc for doc in room.documents if doc.vessel_id == vessel.id]
+            
+            # Group documents by party role
+            trading_company_docs = [
+                {
+                    "name": doc.document_type.name if doc.document_type else "Unknown",
+                    "status": "uploaded" if doc.status == "approved" else ("outdated" if doc.status == "expired" else "missing"),
+                    "lastUpdate": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+                    "uploadedBy": doc.uploaded_by,
+                    "comment": doc.notes
+                }
+                for doc in vessel_docs if doc.uploaded_by and "trading" in (doc.uploaded_by or "").lower()
+            ]
+            
+            owner_docs = [
+                {
+                    "name": doc.document_type.name if doc.document_type else "Unknown",
+                    "status": "uploaded" if doc.status == "approved" else ("outdated" if doc.status == "expired" else "missing"),
+                    "lastUpdate": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+                    "uploadedBy": doc.uploaded_by,
+                    "comment": doc.notes
+                }
+                for doc in vessel_docs if doc.uploaded_by and ("owner" in (doc.uploaded_by or "").lower() or "shipowner" in (doc.uploaded_by or "").lower())
+            ]
+            
+            # Include all missing documents
+            all_doc_names = {doc.document_type.name for doc in vessel_docs if doc.document_type}
+            for missing_name in all_doc_names:
+                if not any(d["name"] == missing_name for d in trading_company_docs):
+                    trading_company_docs.append({
+                        "name": missing_name,
+                        "status": "missing",
+                        "lastUpdate": None,
+                        "uploadedBy": None,
+                        "comment": None
+                    })
+                if not any(d["name"] == missing_name for d in owner_docs):
+                    owner_docs.append({
+                        "name": missing_name,
+                        "status": "missing",
+                        "lastUpdate": None,
+                        "uploadedBy": None,
+                        "comment": None
+                    })
+            
+            comparisons.append({
+                "vesselName": vessel.name,
+                "vesselIMO": vessel.imo,
+                "tradingDocuments": sorted(trading_company_docs, key=lambda x: x["name"]),
+                "ownerDocuments": sorted(owner_docs, key=lambda x: x["name"])
+            })
+        
+        return {
+            "status": "success",
+            "operation_id": operation_id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "comparisons": comparisons
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting vessel comparison for {operation_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error fetching vessel comparison data"
+        )
+
+
 # ============ BACKWARD COMPATIBILITY ALIASES ============
 # These endpoints are deprecated but maintained for backward compatibility
 

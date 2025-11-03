@@ -47,7 +47,16 @@ export const DashboardContainer: React.FC<UnifiedDashboardProps> = ({
   vessels: propVessels,
   onRefresh
 }) => {
-  const { currentRoomId, user, loading: contextLoading } = useApp();
+  const { currentRoomId, user, loading: contextLoading, rooms } = useApp();
+  
+  // Use current room if available, otherwise show loading
+  if (!user) {
+    return <Loading message="Loading user information..." />;
+  }
+  
+  if (!currentRoomId || (rooms.length === 0 && contextLoading)) {
+    return <Loading message="Initializing your dashboard..." />;
+  }
   
   // State management
   const [dashboardData, setDashboardData] = useState<any>(propCockpitData);
@@ -67,25 +76,15 @@ export const DashboardContainer: React.FC<UnifiedDashboardProps> = ({
       setLoading(true);
       setError(null);
 
-      // Determine which endpoint to use based on role
-      const roleLower = user.role?.toLowerCase();
-      const roleSpecificEndpoints = ['broker', 'charterer', 'owner', 'admin', 'inspector'];
-      
       let dashboardDataResponse: any;
       
-      if (roleSpecificEndpoints.includes(roleLower)) {
-        // Use role-specific endpoint
-        try {
-          dashboardDataResponse = await ApiService.get(
-            `/dashboard/${roleLower}/overview?roomId=${currentRoomId}`
-          );
-        } catch {
-          // Fallback to generic endpoint
-          console.warn(`Role-specific endpoint not available for ${roleLower}, using generic endpoint`);
-          dashboardDataResponse = await ApiService.getRoomSummary(currentRoomId);
-        }
-      } else {
-        // Use generic endpoint for other roles
+      // Use the unified dashboard endpoint - backend handles role detection via JWT
+      try {
+        const response = await ApiService.get(`/api/v1/dashboard/overview`);
+        dashboardDataResponse = response.data || response;
+      } catch {
+        // Fallback to generic room summary
+        console.warn(`Dashboard endpoint not available, using room summary`);
         dashboardDataResponse = await ApiService.getRoomSummary(currentRoomId);
       }
 

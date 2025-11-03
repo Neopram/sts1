@@ -786,12 +786,12 @@ class ApiService {
   }
 
   // Send message to a room
-  static async sendMessage(roomId: string, content: string, messageType: string = 'text'): Promise<any> {
+  static async sendMessage(roomId: string, content: string, messageType: string = 'text', isPublic: boolean = true): Promise<any> {  // PHASE 4
     try {
       const service = new ApiService();
       const response = await service.request(`/api/v1/rooms/${roomId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ content, message_type: messageType })
+        body: JSON.stringify({ content, message_type: messageType, is_public: isPublic })  // PHASE 4
       });
       console.log('sendMessage response:', response);
       return response;
@@ -799,6 +799,11 @@ class ApiService {
       console.error('Error in sendMessage:', error);
       throw error;
     }
+  }
+
+  // Alias for consistency (PHASE 4)
+  static async getRoomMessages(roomId: string, limit?: number, offset?: number): Promise<any[]> {
+    return this.getMessages(roomId, limit, offset);
   }
 
   // Search methods
@@ -1285,7 +1290,27 @@ class ApiService {
     }
   }
 
-  // Get all rooms (for operations view)
+  // Get unified operations (ARMONÍA ABSOLUTA: Rooms + STS Operations)
+  static async getUnifiedOperations(includeLegacy: boolean = true, skip: number = 0, limit: number = 50): Promise<any[]> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/operations?include_legacy=${includeLegacy}&skip=${skip}&limit=${limit}`);
+      console.log('getUnifiedOperations response:', response);
+      // Extract items from response object or return array directly
+      if (Array.isArray(response)) {
+        return response;
+      } else if (response && typeof response === 'object' && Array.isArray(response.items)) {
+        return response.items;
+      } else {
+        return [];
+      }
+    } catch (error) {
+      console.error('Error in getUnifiedOperations:', error);
+      throw error;
+    }
+  }
+
+  // Get all rooms (for operations view) - Legacy method maintained for backward compatibility
   static async getAllRooms(limit: number = 100, offset: number = 0): Promise<any> {
     try {
       const service = new ApiService();
@@ -2167,6 +2192,51 @@ class ApiService {
       return response;
     } catch (error) {
       console.error('Error in completeOperation:', error);
+      throw error;
+    }
+  }
+
+  // ===== PHASE 3: VESSEL COMPARATIVE PANEL & RECENT UPDATES =====
+
+  // Get vessel document comparison for comparative panel
+  static async getVesselComparison(operationId: string): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/operations/${operationId}/vessel-comparison`);
+      console.log('getVesselComparison response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in getVesselComparison:', error);
+      throw error;
+    }
+  }
+
+  // Get activities filtered by role for recent updates panel
+  static async getActivitiesByRole(roomId: string, roleFilter?: string, limit: number = 10, offset: number = 0): Promise<any> {
+    try {
+      const service = new ApiService();
+      let endpoint = `/api/v1/rooms/${roomId}/activities/by-role?limit=${limit}&offset=${offset}`;
+      if (roleFilter && roleFilter !== 'all') {
+        endpoint += `&role_filter=${roleFilter}`;
+      }
+      const response = await service.request(endpoint);
+      console.log('getActivitiesByRole response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in getActivitiesByRole:', error);
+      throw error;
+    }
+  }
+
+  // Get room activities (existing endpoint wrapper for convenience)
+  static async getRoomActivities(roomId: string, limit: number = 50, offset: number = 0): Promise<any> {
+    try {
+      const service = new ApiService();
+      const response = await service.request(`/api/v1/rooms/${roomId}/activities?limit=${limit}&offset=${offset}`);
+      console.log('getRoomActivities response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in getRoomActivities:', error);
       throw error;
     }
   }

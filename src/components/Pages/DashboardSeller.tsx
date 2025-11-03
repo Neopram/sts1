@@ -59,8 +59,8 @@ interface SellerDashboard {
 
 export const DashboardSeller: React.FC = () => {
   const { hasAccess } = useDashboardAccess('seller');
-  const { data: dashboard, loading, error } = useDashboardData<SellerDashboard>(
-    '/dashboard/seller/overview',
+  const { data: dashboard, loading, error, refetch } = useDashboardData<SellerDashboard>(
+    '/api/v1/dashboard/seller/overview',
     {
       enabled: hasAccess,
       refetchInterval: 30000, // Auto-refetch every 30 seconds
@@ -101,6 +101,7 @@ export const DashboardSeller: React.FC = () => {
           variant="error"
           title="Error Loading Dashboard"
           message={error || 'Failed to load dashboard data'}
+          action={{ label: 'Retry', onClick: refetch }}
         />
       </DashboardBase>
     );

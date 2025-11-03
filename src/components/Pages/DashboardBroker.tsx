@@ -57,6 +57,7 @@ interface BrokerDashboard {
 }
 
 export const DashboardBroker: React.FC = () => {
+  // ✅ ALL HOOKS FIRST - BEFORE ANY CONDITIONALS
   const { hasAccess } = useDashboardAccess('broker');
   const { data: dashboard, loading, error, refetch } = useDashboardData<BrokerDashboard>(
     '/dashboard/broker/overview',
@@ -68,7 +69,16 @@ export const DashboardBroker: React.FC = () => {
 
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
-  // Check access
+  // Safe destructuring with defaults
+  const {
+    commission = { total_accrued: 0, by_room: [] },
+    deal_health = { average_health: 0, by_room: [] },
+    stuck_deals = [],
+    party_performance = [],
+    alert_priority = 'low',
+  } = dashboard || {};
+
+  // ✅ NOW CHECK ACCESS - AFTER ALL HOOKS
   if (!hasAccess) {
     return (
       <DashboardBase title="Access Denied" icon="🚫">
@@ -104,15 +114,6 @@ export const DashboardBroker: React.FC = () => {
       </DashboardBase>
     );
   }
-
-  // Safe destructuring with defaults
-  const {
-    commission = { total_accrued: 0, by_room: [] },
-    deal_health = { average_health: 0, by_room: [] },
-    stuck_deals = [],
-    party_performance = [],
-    alert_priority = 'low',
-  } = dashboard;
 
   // Helper function to get deal health status based on score
   const getHealthStatus = (score: number): 'success' | 'warning' | 'critical' | 'info' => {

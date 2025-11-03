@@ -555,7 +555,6 @@ export const AdvancedAnalyticsPanel: React.FC = () => {
               <div
                 key={anomaly.anomaly_id}
                 style={{
-                  background: '#fff',
                   border: `2px solid ${severityColor.color}`,
                   borderRadius: '12px',
                   padding: '16px',
